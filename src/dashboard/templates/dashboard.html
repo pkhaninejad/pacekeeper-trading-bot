@@ -46,6 +46,18 @@
       font-weight: 700;
     }
     .env-badge.live { background: var(--red); color: #fff; }
+    .market-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 700;
+      background: rgba(248,81,73,.2);
+      color: var(--red);
+    }
+    .market-badge.open {
+      background: rgba(63,185,80,.2);
+      color: var(--green);
+    }
     .status-dot {
       width: 10px; height: 10px;
       border-radius: 50%;
@@ -191,6 +203,8 @@
   <header>
     <h1>Claude <span>Trade Bot</span></h1>
     <span class="env-badge" id="env-badge">DEMO</span>
+    <span class="market-badge" id="market-badge">CLOSED</span>
+    <span id="next-open-label" style="font-size:11px;color:var(--muted)"></span>
     <span class="status-dot" id="status-dot"></span>
     <button id="toggle-btn">Pause Bot</button>
   </header>
@@ -323,6 +337,18 @@
       const badge = document.getElementById('env-badge');
       badge.textContent = (s.environment || 'demo').toUpperCase();
       badge.className = 'env-badge' + (s.environment === 'live' ? ' live' : '');
+
+      const mb = document.getElementById('market-badge');
+      mb.textContent = s.market_open ? 'MARKET OPEN' : 'MARKET CLOSED';
+      mb.className = 'market-badge' + (s.market_open ? ' open' : '');
+
+      const nol = document.getElementById('next-open-label');
+      if (!s.market_open && s.next_market_open) {
+        const d = new Date(s.next_market_open);
+        nol.textContent = `opens ${d.toLocaleDateString([], {weekday:'short'})} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+      } else {
+        nol.textContent = '';
+      }
     } catch(e) { console.warn('status fetch failed', e); }
   }
 

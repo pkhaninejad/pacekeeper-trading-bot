@@ -14,6 +14,7 @@ from src.api.models import (
 )
 from src.bot.strategy import ClaudeStrategy
 from src.bot.risk_manager import RiskManager
+from src.bot.market_hours import is_market_open, next_open
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,15 @@ class TradingEngine:
 
     async def _cycle(self):
         if not self.status.enabled:
+            return
+
+        open_now = is_market_open()
+        self.status.market_open = open_now
+        self.status.next_market_open = None if open_now else next_open()
+
+        if not open_now:
+            nxt = self.status.next_market_open
+            logger.info("Market closed — skipping cycle (next open: %s ET)", nxt)
             return
 
         logger.info("=== Trading cycle started ===")

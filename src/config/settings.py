@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Dashboard
     DASHBOARD_HOST: str = "0.0.0.0"
-    DASHBOARD_PORT: int = 8888
+    DASHBOARD_PORT: int = 4000
     SECRET_KEY: str = "change-me-in-production"
 
     class Config:

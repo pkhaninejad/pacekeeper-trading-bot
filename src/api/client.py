@@ -5,7 +5,7 @@ Docs: https://docs.trading212.com/api
 Base URL (demo): https://demo.trading212.com/api/v0
 Base URL (live): https://live.trading212.com/api/v0
 
-Auth: HTTP Basic  → Base64("API_KEY:API_SECRET")
+Auth: HTTP Basic → Base64("API_KEY:API_SECRET")
 """
 
 import base64
@@ -21,7 +21,15 @@ from src.api.models import (
 
 logger = logging.getLogger(__name__)
 
-_RATE_LIMIT_DELAY = 0.5   # seconds between requests
+_RATE_LIMIT_DELAY = 1.0   # seconds between requests
+_global_lock: Optional[asyncio.Lock] = None
+
+
+def _get_lock() -> asyncio.Lock:
+    global _global_lock
+    if _global_lock is None:
+        _global_lock = asyncio.Lock()
+    return _global_lock
 
 
 def _auth_header() -> str:
@@ -38,7 +46,6 @@ class Trading212Client:
             "Content-Type": "application/json",
         }
         self._client: Optional[httpx.AsyncClient] = None
-        self._lock = asyncio.Lock()
 
     async def __aenter__(self):
         self._client = httpx.AsyncClient(
@@ -52,24 +59,32 @@ class Trading212Client:
         if self._client:
             await self._client.aclose()
 
-    async def _get(self, path: str, params: dict = None) -> Any:
-        async with self._lock:
+    async def _request_with_retry(self, fn, *args, **kwargs) -> Any:
+        async with _get_lock():
             await asyncio.sleep(_RATE_LIMIT_DELAY)
-            r = await self._client.get(path, params=params)
-            r.raise_for_status()
-            logger.debug("GET %s → %s", path, r.status_code)
-            return r.json()
+            for attempt in range(3):
+                r = await fn(*args, **kwargs)
+                if r.status_code == 429:
+                    wait = 2 ** attempt * 5  # 5s, 10s, 20s
+                    logger.warning("Rate limited, retrying in %ds (attempt %d/3)", wait, attempt + 1)
+                    await asyncio.sleep(wait)
+                    continue
+                r.raise_for_status()
+                return r.json()
+            r.raise_for_status()  # raise after exhausting retries
+
+    async def _get(self, path: str, params: dict = None) -> Any:
+        result = await self._request_with_retry(self._client.get, path, params=params)
+        logger.debug("GET %s → 200", path)
+        return result
 
     async def _post(self, path: str, body: dict) -> Any:
-        async with self._lock:
-            await asyncio.sleep(_RATE_LIMIT_DELAY)
-            r = await self._client.post(path, json=body)
-            r.raise_for_status()
-            logger.debug("POST %s → %s", path, r.status_code)
-            return r.json()
+        result = await self._request_with_retry(self._client.post, path, json=body)
+        logger.debug("POST %s → 200", path)
+        return result
 
     async def _delete(self, path: str) -> Any:
-        async with self._lock:
+        async with _get_lock():
             await asyncio.sleep(_RATE_LIMIT_DELAY)
             r = await self._client.delete(path)
             r.raise_for_status()

@@ -30,6 +30,18 @@ class TradingEngine:
         self._running = False
         self._signals_history: list[TradeSignal] = []
         self._trade_log: list[dict] = []
+        self._instruments_cache: list = []
+        # Pre-seeded shortName → T212 ticker map; extended at runtime from instruments API
+        self._ticker_map: dict = {
+            "AAPL": "AAPL_US_EQ",
+            "TSLA": "TSLA_US_EQ",
+            "NVDA": "NVDA_US_EQ",
+            "MSFT": "MSFT_US_EQ",
+            "AMZN": "AMZN_US_EQ",
+            "GOOGL": "GOOGL_US_EQ",
+            "META": "FB_US_EQ",
+            "NFLX": "NFLX_US_EQ",
+        }
 
     # -------------------------------------------------------------------------
     # Public controls
@@ -83,7 +95,16 @@ class TradingEngine:
             # Fetch market state
             cash = await client.get_cash()
             positions = await client.get_positions()
-            instruments = await client.get_instruments()
+            if not self._instruments_cache:
+                try:
+                    self._instruments_cache = await client.get_instruments()
+                    for inst in self._instruments_cache:
+                        sn = inst.ticker.split("_")[0]
+                        if sn not in self._ticker_map or inst.ticker.endswith("_US_EQ"):
+                            self._ticker_map[sn] = inst.ticker
+                except Exception as e:
+                    logger.warning("Could not fetch instruments (%s), using pre-seeded ticker map", e)
+            instruments = self._instruments_cache
 
             self.status.open_positions = len(positions)
             self.status.total_pnl = cash.ppl
@@ -151,6 +172,9 @@ class TradingEngine:
         positions: list[Position],
     ):
         """Place order based on signal."""
+        # Resolve T212 ticker (e.g. NVDA → NVDA_US_EQ)
+        t212_ticker = self._ticker_map.get(signal.ticker, signal.ticker)
+
         # Determine quantity
         if signal.direction == "CLOSE":
             existing = next((p for p in positions if p.ticker == signal.ticker), None)
@@ -172,12 +196,12 @@ class TradingEngine:
             order = None
             if signal.order_type == "MARKET":
                 order = await client.place_market_order(
-                    MarketOrderRequest(ticker=signal.ticker, quantity=quantity)
+                    MarketOrderRequest(ticker=t212_ticker, quantity=quantity)
                 )
             elif signal.order_type == "LIMIT" and signal.suggested_price:
                 order = await client.place_limit_order(
                     LimitOrderRequest(
-                        ticker=signal.ticker,
+                        ticker=t212_ticker,
                         quantity=quantity,
                         limitPrice=signal.suggested_price,
                     )
@@ -185,7 +209,7 @@ class TradingEngine:
             elif signal.order_type == "STOP" and signal.suggested_price:
                 order = await client.place_stop_order(
                     StopOrderRequest(
-                        ticker=signal.ticker,
+                        ticker=t212_ticker,
                         quantity=quantity,
                         stopPrice=signal.suggested_price,
                     )

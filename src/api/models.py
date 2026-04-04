@@ -1,10 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 from datetime import datetime
 
 
 class AccountInfo(BaseModel):
-    id: str
+    id: Union[str, int]
     currencyCode: str
     type: Optional[str] = None
 

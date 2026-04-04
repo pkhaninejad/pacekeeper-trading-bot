@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import AsyncGenerator
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +24,20 @@ logger = logging.getLogger(__name__)
 
 engine = TradingEngine()
 _sse_clients: list[asyncio.Queue] = []
+
+_cache: dict = {}
+_CACHE_TTL = 30  # seconds
+
+
+def _cache_get(key: str):
+    entry = _cache.get(key)
+    if entry and (datetime.utcnow() - entry["ts"]).seconds < _CACHE_TTL:
+        return entry["data"]
+    return None
+
+
+def _cache_set(key: str, data):
+    _cache[key] = {"data": data, "ts": datetime.utcnow()}
 
 
 async def _broadcast(event: str, data: dict):
@@ -51,6 +66,7 @@ app = FastAPI(
 )
 
 templates = Jinja2Templates(directory="src/dashboard/templates")
+templates.env.cache = None  # workaround for Jinja2 cache bug on Python 3.14
 
 
 # ─── REST API ─────────────────────────────────────────────────────────────────
@@ -69,24 +85,43 @@ async def toggle_bot():
 
 @app.get("/api/account", tags=["Account"])
 async def get_account():
-    async with Trading212Client() as client:
-        info = await client.get_account_info()
-        cash = await client.get_cash()
-    return {"info": info.model_dump(), "cash": cash.model_dump()}
+    cached = _cache_get("account")
+    if cached:
+        return cached
+    try:
+        async with Trading212Client() as client:
+            info = await client.get_account_info()
+            cash = await client.get_cash()
+        result = {"info": info.model_dump(), "cash": cash.model_dump()}
+        _cache_set("account", result)
+        return result
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=str(e))
 
 
 @app.get("/api/positions", tags=["Positions"])
 async def get_positions():
-    async with Trading212Client() as client:
-        positions = await client.get_positions()
-    return [p.model_dump() for p in positions]
+    cached = _cache_get("positions")
+    if cached:
+        return cached
+    try:
+        async with Trading212Client() as client:
+            positions = await client.get_positions()
+        result = [p.model_dump() for p in positions]
+        _cache_set("positions", result)
+        return result
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=str(e))
 
 
 @app.get("/api/orders", tags=["Orders"])
 async def get_orders():
-    async with Trading212Client() as client:
-        orders = await client.get_orders()
-    return [o.model_dump() for o in orders]
+    try:
+        async with Trading212Client() as client:
+            orders = await client.get_orders()
+        return [o.model_dump() for o in orders]
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=str(e))
 
 
 @app.delete("/api/orders/{order_id}", tags=["Orders"])
@@ -149,4 +184,4 @@ async def sse_stream(request: Request):
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    return templates.TemplateResponse(request, "dashboard.html")

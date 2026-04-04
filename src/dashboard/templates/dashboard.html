@@ -173,16 +173,19 @@
 
     <!-- Positions table -->
     <div class="section">
-      <h2>Open Positions</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Open Positions</h2>
+        <button id="close-all-btn" onclick="closeAllPositions()" style="background:var(--red,#e74c3c);color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.85rem">Close All</button>
+      </div>
       <table>
         <thead>
           <tr>
             <th>Ticker</th><th>Direction</th><th>Qty</th>
-            <th>Avg Price</th><th>Current</th><th>PnL</th><th>PnL %</th>
+            <th>Avg Price</th><th>Current</th><th>PnL</th><th>PnL %</th><th>Action</th>
           </tr>
         </thead>
         <tbody id="positions-body">
-          <tr><td colspan="7" style="color:var(--muted);text-align:center">Loading…</td></tr>
+          <tr><td colspan="8" style="color:var(--muted);text-align:center">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -268,7 +271,7 @@
       const data = await fetchJSON('/api/positions');
       const tbody = document.getElementById('positions-body');
       if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center">No open positions</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="color:var(--muted);text-align:center">No open positions</td></tr>';
         return;
       }
       tbody.innerHTML = data.map(p => {
@@ -282,9 +285,32 @@
           <td>$${fmt(p.currentPrice, 4)}</td>
           <td class="${pnlClass(p.ppl)}">$${fmt(p.ppl)}</td>
           <td class="${pnlClass(pnlPct)}">${fmt(pnlPct, 2)}%</td>
+          <td><button onclick="closePosition('${p.ticker}')" style="background:var(--red,#e74c3c);color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:0.8rem">Close</button></td>
         </tr>`;
       }).join('');
     } catch(e) { console.warn('positions fetch failed', e); }
+  }
+
+  async function closePosition(ticker) {
+    if (!confirm(`Close position in ${ticker}?`)) return;
+    try {
+      const r = await fetch(`/api/positions/${encodeURIComponent(ticker)}/close`, {method: 'POST'});
+      const data = await r.json();
+      if (!r.ok) { alert(`Error: ${data.detail || JSON.stringify(data)}`); return; }
+      alert(`Closed ${ticker} — order #${data.order_id}`);
+      refreshPositions();
+    } catch(e) { alert('Request failed: ' + e); }
+  }
+
+  async function closeAllPositions() {
+    if (!confirm('Close ALL open positions?')) return;
+    try {
+      const r = await fetch('/api/positions/close-all', {method: 'POST'});
+      const data = await r.json();
+      const summary = data.closed.map(x => `${x.ticker}: ${x.status}`).join('\n');
+      alert('Results:\n' + summary);
+      refreshPositions();
+    } catch(e) { alert('Request failed: ' + e); }
   }
 
   // ── Signals ───────────────────────────────────────────────────────────────

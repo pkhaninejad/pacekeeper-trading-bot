@@ -11,6 +11,7 @@ from typing import Optional
 import anthropic
 from src.config.settings import settings
 from src.api.models import Position, CashInfo, TradeSignal, Instrument
+from src.bot.price_feed import get_price_summary
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ def _build_market_context(
     cash: CashInfo,
     watchlist: list[str],
     instruments: list[Instrument],
+    price_data: dict,
 ) -> str:
     """Build the user prompt with current portfolio state."""
     pos_summary = []
@@ -64,10 +66,24 @@ def _build_market_context(
 
     instrument_info = {i.ticker: i.name for i in instruments if i.ticker in watchlist}
 
+    # Format price feed section
+    price_lines = []
+    for ticker in watchlist:
+        pd = price_data.get(ticker)
+        if pd:
+            price_lines.append(
+                f"  {ticker}: price={pd['current_price']}, 1d_chg={pd['change_pct_1d']}%, "
+                f"SMA10={pd['sma_10']}, SMA30={pd['sma_30']}, RSI14={pd['rsi_14']}, "
+                f"30d_range=[{pd['low_30d']}, {pd['high_30d']}], "
+                f"recent_closes={pd['history']}"
+            )
+        else:
+            price_lines.append(f"  {ticker}: (price data unavailable)")
+
     context = f"""Current datetime (UTC): {datetime.utcnow().isoformat()}
 
 === PORTFOLIO ===
-Free cash: {cash.free:.2f} {' '}
+Free cash: {cash.free:.2f}
 Total value: {cash.total:.2f}
 Invested: {cash.invested:.2f}
 Overall PnL: {cash.ppl:.2f}
@@ -75,11 +91,14 @@ Overall PnL: {cash.ppl:.2f}
 Open positions ({len(positions)}):
 {chr(10).join(pos_summary) if pos_summary else '  (none)'}
 
+=== PRICE FEED (30-day) ===
+{chr(10).join(price_lines) if price_lines else '  (unavailable)'}
+
 === WATCHLIST ===
 {json.dumps({t: instrument_info.get(t, t) for t in watchlist}, indent=2)}
 
 === TASK ===
-Analyse the portfolio and market conditions.
+Analyse the portfolio and market conditions using the price feed data.
 Generate trading signals for up to 5 tickers.
 Focus on tickers where there is a clear directional view.
 Return ONLY a JSON array of TradeSignal objects.
@@ -101,7 +120,8 @@ class ClaudeStrategy:
         instruments: list[Instrument],
     ) -> list[TradeSignal]:
         """Call Claude and parse trade signals."""
-        user_prompt = _build_market_context(positions, cash, watchlist, instruments)
+        price_data = get_price_summary(watchlist)
+        user_prompt = _build_market_context(positions, cash, watchlist, instruments, price_data)
 
         logger.info("Calling Claude for trading signals...")
         try:

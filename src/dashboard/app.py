@@ -148,6 +148,38 @@ async def trigger_cycle():
     return {"message": "Cycle triggered"}
 
 
+@app.post("/api/positions/{ticker}/close", tags=["Positions"])
+async def close_position(ticker: str):
+    """Close a specific position by ticker."""
+    from src.api.models import MarketOrderRequest
+    async with Trading212Client() as client:
+        pos = await client.get_position(ticker)
+        if not pos:
+            raise HTTPException(status_code=404, detail=f"No open position for {ticker}")
+        qty = -pos.quantity
+        order = await client.place_market_order(MarketOrderRequest(ticker=ticker, quantity=qty))
+    _cache.pop("positions", None)
+    return {"message": f"Closed {ticker}", "order_id": order.id}
+
+
+@app.post("/api/positions/close-all", tags=["Positions"])
+async def close_all_positions():
+    """Close all open positions."""
+    from src.api.models import MarketOrderRequest
+    async with Trading212Client() as client:
+        positions = await client.get_positions()
+        results = []
+        for pos in positions:
+            try:
+                qty = -pos.quantity
+                order = await client.place_market_order(MarketOrderRequest(ticker=pos.ticker, quantity=qty))
+                results.append({"ticker": pos.ticker, "order_id": order.id, "status": "closed"})
+            except Exception as e:
+                results.append({"ticker": pos.ticker, "status": "error", "detail": str(e)})
+    _cache.pop("positions", None)
+    return {"closed": results}
+
+
 # ─── SSE real-time feed ───────────────────────────────────────────────────────
 
 @app.get("/api/stream", tags=["Stream"])

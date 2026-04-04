@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Trade Bot</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #7d8590;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --blue: #58a6ff;
+      --purple: #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+      font-size: 14px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header h1 { font-size: 18px; font-weight: 700; }
+    header h1 span { color: var(--blue); }
+    .env-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--yellow);
+      color: #000;
+      font-weight: 700;
+    }
+    .env-badge.live { background: var(--red); color: #fff; }
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      margin-left: auto;
+      transition: background 0.3s;
+    }
+    .status-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    #toggle-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    #toggle-btn:hover { background: var(--border); }
+
+    /* ── Layout ── */
+    main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .card .label { color: var(--muted); font-size: 12px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+    .card .value { font-size: 24px; font-weight: 700; }
+    .card .value.green { color: var(--green); }
+    .card .value.red { color: var(--red); }
+
+    /* ── Tables ── */
+    .section { margin-bottom: 28px; }
+    .section h2 {
+      font-size: 15px; font-weight: 600;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left; padding: 8px 12px;
+      background: var(--surface2);
+      color: var(--muted); font-size: 12px;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+    }
+    .badge.long { background: rgba(63,185,80,.15); color: var(--green); }
+    .badge.short { background: rgba(248,81,73,.15); color: var(--red); }
+    .badge.buy { background: rgba(63,185,80,.15); color: var(--green); }
+    .badge.sell { background: rgba(248,81,73,.15); color: var(--red); }
+    .badge.hold { background: rgba(210,153,34,.15); color: var(--yellow); }
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+
+    /* ── Signal reasoning ── */
+    .reasoning-cell {
+      max-width: 300px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 24px;
+    }
+    #last-update { color: var(--blue); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Claude <span>Trade Bot</span></h1>
+    <span class="env-badge" id="env-badge">DEMO</span>
+    <span class="status-dot" id="status-dot"></span>
+    <button id="toggle-btn">Pause Bot</button>
+  </header>
+
+  <main>
+    <!-- KPI cards -->
+    <div class="grid">
+      <div class="card">
+        <div class="label">Free Cash</div>
+        <div class="value" id="kpi-cash">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Total Value</div>
+        <div class="value" id="kpi-total">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Overall PnL</div>
+        <div class="value" id="kpi-pnl">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Open Positions</div>
+        <div class="value" id="kpi-positions">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Trades Today</div>
+        <div class="value" id="kpi-trades">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Signals Generated</div>
+        <div class="value" id="kpi-signals">—</div>
+      </div>
+    </div>
+
+    <!-- Positions table -->
+    <div class="section">
+      <h2>Open Positions</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker</th><th>Direction</th><th>Qty</th>
+            <th>Avg Price</th><th>Current</th><th>PnL</th><th>PnL %</th>
+          </tr>
+        </thead>
+        <tbody id="positions-body">
+          <tr><td colspan="7" style="color:var(--muted);text-align:center">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Signals table -->
+    <div class="section">
+      <h2>Recent Signals</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th><th>Ticker</th><th>Action</th><th>Direction</th>
+            <th>Confidence</th><th>Order</th><th>Reasoning</th>
+          </tr>
+        </thead>
+        <tbody id="signals-body">
+          <tr><td colspan="7" style="color:var(--muted);text-align:center">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Trade log -->
+    <div class="section">
+      <h2>Trade Log</h2>
+      <table>
+        <thead>
+          <tr><th>Time</th><th>Ticker</th><th>Action</th><th>Qty</th><th>Order ID</th><th>Reason</th></tr>
+        </thead>
+        <tbody id="trades-body">
+          <tr><td colspan="6" style="color:var(--muted);text-align:center">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    Last updated: <span id="last-update">—</span> &nbsp;|&nbsp;
+    Claude Trade Bot &copy; 2025
+  </footer>
+
+<script>
+  const fmt = (n, dec=2) => n == null ? '—' : Number(n).toFixed(dec);
+  const fmtTime = s => s ? new Date(s).toLocaleTimeString() : '—';
+  const pnlClass = v => v >= 0 ? 'positive' : 'negative';
+
+  async function fetchJSON(url) {
+    const r = await fetch(url);
+    return r.json();
+  }
+
+  // ── Account / KPI ──────────────────────────────────────────────────────────
+  async function refreshAccount() {
+    try {
+      const { cash } = await fetchJSON('/api/account');
+      document.getElementById('kpi-cash').textContent = `$${fmt(cash.free)}`;
+      document.getElementById('kpi-total').textContent = `$${fmt(cash.total)}`;
+      const pnl = cash.ppl;
+      const el = document.getElementById('kpi-pnl');
+      el.textContent = `$${fmt(pnl)}`;
+      el.className = 'value ' + (pnl >= 0 ? 'green' : 'red');
+    } catch(e) { console.warn('account fetch failed', e); }
+  }
+
+  // ── Status ────────────────────────────────────────────────────────────────
+  async function refreshStatus() {
+    try {
+      const s = await fetchJSON('/api/status');
+      document.getElementById('kpi-positions').textContent = s.open_positions ?? '—';
+      document.getElementById('kpi-trades').textContent = s.total_trades_today ?? '—';
+      document.getElementById('kpi-signals').textContent = s.signals_generated ?? '—';
+      const dot = document.getElementById('status-dot');
+      dot.className = 'status-dot' + (s.enabled ? ' active' : '');
+      const btn = document.getElementById('toggle-btn');
+      btn.textContent = s.enabled ? 'Pause Bot' : 'Resume Bot';
+      const badge = document.getElementById('env-badge');
+      badge.textContent = (s.environment || 'demo').toUpperCase();
+      badge.className = 'env-badge' + (s.environment === 'live' ? ' live' : '');
+    } catch(e) { console.warn('status fetch failed', e); }
+  }
+
+  // ── Positions ─────────────────────────────────────────────────────────────
+  async function refreshPositions() {
+    try {
+      const data = await fetchJSON('/api/positions');
+      const tbody = document.getElementById('positions-body');
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center">No open positions</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(p => {
+        const dir = p.quantity > 0 ? 'LONG' : 'SHORT';
+        const pnlPct = p.averagePrice ? ((p.currentPrice - p.averagePrice) / p.averagePrice * 100) : 0;
+        return `<tr>
+          <td><strong>${p.ticker}</strong></td>
+          <td><span class="badge ${dir.toLowerCase()}">${dir}</span></td>
+          <td>${fmt(Math.abs(p.quantity), 4)}</td>
+          <td>$${fmt(p.averagePrice, 4)}</td>
+          <td>$${fmt(p.currentPrice, 4)}</td>
+          <td class="${pnlClass(p.ppl)}">$${fmt(p.ppl)}</td>
+          <td class="${pnlClass(pnlPct)}">${fmt(pnlPct, 2)}%</td>
+        </tr>`;
+      }).join('');
+    } catch(e) { console.warn('positions fetch failed', e); }
+  }
+
+  // ── Signals ───────────────────────────────────────────────────────────────
+  async function refreshSignals() {
+    try {
+      const data = await fetchJSON('/api/signals');
+      const tbody = document.getElementById('signals-body');
+      const recent = [...data].reverse().slice(0, 20);
+      if (!recent.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center">No signals yet</td></tr>';
+        return;
+      }
+      tbody.innerHTML = recent.map(s => `<tr>
+        <td>${fmtTime(s.timestamp)}</td>
+        <td><strong>${s.ticker}</strong></td>
+        <td><span class="badge ${s.action.toLowerCase()}">${s.action}</span></td>
+        <td><span class="badge ${s.direction.toLowerCase()}">${s.direction}</span></td>
+        <td>${fmt(s.confidence * 100, 0)}%</td>
+        <td>${s.order_type}</td>
+        <td class="reasoning-cell" title="${s.reasoning}">${s.reasoning}</td>
+      </tr>`).join('');
+    } catch(e) { console.warn('signals fetch failed', e); }
+  }
+
+  // ── Trade log ─────────────────────────────────────────────────────────────
+  async function refreshTrades() {
+    try {
+      const data = await fetchJSON('/api/trades');
+      const tbody = document.getElementById('trades-body');
+      const recent = [...data].reverse().slice(0, 30);
+      if (!recent.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);text-align:center">No trades yet</td></tr>';
+        return;
+      }
+      tbody.innerHTML = recent.map(t => `<tr>
+        <td>${fmtTime(t.timestamp)}</td>
+        <td><strong>${t.ticker}</strong></td>
+        <td><span class="badge ${(t.action || '').toLowerCase()}">${t.action}</span></td>
+        <td>${fmt(Math.abs(t.quantity), 4)}</td>
+        <td style="color:var(--muted)">#${t.order_id}</td>
+        <td style="color:var(--muted)">${t.reason || t.direction || '—'}</td>
+      </tr>`).join('');
+    } catch(e) { console.warn('trades fetch failed', e); }
+  }
+
+  // ── Toggle ────────────────────────────────────────────────────────────────
+  document.getElementById('toggle-btn').addEventListener('click', async () => {
+    await fetch('/api/bot/toggle', { method: 'POST' });
+    refreshStatus();
+  });
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
+  function connectSSE() {
+    const es = new EventSource('/api/stream');
+    es.addEventListener('status', () => refreshStatus());
+    es.onerror = () => setTimeout(connectSSE, 5000);
+  }
+
+  // ── Init & poll ───────────────────────────────────────────────────────────
+  async function refresh() {
+    await Promise.allSettled([
+      refreshAccount(),
+      refreshStatus(),
+      refreshPositions(),
+      refreshSignals(),
+      refreshTrades(),
+    ]);
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+  }
+
+  refresh();
+  setInterval(refresh, 15000);
+  connectSSE();
+</script>
+</body>
+</html>

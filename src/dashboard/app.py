@@ -216,7 +216,7 @@ async def sse_stream(request: Request):
                 if await request.is_disconnected():
                     break
                 try:
-                    msg = await asyncio.wait_for(queue.get(), timeout=30)
+                    msg = await asyncio.wait_for(queue.get(), timeout=15)
                     yield msg
                 except asyncio.TimeoutError:
                     yield ": heartbeat\n\n"

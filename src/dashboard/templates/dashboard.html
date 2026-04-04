@@ -525,11 +525,18 @@
   });
 
   // ── SSE ───────────────────────────────────────────────────────────────────
+  let _es = null;
   function connectSSE() {
-    const es = new EventSource('/api/stream');
-    es.addEventListener('status', () => refreshStatus());
-    es.onerror = () => setTimeout(connectSSE, 5000);
+    if (_es) { _es.close(); _es = null; }
+    _es = new EventSource('/api/stream');
+    _es.addEventListener('status', () => refreshStatus());
+    _es.onerror = () => { _es.close(); _es = null; setTimeout(connectSSE, 5000); };
   }
+  // Close SSE when tab is hidden, reconnect when visible — prevents stale connections
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (_es) { _es.close(); _es = null; } }
+    else { connectSSE(); refresh(); }
+  });
 
   // ── Init & poll ───────────────────────────────────────────────────────────
   async function refresh() {

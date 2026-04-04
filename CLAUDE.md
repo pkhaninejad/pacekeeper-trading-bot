@@ -5,24 +5,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Install dependencies (system Python 3.14 — no venv present)
-pip3 install --break-system-packages -r requirements.txt
+# Install dependencies into the project venv
+.venv/bin/pip install -r requirements.txt
 
 # Run locally with auto-reload (nodemon equivalent)
-python3 main.py
+.venv/bin/python main.py
 
 # Run with Docker
 docker-compose up --build
 
 # Run all tests
-python3 -m pytest tests/ -v
+.venv/bin/python -m pytest tests/ -v
 
 # Run a single test file
-python3 -m pytest tests/test_risk_manager.py -v
+.venv/bin/python -m pytest tests/test_risk_manager.py -v
 
 # Access dashboard
 open http://localhost:4000
 ```
+
+The project uses `.venv/` (Python 3.14). Always use `.venv/bin/python` / `.venv/bin/pip` — the system `python3` does not have the project dependencies.
 
 ## Environment Setup
 

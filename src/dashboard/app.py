@@ -152,6 +152,12 @@ async def get_indicators():
     return result
 
 
+@app.get("/api/pnl-history", tags=["Bot"])
+async def get_pnl_history():
+    """P&L snapshots for the current trading session (resets each day)."""
+    return engine.pnl_history
+
+
 @app.get("/api/signals", tags=["Bot"])
 async def get_signals():
     return [s.model_dump() for s in engine.signals_history]

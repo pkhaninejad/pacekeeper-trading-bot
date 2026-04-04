@@ -32,6 +32,8 @@ class TradingEngine:
         self._signals_history: list[TradeSignal] = []
         self._trade_log: list[dict] = []
         self._instruments_cache: list = []
+        self._pnl_history: list[dict] = []   # [{t, ppl, total, invested}]
+        self._session_date: str = ""          # YYYY-MM-DD; resets history each new day
         # Pre-seeded shortName → T212 ticker map; extended at runtime from instruments API
         self._ticker_map: dict = {
             "AAPL": "AAPL_US_EQ",
@@ -81,6 +83,10 @@ class TradingEngine:
     def trade_log(self) -> list[dict]:
         return self._trade_log[-200:]
 
+    @property
+    def pnl_history(self) -> list[dict]:
+        return self._pnl_history
+
     # -------------------------------------------------------------------------
     # Core cycle
     # -------------------------------------------------------------------------
@@ -118,6 +124,18 @@ class TradingEngine:
 
             self.status.open_positions = len(positions)
             self.status.total_pnl = cash.ppl
+
+            # Snapshot P&L — reset each new trading day
+            today = datetime.utcnow().strftime("%Y-%m-%d")
+            if today != self._session_date:
+                self._session_date = today
+                self._pnl_history = []
+            self._pnl_history.append({
+                "t": datetime.utcnow().isoformat(),
+                "ppl": round(cash.ppl, 2),
+                "total": round(cash.total, 2),
+                "invested": round(cash.invested, 2),
+            })
 
             # 1. Check stop-loss / take-profit on existing positions
             await self._manage_exits(client, positions)

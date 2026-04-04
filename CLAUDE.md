@@ -14,10 +14,10 @@ python main.py
 # Run with Docker (recommended)
 docker-compose up --build
 
-# Access dashboard at http://localhost:8000
+# Access dashboard at http://localhost:8080
 ```
 
-There are no tests or linter configs currently configured in this project.
+Run tests with: `.venv/bin/python -m pytest tests/ -v`
 
 ## Environment Setup
 

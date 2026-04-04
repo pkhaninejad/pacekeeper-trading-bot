@@ -39,7 +39,7 @@ python main.py
 docker-compose up --build
 ```
 
-Dashboard available at `http://localhost:8000`
+Dashboard available at `http://localhost:8080`
 
 ## Configuration
 
@@ -62,7 +62,7 @@ Default watchlist: `AAPL, TSLA, NVDA, MSFT, AMZN, GOOGL, META, NFLX`
 ## Architecture
 
 ```
-FastAPI Dashboard (port 8000)
+FastAPI Dashboard (port 8080)
         │
   TradingEngine (async loop)
         │

@@ -14,7 +14,7 @@ python main.py
 # Run with Docker (recommended)
 docker-compose up --build
 
-# Access dashboard at http://localhost:8080
+# Access dashboard at http://localhost:8888
 ```
 
 Run tests with: `.venv/bin/python -m pytest tests/ -v`

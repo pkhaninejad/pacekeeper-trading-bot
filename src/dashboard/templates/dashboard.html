@@ -124,6 +124,59 @@
       color: var(--muted);
       font-size: 12px;
     }
+    /* ── Indicators ── */
+    .ind-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .ind-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .ind-card .ind-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .ind-card .ind-ticker { font-weight: 700; font-size: 15px; }
+    .ind-card .ind-price { font-size: 13px; color: var(--text); }
+    .ind-card .ind-change { font-size: 12px; }
+    .ind-card .ind-summary {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .ind-rows { display: flex; flex-direction: column; gap: 5px; }
+    .ind-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+    .ind-row .ind-label { color: var(--muted); }
+    .ind-row .ind-val { font-weight: 600; }
+    .rsi-bar-wrap {
+      width: 80px; height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+      align-self: center;
+    }
+    .rsi-bar { height: 100%; border-radius: 3px; transition: width 0.4s; }
+    .tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .tag.bull { background: rgba(63,185,80,.2); color: var(--green); }
+    .tag.bear { background: rgba(248,81,73,.2); color: var(--red); }
+    .tag.neutral { background: rgba(125,133,144,.15); color: var(--muted); }
     /* ── Footer ── */
     footer {
       text-align: center;
@@ -168,6 +221,14 @@
       <div class="card">
         <div class="label">Signals Generated</div>
         <div class="value" id="kpi-signals">—</div>
+      </div>
+    </div>
+
+    <!-- Indicators grid -->
+    <div class="section">
+      <h2>Market Indicators</h2>
+      <div class="ind-grid" id="indicators-grid">
+        <div style="color:var(--muted);font-size:13px">Loading…</div>
       </div>
     </div>
 
@@ -263,6 +324,107 @@
       badge.textContent = (s.environment || 'demo').toUpperCase();
       badge.className = 'env-badge' + (s.environment === 'live' ? ' live' : '');
     } catch(e) { console.warn('status fetch failed', e); }
+  }
+
+  // ── Indicators ────────────────────────────────────────────────────────────
+  function rsiColor(v) {
+    if (v == null) return 'var(--muted)';
+    if (v >= 70) return 'var(--red)';
+    if (v <= 30) return 'var(--green)';
+    return 'var(--text)';
+  }
+  function rsiLabel(v) {
+    if (v == null) return '';
+    if (v >= 70) return '<span class="tag bear">overbought</span>';
+    if (v <= 30) return '<span class="tag bull">oversold</span>';
+    return '<span class="tag neutral">neutral</span>';
+  }
+  function macdTag(m) {
+    if (!m) return '—';
+    if (m.crossover === 'bullish') return '<span class="tag bull">bullish crossover</span>';
+    if (m.crossover === 'bearish') return '<span class="tag bear">bearish crossover</span>';
+    if (m.histogram == null) return '—';
+    return m.histogram > 0
+      ? `<span class="tag bull">bullish ${fmt(m.histogram,3)}</span>`
+      : `<span class="tag bear">bearish ${fmt(m.histogram,3)}</span>`;
+  }
+  function bbTag(bb) {
+    if (!bb || bb.band_signal == null) return '—';
+    if (bb.band_signal === 'upper') return `<span class="tag bear">upper band ${bb.pct_b != null ? fmt(bb.pct_b*100,0)+'%' : ''}</span>`;
+    if (bb.band_signal === 'lower') return `<span class="tag bull">lower band ${bb.pct_b != null ? fmt(bb.pct_b*100,0)+'%' : ''}</span>`;
+    return `<span class="tag neutral">mid band</span>`;
+  }
+  function emaTag(e) {
+    if (!e || e.ema_fast == null) return '—';
+    if (e.cross === 'golden') return '<span class="tag bull">golden cross</span>';
+    if (e.cross === 'death') return '<span class="tag bear">death cross</span>';
+    return e.ema_fast > e.ema_slow
+      ? '<span class="tag bull">EMA20 &gt; EMA50</span>'
+      : '<span class="tag bear">EMA20 &lt; EMA50</span>';
+  }
+  function volTag(v) {
+    if (!v || v.signal == null) return '—';
+    if (v.signal === 'high') return `<span class="tag bull">high ${v.ratio}x</span>`;
+    if (v.signal === 'low') return `<span class="tag bear">low ${v.ratio}x</span>`;
+    return `<span class="tag neutral">normal ${v.ratio}x</span>`;
+  }
+
+  async function refreshIndicators() {
+    try {
+      const data = await fetchJSON('/api/indicators');
+      const grid = document.getElementById('indicators-grid');
+      const tickers = Object.keys(data);
+      if (!tickers.length) {
+        grid.innerHTML = '<div style="color:var(--muted);font-size:13px">No data yet — waiting for first price feed cycle</div>';
+        return;
+      }
+      grid.innerHTML = tickers.map(ticker => {
+        const d = data[ticker];
+        const chgCls = (d.change_pct_1d || 0) >= 0 ? 'positive' : 'negative';
+        const chgSign = (d.change_pct_1d || 0) >= 0 ? '+' : '';
+        const rsiVal = d.rsi;
+        const rsiW = rsiVal != null ? rsiVal : 50;
+        const rsiC = rsiVal != null
+          ? (rsiVal >= 70 ? 'var(--red)' : rsiVal <= 30 ? 'var(--green)' : 'var(--blue)')
+          : 'var(--muted)';
+        return `<div class="ind-card">
+          <div class="ind-header">
+            <span class="ind-ticker">${ticker}</span>
+            <span>
+              <span class="ind-price">$${fmt(d.price, 2)}</span>
+              <span class="ind-change ${chgCls}"> ${chgSign}${fmt(d.change_pct_1d, 2)}%</span>
+            </span>
+          </div>
+          <div class="ind-summary">${d.summary || '—'}</div>
+          <div class="ind-rows">
+            <div class="ind-row">
+              <span class="ind-label">RSI (14)</span>
+              <span style="display:flex;gap:8px;align-items:center">
+                <span class="ind-val" style="color:${rsiColor(rsiVal)}">${rsiVal != null ? fmt(rsiVal,1) : '—'}</span>
+                ${rsiLabel(rsiVal)}
+                <span class="rsi-bar-wrap"><span class="rsi-bar" style="width:${rsiW}%;background:${rsiC}"></span></span>
+              </span>
+            </div>
+            <div class="ind-row">
+              <span class="ind-label">MACD</span>
+              <span class="ind-val">${macdTag(d.macd)}</span>
+            </div>
+            <div class="ind-row">
+              <span class="ind-label">Bollinger</span>
+              <span class="ind-val">${bbTag(d.bollinger)}</span>
+            </div>
+            <div class="ind-row">
+              <span class="ind-label">EMA 20/50</span>
+              <span class="ind-val">${emaTag(d.ema)}</span>
+            </div>
+            <div class="ind-row">
+              <span class="ind-label">Volume</span>
+              <span class="ind-val">${volTag(d.volume)}</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) { console.warn('indicators fetch failed', e); }
   }
 
   // ── Positions ─────────────────────────────────────────────────────────────
@@ -374,6 +536,7 @@
     await Promise.allSettled([
       refreshAccount(),
       refreshStatus(),
+      refreshIndicators(),
       refreshPositions(),
       refreshSignals(),
       refreshTrades(),

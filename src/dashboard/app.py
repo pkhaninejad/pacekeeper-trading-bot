@@ -131,6 +131,27 @@ async def cancel_order(order_id: int):
     return result
 
 
+@app.get("/api/indicators", tags=["Market"])
+async def get_indicators():
+    """Return latest technical indicators for all watchlist tickers."""
+    from src.bot.price_feed import get_price_summary
+    data = get_price_summary(settings.WATCHLIST)
+    result = {}
+    for ticker, d in data.items():
+        ind = d.get("indicators") or {}
+        result[ticker] = {
+            "price": d.get("current_price"),
+            "change_pct_1d": d.get("change_pct_1d"),
+            "summary": ind.get("summary", ""),
+            "rsi": ind.get("rsi"),
+            "macd": ind.get("macd", {}),
+            "bollinger": ind.get("bollinger", {}),
+            "ema": ind.get("ema", {}),
+            "volume": ind.get("volume", {}),
+        }
+    return result
+
+
 @app.get("/api/signals", tags=["Bot"])
 async def get_signals():
     return [s.model_dump() for s in engine.signals_history]

@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Optional
 
+from src.data.indicators import compute_indicators
+
 logger = logging.getLogger(__name__)
 
 CACHE_TTL = 300  # seconds — refresh at most every 5 minutes
@@ -34,7 +36,7 @@ def _fetch_one(ticker: str) -> Optional[dict]:
 
     try:
         t = yf.Ticker(ticker)
-        hist = t.history(period="1mo", auto_adjust=True)
+        hist = t.history(period="3mo", auto_adjust=True)
         if hist.empty:
             logger.warning("Price feed: empty history for %s", ticker)
             return None
@@ -47,12 +49,10 @@ def _fetch_one(ticker: str) -> Optional[dict]:
         prev = closes[-2] if len(closes) >= 2 else current
         change_pct = ((current - prev) / prev * 100) if prev else 0.0
 
-        sma_10 = sum(closes[-10:]) / min(10, len(closes))
-        sma_30 = sum(closes) / len(closes)
-        rsi = _rsi(closes, 14)
-
         volumes = hist["Volume"].dropna().tolist()
         avg_vol = sum(volumes) / len(volumes) if volumes else 0
+
+        indicators = compute_indicators(hist)
 
         return {
             "current_price": round(current, 4),
@@ -60,10 +60,8 @@ def _fetch_one(ticker: str) -> Optional[dict]:
             "high_30d": round(max(closes), 4),
             "low_30d": round(min(closes), 4),
             "avg_volume_30d": int(avg_vol),
-            "sma_10": round(sma_10, 4),
-            "sma_30": round(sma_30, 4),
-            "rsi_14": round(rsi, 1) if rsi is not None else None,
             "history": [round(c, 4) for c in closes[-10:]],
+            "indicators": indicators,
         }
     except Exception as e:
         logger.warning("Price feed failed for %s: %s", ticker, e)
@@ -103,25 +101,10 @@ def get_price_summary(tickers: list[str]) -> dict[str, dict]:
             if data:
                 _cache[ticker] = {"data": data, "fetched_at": datetime.utcnow()}
                 result[ticker] = data
+                rsi_val = (data.get("indicators") or {}).get("rsi") or 0
                 logger.info("Price feed OK: %s @ %.2f (RSI %.1f)",
-                            ticker, data["current_price"], data["rsi_14"] or 0)
+                            ticker, data["current_price"], rsi_val)
         except Exception as e:
             logger.warning("Price feed thread error for %s: %s", ticker, e)
 
     return result
-
-
-def _rsi(closes: list[float], period: int = 14) -> Optional[float]:
-    if len(closes) < period + 1:
-        return None
-    gains, losses = [], []
-    for i in range(1, len(closes)):
-        diff = closes[i] - closes[i - 1]
-        gains.append(max(diff, 0))
-        losses.append(max(-diff, 0))
-    avg_gain = sum(gains[-period:]) / period
-    avg_loss = sum(losses[-period:]) / period
-    if avg_loss == 0:
-        return 100.0
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))

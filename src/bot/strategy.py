@@ -66,16 +66,18 @@ def _build_market_context(
 
     instrument_info = {i.ticker: i.name for i in instruments if i.ticker in watchlist}
 
-    # Format price feed section
+    # Format price feed + indicator section
     price_lines = []
     for ticker in watchlist:
         pd = price_data.get(ticker)
         if pd:
+            ind = pd.get("indicators") or {}
+            summary = ind.get("summary", "")
             price_lines.append(
                 f"  {ticker}: price={pd['current_price']}, 1d_chg={pd['change_pct_1d']}%, "
-                f"SMA10={pd['sma_10']}, SMA30={pd['sma_30']}, RSI14={pd['rsi_14']}, "
                 f"30d_range=[{pd['low_30d']}, {pd['high_30d']}], "
-                f"recent_closes={pd['history']}"
+                f"recent_closes={pd['history']}\n"
+                f"    indicators: {summary}"
             )
         else:
             price_lines.append(f"  {ticker}: (price data unavailable)")

@@ -55,7 +55,7 @@ python main.py
 
 ### Step 5 — Open the dashboard
 
-Navigate to **http://localhost:8080**
+Navigate to **http://localhost:8888**
 
 You'll see the live dashboard with account info, positions, signals, and trade log. Use the toggle button to enable/disable trading.
 
@@ -68,7 +68,7 @@ cp .env.example .env   # fill in your keys first
 docker-compose up --build
 ```
 
-Dashboard available at `http://localhost:8080`
+Dashboard available at `http://localhost:8888`
 
 ## Configuration
 
@@ -91,7 +91,7 @@ Default watchlist: `AAPL, TSLA, NVDA, MSFT, AMZN, GOOGL, META, NFLX`
 ## Architecture
 
 ```
-FastAPI Dashboard (port 8080)
+FastAPI Dashboard (port 8888)
         │
   TradingEngine (async loop)
         │

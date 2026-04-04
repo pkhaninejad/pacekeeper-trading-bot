@@ -10,32 +10,61 @@ An AI-powered trading bot that uses Claude to generate trading signals and execu
 - Paper trading support via Trading212 demo environment
 - Docker-ready deployment
 
-## Quick Start
+## Running Locally
 
 ### Prerequisites
 
-- Python 3.9+ or Docker
-- [Trading212](https://www.trading212.com/) account with API access
+- Python 3.9+
+- [Trading212](https://www.trading212.com/) account with API access enabled
 - [Anthropic API key](https://console.anthropic.com/)
 
-### Setup
+### Step 1 — Create a virtual environment
 
 ```bash
-# Clone and install
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your API keys
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 ```
 
-### Run
+### Step 2 — Install dependencies
 
 ```bash
-# Local
-python main.py
+pip install -r requirements.txt
+```
 
-# Docker (recommended)
+### Step 3 — Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in the required values:
+
+| Key | Where to get it |
+|---|---|
+| `T212_API_KEY` | Trading212 app → Settings → API Key |
+| `T212_API_SECRET` | Trading212 app → Settings → API Key |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
+
+Leave `T212_ENV=demo` to use paper trading (no real money).
+
+### Step 4 — Start the bot
+
+```bash
+python main.py
+```
+
+### Step 5 — Open the dashboard
+
+Navigate to **http://localhost:8080**
+
+You'll see the live dashboard with account info, positions, signals, and trade log. Use the toggle button to enable/disable trading.
+
+---
+
+## Running with Docker
+
+```bash
+cp .env.example .env   # fill in your keys first
 docker-compose up --build
 ```
 

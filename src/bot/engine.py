@@ -4,7 +4,7 @@ Main trading engine — orchestrates strategy, risk management, and order execut
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Optional
 
 from src.api.client import Trading212Client
@@ -73,7 +73,7 @@ class TradingEngine:
                 await self._cycle()
             except Exception as e:
                 logger.error("Engine cycle error: %s", e, exc_info=True)
-            self.status.next_run = datetime.utcnow().replace(
+            self.status.next_run = datetime.now(UTC).replace(
                 second=0, microsecond=0
             )
             await asyncio.sleep(settings.TRADE_INTERVAL_SECONDS)
@@ -85,8 +85,6 @@ class TradingEngine:
 
     def toggle(self) -> bool:
         self.status.enabled = not self.status.enabled
-        if not self.status.enabled:
-            self.stop()
         return self.status.enabled
 
     @property
@@ -100,6 +98,85 @@ class TradingEngine:
     @property
     def pnl_history(self) -> list[dict]:
         return self._pnl_history
+
+    async def close_position(self, ticker: str) -> dict:
+        """Close a single open position by short ticker (e.g. 'NVDA').
+
+        Resolves ticker to T212 format, places a market order, logs the trade,
+        and appends a PnL snapshot. Raises ValueError if no position found.
+        """
+        async with Trading212Client() as client:
+            positions = await client.get_positions()
+            pos = next(
+                (p for p in positions if p.ticker.split("_")[0] == ticker or p.ticker == ticker),
+                None,
+            )
+            if pos is None:
+                raise ValueError(f"No open position for {ticker}")
+
+            t212_ticker = self._ticker_map.get(ticker, pos.ticker)
+            quantity = -pos.quantity
+            order = await client.place_market_order(
+                MarketOrderRequest(ticker=t212_ticker, quantity=quantity)
+            )
+            now = datetime.now(UTC)
+            self._log_trade({
+                "action": "MANUAL_CLOSE",
+                "ticker": ticker,
+                "quantity": quantity,
+                "order_id": order.id,
+                "timestamp": now.isoformat(),
+            })
+            self.status.total_trades_today += 1
+            cash = await client.get_cash()
+            self._pnl_history.append({
+                "t": now.isoformat(),
+                "ppl": round(cash.ppl, 2),
+                "total": round(cash.total, 2),
+                "invested": round(cash.invested, 2),
+            })
+            return {"message": f"Closed {ticker}", "order_id": order.id}
+
+    async def close_all_positions(self) -> list[dict]:
+        """Close all open positions. Logs each successful close.
+        Appends one PnL snapshot after all closes attempt.
+        Per-position errors are captured and returned as error entries.
+        """
+        async with Trading212Client() as client:
+            positions = await client.get_positions()
+            results = []
+            for pos in positions:
+                short_ticker = pos.ticker.split("_")[0]
+                try:
+                    quantity = -pos.quantity
+                    order = await client.place_market_order(
+                        MarketOrderRequest(ticker=pos.ticker, quantity=quantity)
+                    )
+                    now = datetime.now(UTC)
+                    self._log_trade({
+                        "action": "MANUAL_CLOSE",
+                        "ticker": short_ticker,
+                        "quantity": quantity,
+                        "order_id": order.id,
+                        "timestamp": now.isoformat(),
+                    })
+                    self.status.total_trades_today += 1
+                    results.append({"ticker": short_ticker, "order_id": order.id, "status": "closed"})
+                except Exception as e:
+                    results.append({"ticker": short_ticker, "status": "error", "detail": str(e)})
+
+            if positions:
+                try:
+                    cash = await client.get_cash()
+                    self._pnl_history.append({
+                        "t": datetime.now(UTC).isoformat(),
+                        "ppl": round(cash.ppl, 2),
+                        "total": round(cash.total, 2),
+                        "invested": round(cash.invested, 2),
+                    })
+                except Exception as e:
+                    logger.warning("Could not fetch cash after close-all: %s", e)
+            return results
 
     # -------------------------------------------------------------------------
     # Core cycle
@@ -122,7 +199,7 @@ class TradingEngine:
                 return
 
         logger.info("=== Trading cycle started ===")
-        self.status.last_run = datetime.utcnow()
+        self.status.last_run = datetime.now(UTC)
 
         async with Trading212Client() as client:
             # Fetch market state
@@ -143,12 +220,12 @@ class TradingEngine:
             self.status.total_pnl = cash.ppl
 
             # Snapshot P&L — reset each new trading day
-            today = datetime.utcnow().strftime("%Y-%m-%d")
+            today = datetime.now(UTC).strftime("%Y-%m-%d")
             if today != self._session_date:
                 self._session_date = today
                 self._pnl_history = []
             self._pnl_history.append({
-                "t": datetime.utcnow().isoformat(),
+                "t": datetime.now(UTC).isoformat(),
                 "ppl": round(cash.ppl, 2),
                 "total": round(cash.total, 2),
                 "invested": round(cash.invested, 2),
@@ -209,7 +286,7 @@ class TradingEngine:
                         "quantity": close_qty,
                         "reason": exit_reason,
                         "order_id": order.id,
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     })
                     self.status.total_trades_today += 1
                 except Exception as e:
@@ -277,7 +354,7 @@ class TradingEngine:
                     "confidence": signal.confidence,
                     "reasoning": signal.reasoning,
                     "order_id": order.id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 })
 
         except Exception as e:

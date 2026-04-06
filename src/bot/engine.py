@@ -10,7 +10,7 @@ from typing import Optional
 from src.api.client import Trading212Client
 from src.api.models import (
     MarketOrderRequest, LimitOrderRequest, StopOrderRequest,
-    TradeSignal, BotStatus, Position,
+    TradeSignal, BotStatus, Position, TradeOutcome,
 )
 from src.bot.strategy import ClaudeStrategy
 from src.bot.risk_manager import RiskManager
@@ -47,6 +47,7 @@ class TradingEngine:
         self._trade_log: list[dict] = []
         self._instruments_cache: list = []
         self._pnl_history: list[dict] = []   # [{t, ppl, total, invested}]
+        self._outcome_log: list[TradeOutcome] = []
         self._session_date: str = ""          # YYYY-MM-DD; resets history each new day
         # Pre-seeded shortName → T212 ticker map; extended at runtime from instruments API
         self._ticker_map: dict = {
@@ -98,6 +99,10 @@ class TradingEngine:
     @property
     def pnl_history(self) -> list[dict]:
         return self._pnl_history
+
+    @property
+    def outcome_log(self) -> list[TradeOutcome]:
+        return self._outcome_log[-200:]
 
     async def close_position(self, ticker: str) -> dict:
         """Close a single open position by short ticker (e.g. 'NVDA').
@@ -356,6 +361,14 @@ class TradingEngine:
                     "order_id": order.id,
                     "timestamp": datetime.now(UTC).isoformat(),
                 })
+                if signal.action in ("BUY", "SELL"):
+                    self._outcome_log.append(TradeOutcome(
+                        ticker=signal.ticker,
+                        action=signal.action,
+                        direction=signal.direction,
+                        confidence=signal.confidence,
+                        opened_at=datetime.now(UTC),
+                    ))
 
         except Exception as e:
             logger.error("Order execution failed for %s: %s", signal.ticker, e)

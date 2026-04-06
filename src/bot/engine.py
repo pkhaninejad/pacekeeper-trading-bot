@@ -99,6 +99,42 @@ class TradingEngine:
     def pnl_history(self) -> list[dict]:
         return self._pnl_history
 
+    async def close_position(self, ticker: str) -> dict:
+        """Close a single open position by short ticker (e.g. 'NVDA').
+
+        Resolves ticker to T212 format, places a market order, logs the trade,
+        and appends a PnL snapshot. Raises ValueError if no position found.
+        """
+        async with Trading212Client() as client:
+            positions = await client.get_positions()
+            pos = next(
+                (p for p in positions if p.ticker.split("_")[0] == ticker or p.ticker == ticker),
+                None,
+            )
+            if pos is None:
+                raise ValueError(f"No open position for {ticker}")
+
+            t212_ticker = self._ticker_map.get(ticker, pos.ticker)
+            quantity = -pos.quantity
+            order = await client.place_market_order(
+                MarketOrderRequest(ticker=t212_ticker, quantity=quantity)
+            )
+            self._log_trade({
+                "action": "MANUAL_CLOSE",
+                "ticker": ticker,
+                "quantity": quantity,
+                "order_id": order.id,
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+            cash = await client.get_cash()
+            self._pnl_history.append({
+                "t": datetime.utcnow().isoformat(),
+                "ppl": round(cash.ppl, 2),
+                "total": round(cash.total, 2),
+                "invested": round(cash.invested, 2),
+            })
+            return {"message": f"Closed {ticker}", "order_id": order.id}
+
     # -------------------------------------------------------------------------
     # Core cycle
     # -------------------------------------------------------------------------

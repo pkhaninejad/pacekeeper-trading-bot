@@ -65,3 +65,53 @@ class TestToggle:
 
         assert engine.status.enabled is True
         assert engine._running is True
+
+
+# ---------------------------------------------------------------------------
+# close_position()
+# ---------------------------------------------------------------------------
+
+class TestClosePosition:
+    @pytest.mark.asyncio
+    async def test_close_position_logs_trade_and_pnl(self):
+        """Successful close: trade logged, PnL snapshot appended."""
+        pos = make_position(ticker="NVDA_US_EQ", quantity=10.0)
+        cash = make_cash(ppl=600.0, total=20_100.0, invested=19_500.0)
+        order = make_order(id=99, ticker="NVDA_US_EQ", orderedQuantity=-10.0)
+        mock_client = make_mock_client(positions=[pos], cash=cash, order=order)
+
+        engine = TradingEngine()
+        engine._ticker_map["NVDA"] = "NVDA_US_EQ"
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            result = await engine.close_position("NVDA")
+
+        # Trade logged
+        assert len(engine._trade_log) == 1
+        entry = engine._trade_log[0]
+        assert entry["action"] == "MANUAL_CLOSE"
+        assert entry["ticker"] == "NVDA"
+        assert entry["order_id"] == 99
+
+        # PnL snapshot appended
+        assert len(engine._pnl_history) == 1
+        snap = engine._pnl_history[0]
+        assert snap["ppl"] == 600.0
+        assert snap["total"] == 20_100.0
+
+        # Return value
+        assert result["order_id"] == 99
+
+    @pytest.mark.asyncio
+    async def test_close_position_unknown_ticker_raises(self):
+        """Ticker with no open position raises ValueError."""
+        mock_client = make_mock_client(positions=[])
+        engine = TradingEngine()
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            with pytest.raises(ValueError, match="No open position for NVDA"):
+                await engine.close_position("NVDA")
+
+        # Nothing logged
+        assert engine._trade_log == []
+        assert engine._pnl_history == []

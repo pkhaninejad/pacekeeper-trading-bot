@@ -60,18 +60,24 @@ class Trading212Client:
             await self._client.aclose()
 
     async def _request_with_retry(self, fn, *args, **kwargs) -> Any:
-        async with _get_lock():
-            await asyncio.sleep(_RATE_LIMIT_DELAY)
-            for attempt in range(3):
+        for attempt in range(3):
+            async with _get_lock():
+                await asyncio.sleep(_RATE_LIMIT_DELAY)
                 r = await fn(*args, **kwargs)
-                if r.status_code == 429:
-                    wait = 2 ** attempt * 5  # 5s, 10s, 20s
-                    logger.warning("Rate limited, retrying in %ds (attempt %d/3)", wait, attempt + 1)
-                    await asyncio.sleep(wait)
-                    continue
-                r.raise_for_status()
-                return r.json()
-            r.raise_for_status()  # raise after exhausting retries
+            if r.status_code == 429:
+                wait = 2 ** attempt * 5  # 5s, 10s, 20s
+                logger.warning("Rate limited, retrying in %ds (attempt %d/3)", wait, attempt + 1)
+                await asyncio.sleep(wait)
+                continue
+            if r.is_error:
+                try:
+                    body = r.json()
+                except Exception:
+                    body = r.text
+                logger.error("T212 API error %d: %s", r.status_code, body)
+            r.raise_for_status()
+            return r.json()
+        r.raise_for_status()  # raise after exhausting retries
 
     async def _get(self, path: str, params: dict = None) -> Any:
         result = await self._request_with_retry(self._client.get, path, params=params)

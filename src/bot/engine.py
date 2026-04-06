@@ -4,7 +4,7 @@ Main trading engine — orchestrates strategy, risk management, and order execut
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Optional
 
 from src.api.client import Trading212Client
@@ -119,16 +119,18 @@ class TradingEngine:
             order = await client.place_market_order(
                 MarketOrderRequest(ticker=t212_ticker, quantity=quantity)
             )
+            now = datetime.now(UTC)
             self._log_trade({
                 "action": "MANUAL_CLOSE",
                 "ticker": ticker,
                 "quantity": quantity,
                 "order_id": order.id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": now.isoformat(),
             })
+            self.status.total_trades_today += 1
             cash = await client.get_cash()
             self._pnl_history.append({
-                "t": datetime.utcnow().isoformat(),
+                "t": now.isoformat(),
                 "ppl": round(cash.ppl, 2),
                 "total": round(cash.total, 2),
                 "invested": round(cash.invested, 2),

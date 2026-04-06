@@ -87,3 +87,80 @@ class TestFetchFinnhub:
             feed._fetch("NVDA")  # second call
 
         assert mock_get.call_count == 1  # only fetched once
+
+
+class TestFetchNewsAPIFallback:
+    def setup_method(self):
+        _cache.clear()
+
+    def test_fetch_newsapi_fallback(self):
+        """When Finnhub returns empty, NewsAPI is called and items are returned."""
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        newsapi_response = {
+            "articles": [
+                {
+                    "title": "Tesla recalls vehicles",
+                    "source": {"name": "AP"},
+                    "publishedAt": now_iso,
+                    "url": "https://ap.com/1",
+                }
+            ]
+        }
+
+        with patch("src.data.news_feed.requests.get") as mock_get:
+            # First call (Finnhub) returns empty list; second call (NewsAPI) returns articles
+            finnhub_resp = MagicMock()
+            finnhub_resp.status_code = 200
+            finnhub_resp.json.return_value = []
+
+            newsapi_resp = MagicMock()
+            newsapi_resp.status_code = 200
+            newsapi_resp.json.return_value = newsapi_response
+
+            mock_get.side_effect = [finnhub_resp, newsapi_resp]
+
+            feed = NewsFeed(lookback_days=3, max_headlines=5, cache_ttl=900, finnhub_api_key="fh-key", news_api_key="na-key")
+            items = feed._fetch("TSLA")
+
+        assert len(items) == 1
+        assert items[0].headline == "Tesla recalls vehicles"
+        assert items[0].source == "AP"
+
+    def test_newsapi_skipped_when_finnhub_has_results(self):
+        """NewsAPI is NOT called if Finnhub already returned items."""
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        finnhub_response = [
+            {"headline": "Some news", "source": "Reuters", "datetime": now_ts, "url": "https://a.com/1"}
+        ]
+
+        with patch("src.data.news_feed.requests.get") as mock_get:
+            mock_get.return_value.status_code = 200
+            mock_get.return_value.json.return_value = finnhub_response
+
+            feed = NewsFeed(lookback_days=3, max_headlines=5, cache_ttl=900, finnhub_api_key="fh-key", news_api_key="na-key")
+            feed._fetch("NVDA")
+
+        # Only one HTTP call — Finnhub only
+        assert mock_get.call_count == 1
+
+
+class TestNoKeys:
+    def setup_method(self):
+        _cache.clear()
+
+    def test_no_keys_returns_empty_without_raising(self):
+        """Both keys empty → get_news returns empty list per ticker, no exception."""
+        with patch("src.data.news_feed.requests.get") as mock_get:
+            feed = NewsFeed(finnhub_api_key="", news_api_key="")
+            result = feed.get_news(["AAPL", "NVDA"])
+
+        mock_get.assert_not_called()
+        assert result == {"AAPL": [], "NVDA": []}
+
+    def test_finnhub_raises_returns_empty(self):
+        """Network error on Finnhub → returns empty list, does not raise."""
+        with patch("src.data.news_feed.requests.get", side_effect=Exception("timeout")):
+            feed = NewsFeed(finnhub_api_key="fh-key", news_api_key="")
+            items = feed._fetch("AAPL")
+
+        assert items == []

@@ -13,6 +13,7 @@ from src.config.settings import settings
 from src.api.models import Position, CashInfo, TradeSignal, Instrument
 from src.bot.price_feed import get_price_summary
 from src.data.earnings_calendar import EarningsInfo
+from src.data.news_feed import NewsItem
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,17 @@ Return a JSON array of TradeSignal objects — one per ticker you have a view on
 )
 
 
+def _format_age(published_at: "datetime") -> str:
+    """Return human-readable relative age string e.g. '2h ago', '1d ago'."""
+    delta = datetime.utcnow() - published_at.replace(tzinfo=None)
+    seconds = int(delta.total_seconds())
+    if seconds < 3600:
+        return f"{seconds // 60}m ago"
+    if seconds < 86400:
+        return f"{seconds // 3600}h ago"
+    return f"{seconds // 86400}d ago"
+
+
 def _build_market_context(
     positions: list[Position],
     cash: CashInfo,
@@ -56,6 +68,7 @@ def _build_market_context(
     instruments: list[Instrument],
     price_data: dict | None = None,
     earnings_info: dict[str, "EarningsInfo"] | None = None,
+    news_data: dict[str, list["NewsItem"]] | None = None,
 ) -> str:
     """Build the user prompt with current portfolio state."""
     if price_data is None:
@@ -110,6 +123,22 @@ def _build_market_context(
     if earnings_lines:
         earnings_section = f"\n=== EARNINGS CALENDAR ===\n{chr(10).join(earnings_lines)}\n"
 
+    # Format news section
+    news_section = ""
+    if news_data:
+        news_lines = []
+        for ticker in watchlist:
+            items = news_data.get(ticker, [])
+            news_lines.append(f"{ticker} (last {settings.NEWS_LOOKBACK_DAYS} days):")
+            if items:
+                for item in items:
+                    age = _format_age(item.published_at)
+                    news_lines.append(f'  "{item.headline}" \u2014 {item.source}, {age}')
+            else:
+                news_lines.append("  (no recent news)")
+            news_lines.append("")  # blank line between tickers
+        news_section = f"\n=== RECENT NEWS ===\n{chr(10).join(news_lines)}"
+
     context = f"""Current datetime (UTC): {datetime.utcnow().isoformat()}
 
 === PORTFOLIO ===
@@ -123,7 +152,7 @@ Open positions ({len(positions)}):
 
 === PRICE FEED (30-day) ===
 {chr(10).join(price_lines) if price_lines else '  (unavailable)'}
-{earnings_section}
+{earnings_section}{news_section}
 === WATCHLIST ===
 {json.dumps({t: instrument_info.get(t, t) for t in watchlist}, indent=2)}
 
@@ -149,11 +178,12 @@ class ClaudeStrategy:
         watchlist: list[str],
         instruments: list[Instrument],
         earnings_info: dict[str, "EarningsInfo"] | None = None,
+        news_data: dict[str, list["NewsItem"]] | None = None,
     ) -> list[TradeSignal]:
         """Call Claude and parse trade signals."""
         price_data = get_price_summary(watchlist)
         user_prompt = _build_market_context(
-            positions, cash, watchlist, instruments, price_data, earnings_info
+            positions, cash, watchlist, instruments, price_data, earnings_info, news_data
         )
 
         logger.info("Calling Claude for trading signals...")

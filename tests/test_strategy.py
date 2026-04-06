@@ -2,9 +2,11 @@
 
 import json
 import pytest
+from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 from src.api.models import Position, CashInfo, Instrument, TradeSignal
 from src.bot.strategy import _build_market_context, ClaudeStrategy
+from src.data.earnings_calendar import EarningsInfo
 
 
 # ---------------------------------------------------------------------------
@@ -148,3 +150,50 @@ class TestGenerateSignals:
         assert len(signals) == 2
         tickers = {s.ticker for s in signals}
         assert tickers == {"AAPL", "TSLA"}
+
+
+def make_earnings_info_dict(**overrides) -> dict:
+    """Build an earnings_info dict for AAPL."""
+    defaults = {
+        "AAPL": EarningsInfo(
+            ticker="AAPL",
+            earnings_date=date.today() + timedelta(days=1),
+            days_until=1,
+            in_window=True,
+            source="yfinance",
+        )
+    }
+    defaults.update(overrides)
+    return defaults
+
+
+class TestEarningsPromptInjection:
+    def test_warning_line_when_in_window(self):
+        earnings = make_earnings_info_dict()
+        ctx = _build_market_context([], make_cash(), ["AAPL"], [], earnings_info=earnings)
+        assert "⚠️" in ctx
+        assert "AAPL" in ctx
+        assert "earnings" in ctx.lower()
+
+    def test_clear_line_when_not_in_window(self):
+        earnings = {
+            "AAPL": EarningsInfo(
+                ticker="AAPL",
+                earnings_date=date.today() + timedelta(days=30),
+                days_until=30,
+                in_window=False,
+                source="yfinance",
+            )
+        }
+        ctx = _build_market_context([], make_cash(), ["AAPL"], [], earnings_info=earnings)
+        assert "✅" in ctx
+        assert "AAPL" in ctx
+
+    def test_no_earnings_section_when_no_info(self):
+        ctx = _build_market_context([], make_cash(), ["AAPL"], [], earnings_info=None)
+        assert "EARNINGS" not in ctx
+
+    def test_earnings_section_present_when_info_provided(self):
+        earnings = make_earnings_info_dict()
+        ctx = _build_market_context([], make_cash(), ["AAPL"], [], earnings_info=earnings)
+        assert "EARNINGS" in ctx

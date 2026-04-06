@@ -5,6 +5,7 @@ Risk management: validates signals before execution, enforces limits.
 import logging
 from src.config.settings import settings
 from src.api.models import TradeSignal, Position, CashInfo
+from src.data.earnings_calendar import EarningsInfo
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class RiskManager:
         signal: TradeSignal,
         positions: list[Position],
         cash: CashInfo,
+        earnings_info: dict[str, "EarningsInfo"] | None = None,
     ) -> tuple[bool, str]:
         """
         Returns (approved, reason).
@@ -30,10 +32,26 @@ class RiskManager:
         if signal.confidence < self.min_confidence:
             return False, f"Confidence {signal.confidence:.2f} below threshold {self.min_confidence}"
 
+        # Earnings window gate (only blocks new position opens, not CLOSE)
+        is_close = signal.direction == "CLOSE"
+        if (
+            not is_close
+            and settings.BLOCK_NEW_POSITIONS_ON_EARNINGS
+            and earnings_info is not None
+        ):
+            info = earnings_info.get(signal.ticker)
+            if info is not None and info.in_window:
+                days = info.days_until
+                direction = "in" if days is not None and days >= 0 else "ago"
+                count = abs(days) if days is not None else "?"
+                return False, (
+                    f"Earnings window blocked: {signal.ticker} earnings "
+                    f"{count} day(s) {direction} — no new positions allowed"
+                )
+
         # Max open positions gate (only for new positions)
         position_tickers = {p.ticker for p in positions}
         is_new = signal.ticker not in position_tickers
-        is_close = signal.direction == "CLOSE"
 
         if is_new and not is_close and len(positions) >= self.max_open_positions:
             return False, f"Max open positions ({self.max_open_positions}) reached"

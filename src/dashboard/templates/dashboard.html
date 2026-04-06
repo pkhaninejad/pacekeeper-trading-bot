@@ -46,6 +46,18 @@
       font-weight: 700;
     }
     .env-badge.live { background: var(--red); color: #fff; }
+    .market-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 700;
+      background: rgba(248,81,73,.2);
+      color: var(--red);
+    }
+    .market-badge.open {
+      background: rgba(63,185,80,.2);
+      color: var(--green);
+    }
     .status-dot {
       width: 10px; height: 10px;
       border-radius: 50%;
@@ -124,6 +136,77 @@
       color: var(--muted);
       font-size: 12px;
     }
+    /* ── P&L Chart ── */
+    .chart-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      position: relative;
+    }
+    .chart-wrap canvas { max-height: 220px; }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .chart-header h2 { font-size: 15px; font-weight: 600; }
+    .chart-meta { font-size: 12px; color: var(--muted); }
+    /* ── Indicators ── */
+    .ind-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .ind-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .ind-card .ind-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .ind-card .ind-ticker { font-weight: 700; font-size: 15px; }
+    .ind-card .ind-price { font-size: 13px; color: var(--text); }
+    .ind-card .ind-change { font-size: 12px; }
+    .ind-card .ind-summary {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .ind-rows { display: flex; flex-direction: column; gap: 5px; }
+    .ind-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+    .ind-row .ind-label { color: var(--muted); }
+    .ind-row .ind-val { font-weight: 600; }
+    .rsi-bar-wrap {
+      width: 80px; height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+      align-self: center;
+    }
+    .rsi-bar { height: 100%; border-radius: 3px; transition: width 0.4s; }
+    .tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .tag.bull { background: rgba(63,185,80,.2); color: var(--green); }
+    .tag.bear { background: rgba(248,81,73,.2); color: var(--red); }
+    .tag.neutral { background: rgba(125,133,144,.15); color: var(--muted); }
     /* ── Footer ── */
     footer {
       text-align: center;
@@ -138,6 +221,8 @@
   <header>
     <h1>Claude <span>Trade Bot</span></h1>
     <span class="env-badge" id="env-badge">DEMO</span>
+    <span class="market-badge" id="market-badge">CLOSED</span>
+    <span id="next-open-label" style="font-size:11px;color:var(--muted)"></span>
     <span class="status-dot" id="status-dot"></span>
     <button id="toggle-btn">Pause Bot</button>
   </header>
@@ -171,18 +256,38 @@
       </div>
     </div>
 
+    <!-- P&L Chart -->
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <h2>Session P&amp;L</h2>
+        <span class="chart-meta" id="pnl-chart-meta">—</span>
+      </div>
+      <canvas id="pnl-chart"></canvas>
+    </div>
+
+    <!-- Indicators grid -->
+    <div class="section">
+      <h2>Market Indicators</h2>
+      <div class="ind-grid" id="indicators-grid">
+        <div style="color:var(--muted);font-size:13px">Loading…</div>
+      </div>
+    </div>
+
     <!-- Positions table -->
     <div class="section">
-      <h2>Open Positions</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Open Positions</h2>
+        <button id="close-all-btn" onclick="closeAllPositions()" style="background:var(--red,#e74c3c);color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.85rem">Close All</button>
+      </div>
       <table>
         <thead>
           <tr>
             <th>Ticker</th><th>Direction</th><th>Qty</th>
-            <th>Avg Price</th><th>Current</th><th>PnL</th><th>PnL %</th>
+            <th>Avg Price</th><th>Current</th><th>PnL</th><th>PnL %</th><th>Action</th>
           </tr>
         </thead>
         <tbody id="positions-body">
-          <tr><td colspan="7" style="color:var(--muted);text-align:center">Loading…</td></tr>
+          <tr><td colspan="8" style="color:var(--muted);text-align:center">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -222,6 +327,7 @@
     Claude Trade Bot &copy; 2025
   </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
   const fmt = (n, dec=2) => n == null ? '—' : Number(n).toFixed(dec);
   const fmtTime = s => s ? new Date(s).toLocaleTimeString() : '—';
@@ -230,6 +336,83 @@
   async function fetchJSON(url) {
     const r = await fetch(url);
     return r.json();
+  }
+
+  // ── P&L Chart ─────────────────────────────────────────────────────────────
+  const _chartCtx = document.getElementById('pnl-chart').getContext('2d');
+  const _pnlChart = new Chart(_chartCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Unrealised P&L ($)',
+        data: [],
+        borderColor: '#3fb950',
+        backgroundColor: 'rgba(63,185,80,0.08)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` $${ctx.parsed.y.toFixed(2)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#7d8590', maxTicksLimit: 10, maxRotation: 0 },
+          grid: { color: 'rgba(48,54,61,0.6)' }
+        },
+        y: {
+          ticks: {
+            color: '#7d8590',
+            callback: v => '$' + v.toFixed(2)
+          },
+          grid: { color: 'rgba(48,54,61,0.6)' }
+        }
+      }
+    }
+  });
+
+  async function refreshPnlChart() {
+    try {
+      const data = await fetchJSON('/api/pnl-history');
+      if (!data.length) return;
+
+      const labels = data.map(d => {
+        const dt = new Date(d.t);
+        return dt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      });
+      const values = data.map(d => d.ppl);
+
+      _pnlChart.data.labels = labels;
+      _pnlChart.data.datasets[0].data = values;
+
+      // Colour line red if current P&L is negative
+      const last = values[values.length - 1];
+      const colour = last >= 0 ? '#3fb950' : '#f85149';
+      _pnlChart.data.datasets[0].borderColor = colour;
+      _pnlChart.data.datasets[0].backgroundColor = last >= 0
+        ? 'rgba(63,185,80,0.08)' : 'rgba(248,81,73,0.08)';
+
+      _pnlChart.update('none'); // 'none' = skip animation on poll updates
+
+      const high = Math.max(...values), low = Math.min(...values);
+      document.getElementById('pnl-chart-meta').innerHTML =
+        `<span style="color:var(--green)">▲ $${high.toFixed(2)}</span> &nbsp;` +
+        `<span style="color:var(--red)">▼ $${low.toFixed(2)}</span> &nbsp;` +
+        `<span>${data.length} points</span>`;
+    } catch(e) { console.warn('pnl chart fetch failed', e); }
   }
 
   // ── Account / KPI ──────────────────────────────────────────────────────────
@@ -259,7 +442,120 @@
       const badge = document.getElementById('env-badge');
       badge.textContent = (s.environment || 'demo').toUpperCase();
       badge.className = 'env-badge' + (s.environment === 'live' ? ' live' : '');
+
+      const mb = document.getElementById('market-badge');
+      mb.textContent = s.market_open ? 'MARKET OPEN' : 'MARKET CLOSED';
+      mb.className = 'market-badge' + (s.market_open ? ' open' : '');
+
+      const nol = document.getElementById('next-open-label');
+      if (!s.market_open && s.next_market_open) {
+        const d = new Date(s.next_market_open);
+        nol.textContent = `opens ${d.toLocaleDateString([], {weekday:'short'})} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+      } else {
+        nol.textContent = '';
+      }
     } catch(e) { console.warn('status fetch failed', e); }
+  }
+
+  // ── Indicators ────────────────────────────────────────────────────────────
+  function rsiColor(v) {
+    if (v == null) return 'var(--muted)';
+    if (v >= 70) return 'var(--red)';
+    if (v <= 30) return 'var(--green)';
+    return 'var(--text)';
+  }
+  function rsiLabel(v) {
+    if (v == null) return '';
+    if (v >= 70) return '<span class="tag bear">overbought</span>';
+    if (v <= 30) return '<span class="tag bull">oversold</span>';
+    return '<span class="tag neutral">neutral</span>';
+  }
+  function macdTag(m) {
+    if (!m) return '—';
+    if (m.crossover === 'bullish') return '<span class="tag bull">bullish crossover</span>';
+    if (m.crossover === 'bearish') return '<span class="tag bear">bearish crossover</span>';
+    if (m.histogram == null) return '—';
+    return m.histogram > 0
+      ? `<span class="tag bull">bullish ${fmt(m.histogram,3)}</span>`
+      : `<span class="tag bear">bearish ${fmt(m.histogram,3)}</span>`;
+  }
+  function bbTag(bb) {
+    if (!bb || bb.band_signal == null) return '—';
+    if (bb.band_signal === 'upper') return `<span class="tag bear">upper band ${bb.pct_b != null ? fmt(bb.pct_b*100,0)+'%' : ''}</span>`;
+    if (bb.band_signal === 'lower') return `<span class="tag bull">lower band ${bb.pct_b != null ? fmt(bb.pct_b*100,0)+'%' : ''}</span>`;
+    return `<span class="tag neutral">mid band</span>`;
+  }
+  function emaTag(e) {
+    if (!e || e.ema_fast == null) return '—';
+    if (e.cross === 'golden') return '<span class="tag bull">golden cross</span>';
+    if (e.cross === 'death') return '<span class="tag bear">death cross</span>';
+    return e.ema_fast > e.ema_slow
+      ? '<span class="tag bull">EMA20 &gt; EMA50</span>'
+      : '<span class="tag bear">EMA20 &lt; EMA50</span>';
+  }
+  function volTag(v) {
+    if (!v || v.signal == null) return '—';
+    if (v.signal === 'high') return `<span class="tag bull">high ${v.ratio}x</span>`;
+    if (v.signal === 'low') return `<span class="tag bear">low ${v.ratio}x</span>`;
+    return `<span class="tag neutral">normal ${v.ratio}x</span>`;
+  }
+
+  async function refreshIndicators() {
+    try {
+      const data = await fetchJSON('/api/indicators');
+      const grid = document.getElementById('indicators-grid');
+      const tickers = Object.keys(data);
+      if (!tickers.length) {
+        grid.innerHTML = '<div style="color:var(--muted);font-size:13px">No data yet — waiting for first price feed cycle</div>';
+        return;
+      }
+      grid.innerHTML = tickers.map(ticker => {
+        const d = data[ticker];
+        const chgCls = (d.change_pct_1d || 0) >= 0 ? 'positive' : 'negative';
+        const chgSign = (d.change_pct_1d || 0) >= 0 ? '+' : '';
+        const rsiVal = d.rsi;
+        const rsiW = rsiVal != null ? rsiVal : 50;
+        const rsiC = rsiVal != null
+          ? (rsiVal >= 70 ? 'var(--red)' : rsiVal <= 30 ? 'var(--green)' : 'var(--blue)')
+          : 'var(--muted)';
+        return `<div class="ind-card">
+          <div class="ind-header">
+            <span class="ind-ticker">${ticker}</span>
+            <span>
+              <span class="ind-price">$${fmt(d.price, 2)}</span>
+              <span class="ind-change ${chgCls}"> ${chgSign}${fmt(d.change_pct_1d, 2)}%</span>
+            </span>
+          </div>
+          <div class="ind-summary">${d.summary || '—'}</div>
+          <div class="ind-rows">
+            <div class="ind-row">
+              <span class="ind-label">RSI (14)</span>
+              <span style="display:flex;gap:8px;align-items:center">
+                <span class="ind-val" style="color:${rsiColor(rsiVal)}">${rsiVal != null ? fmt(rsiVal,1) : '—'}</span>
+                ${rsiLabel(rsiVal)}
+                <span class="rsi-bar-wrap"><span class="rsi-bar" style="width:${rsiW}%;background:${rsiC}"></span></span>
+              </span>
+            </div>
+            <div class="ind-row">
+              <span class="ind-label">MACD</span>
+              <span class="ind-val">${macdTag(d.macd)}</span>
+            </div>
+            <div class="ind-row">
+              <span class="ind-label">Bollinger</span>
+              <span class="ind-val">${bbTag(d.bollinger)}</span>
+            </div>
+            <div class="ind-row">
+              <span class="ind-label">EMA 20/50</span>
+              <span class="ind-val">${emaTag(d.ema)}</span>
+            </div>
+            <div class="ind-row">
+              <span class="ind-label">Volume</span>
+              <span class="ind-val">${volTag(d.volume)}</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) { console.warn('indicators fetch failed', e); }
   }
 
   // ── Positions ─────────────────────────────────────────────────────────────
@@ -268,7 +564,7 @@
       const data = await fetchJSON('/api/positions');
       const tbody = document.getElementById('positions-body');
       if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center">No open positions</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="color:var(--muted);text-align:center">No open positions</td></tr>';
         return;
       }
       tbody.innerHTML = data.map(p => {
@@ -282,9 +578,32 @@
           <td>$${fmt(p.currentPrice, 4)}</td>
           <td class="${pnlClass(p.ppl)}">$${fmt(p.ppl)}</td>
           <td class="${pnlClass(pnlPct)}">${fmt(pnlPct, 2)}%</td>
+          <td><button onclick="closePosition('${p.ticker}')" style="background:var(--red,#e74c3c);color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:0.8rem">Close</button></td>
         </tr>`;
       }).join('');
     } catch(e) { console.warn('positions fetch failed', e); }
+  }
+
+  async function closePosition(ticker) {
+    if (!confirm(`Close position in ${ticker}?`)) return;
+    try {
+      const r = await fetch(`/api/positions/${encodeURIComponent(ticker)}/close`, {method: 'POST'});
+      const data = await r.json();
+      if (!r.ok) { alert(`Error: ${data.detail || JSON.stringify(data)}`); return; }
+      alert(`Closed ${ticker} — order #${data.order_id}`);
+      refreshPositions();
+    } catch(e) { alert('Request failed: ' + e); }
+  }
+
+  async function closeAllPositions() {
+    if (!confirm('Close ALL open positions?')) return;
+    try {
+      const r = await fetch('/api/positions/close-all', {method: 'POST'});
+      const data = await r.json();
+      const summary = data.closed.map(x => `${x.ticker}: ${x.status}`).join('\n');
+      alert('Results:\n' + summary);
+      refreshPositions();
+    } catch(e) { alert('Request failed: ' + e); }
   }
 
   // ── Signals ───────────────────────────────────────────────────────────────
@@ -337,17 +656,26 @@
   });
 
   // ── SSE ───────────────────────────────────────────────────────────────────
+  let _es = null;
   function connectSSE() {
-    const es = new EventSource('/api/stream');
-    es.addEventListener('status', () => refreshStatus());
-    es.onerror = () => setTimeout(connectSSE, 5000);
+    if (_es) { _es.close(); _es = null; }
+    _es = new EventSource('/api/stream');
+    _es.addEventListener('status', () => refreshStatus());
+    _es.onerror = () => { _es.close(); _es = null; setTimeout(connectSSE, 5000); };
   }
+  // Close SSE when tab is hidden, reconnect when visible — prevents stale connections
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (_es) { _es.close(); _es = null; } }
+    else { connectSSE(); refresh(); }
+  });
 
   // ── Init & poll ───────────────────────────────────────────────────────────
   async function refresh() {
     await Promise.allSettled([
       refreshAccount(),
       refreshStatus(),
+      refreshPnlChart(),
+      refreshIndicators(),
       refreshPositions(),
       refreshSignals(),
       refreshTrades(),

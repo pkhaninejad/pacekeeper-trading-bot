@@ -14,5 +14,5 @@ if __name__ == "__main__":
         "src.dashboard.app:app",
         host=settings.DASHBOARD_HOST,
         port=settings.DASHBOARD_PORT,
-        reload=False,
+        reload=True,
     )

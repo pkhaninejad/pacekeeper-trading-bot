@@ -224,3 +224,58 @@ class TestCheckTakeProfit:
     def test_short_take_profit_not_triggered(self):
         pos = make_position(quantity=-10, averagePrice=100, currentPrice=97, ppl=30)
         assert self.rm.check_take_profit(pos) is False
+
+
+# ---------------------------------------------------------------------------
+# RiskManager earnings window gate
+# ---------------------------------------------------------------------------
+
+from datetime import date, timedelta
+from src.data.earnings_calendar import EarningsInfo
+
+
+def make_earnings_info(ticker: str, in_window: bool) -> dict:
+    return {
+        ticker: EarningsInfo(
+            ticker=ticker,
+            earnings_date=date.today() + timedelta(days=1) if in_window else date.today() + timedelta(days=30),
+            days_until=1 if in_window else 30,
+            in_window=in_window,
+            source="yfinance",
+        )
+    }
+
+
+class TestEarningsWindow:
+    def setup_method(self):
+        self.rm = RiskManager()
+
+    def test_buy_blocked_during_earnings_window(self):
+        signal = make_signal(ticker="AAPL", action="BUY", direction="LONG")
+        earnings = make_earnings_info("AAPL", in_window=True)
+        approved, reason = self.rm.validate(signal, [], make_cash(), earnings_info=earnings)
+        assert approved is False
+        assert "earnings" in reason.lower()
+
+    def test_close_allowed_during_earnings_window(self):
+        signal = make_signal(ticker="AAPL", action="SELL", direction="CLOSE")
+        earnings = make_earnings_info("AAPL", in_window=True)
+        approved, _ = self.rm.validate(signal, [], make_cash(), earnings_info=earnings)
+        assert approved is True
+
+    def test_buy_allowed_outside_earnings_window(self):
+        signal = make_signal(ticker="AAPL", action="BUY", direction="LONG")
+        earnings = make_earnings_info("AAPL", in_window=False)
+        approved, _ = self.rm.validate(signal, [], make_cash(), earnings_info=earnings)
+        assert approved is True
+
+    def test_no_earnings_info_does_not_block(self):
+        signal = make_signal(ticker="AAPL", action="BUY", direction="LONG")
+        approved, _ = self.rm.validate(signal, [], make_cash(), earnings_info=None)
+        assert approved is True
+
+    def test_ticker_not_in_earnings_dict_does_not_block(self):
+        signal = make_signal(ticker="AAPL", action="BUY", direction="LONG")
+        earnings = make_earnings_info("TSLA", in_window=True)  # different ticker
+        approved, _ = self.rm.validate(signal, [], make_cash(), earnings_info=earnings)
+        assert approved is True

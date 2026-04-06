@@ -1,10 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 from datetime import datetime
 
 
 class AccountInfo(BaseModel):
-    id: str
+    id: Union[str, int]
     currencyCode: str
     type: Optional[str] = None
 
@@ -119,3 +119,5 @@ class BotStatus(BaseModel):
     open_positions: int = 0
     signals_generated: int = 0
     environment: str = "demo"
+    market_open: bool = False
+    next_market_open: Optional[datetime] = None

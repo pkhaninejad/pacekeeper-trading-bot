@@ -158,6 +158,12 @@ async def get_pnl_history():
     return engine.pnl_history
 
 
+@app.get("/api/performance", tags=["Bot"])
+async def get_performance():
+    """Full signal outcome history (in-memory, cleared on restart)."""
+    return [o.model_dump() for o in engine._outcome_log]
+
+
 @app.get("/api/signals", tags=["Bot"])
 async def get_signals():
     return [s.model_dump() for s in engine.signals_history]

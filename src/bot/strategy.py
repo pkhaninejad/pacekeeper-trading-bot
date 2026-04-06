@@ -12,6 +12,7 @@ import anthropic
 from src.config.settings import settings
 from src.api.models import Position, CashInfo, TradeSignal, Instrument
 from src.bot.price_feed import get_price_summary
+from src.data.earnings_calendar import EarningsInfo
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +54,13 @@ def _build_market_context(
     cash: CashInfo,
     watchlist: list[str],
     instruments: list[Instrument],
-    price_data: dict,
+    price_data: dict | None = None,
+    earnings_info: dict[str, "EarningsInfo"] | None = None,
 ) -> str:
     """Build the user prompt with current portfolio state."""
+    if price_data is None:
+        price_data = {}
+
     pos_summary = []
     for p in positions:
         pos_summary.append(
@@ -82,6 +87,29 @@ def _build_market_context(
         else:
             price_lines.append(f"  {ticker}: (price data unavailable)")
 
+    # Format earnings calendar section
+    earnings_lines = []
+    if earnings_info:
+        for ticker in watchlist:
+            info = earnings_info.get(ticker)
+            if info is None:
+                continue
+            if info.in_window and info.earnings_date and info.days_until is not None:
+                direction = "in" if info.days_until >= 0 else "ago"
+                count = abs(info.days_until)
+                earnings_lines.append(
+                    f"  \u26a0\ufe0f  {ticker}: earnings {count} day(s) {direction} "
+                    f"({info.earnings_date}) \u2014 new positions blocked by risk manager"
+                )
+            elif info.earnings_date:
+                earnings_lines.append(
+                    f"  \u2705  {ticker}: next earnings {info.earnings_date} \u2014 no restriction"
+                )
+
+    earnings_section = ""
+    if earnings_lines:
+        earnings_section = f"\n=== EARNINGS CALENDAR ===\n{chr(10).join(earnings_lines)}\n"
+
     context = f"""Current datetime (UTC): {datetime.utcnow().isoformat()}
 
 === PORTFOLIO ===
@@ -95,7 +123,7 @@ Open positions ({len(positions)}):
 
 === PRICE FEED (30-day) ===
 {chr(10).join(price_lines) if price_lines else '  (unavailable)'}
-
+{earnings_section}
 === WATCHLIST ===
 {json.dumps({t: instrument_info.get(t, t) for t in watchlist}, indent=2)}
 
@@ -120,10 +148,13 @@ class ClaudeStrategy:
         cash: CashInfo,
         watchlist: list[str],
         instruments: list[Instrument],
+        earnings_info: dict[str, "EarningsInfo"] | None = None,
     ) -> list[TradeSignal]:
         """Call Claude and parse trade signals."""
         price_data = get_price_summary(watchlist)
-        user_prompt = _build_market_context(positions, cash, watchlist, instruments, price_data)
+        user_prompt = _build_market_context(
+            positions, cash, watchlist, instruments, price_data, earnings_info
+        )
 
         logger.info("Calling Claude for trading signals...")
         try:

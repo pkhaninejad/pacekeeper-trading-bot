@@ -16,6 +16,7 @@ from src.bot.strategy import ClaudeStrategy
 from src.bot.risk_manager import RiskManager
 from src.bot.market_hours import is_market_open, next_open
 from src.data.earnings_calendar import EarningsCalendar
+from src.data.news_feed import NewsFeed
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,13 @@ class TradingEngine:
             days_before=settings.EARNINGS_DAYS_BEFORE,
             days_after=settings.EARNINGS_DAYS_AFTER,
             finnhub_api_key=settings.FINNHUB_API_KEY,
+        )
+        self.news = NewsFeed(
+            lookback_days=settings.NEWS_LOOKBACK_DAYS,
+            max_headlines=settings.NEWS_MAX_HEADLINES_PER_TICKER,
+            cache_ttl=settings.NEWS_CACHE_TTL_SECONDS,
+            finnhub_api_key=settings.FINNHUB_API_KEY,
+            news_api_key=settings.NEWS_API_KEY,
         )
         self.status = BotStatus(
             enabled=settings.BOT_ENABLED,
@@ -155,9 +163,12 @@ class TradingEngine:
             # Fetch earnings calendar for watchlist
             earnings_info = self.earnings.get_earnings_info(settings.WATCHLIST)
 
+            # Fetch news headlines for watchlist
+            news_data = self.news.get_news(settings.WATCHLIST)
+
             # 2. Generate new signals via Claude
             signals = self.strategy.generate_signals(
-                positions, cash, settings.WATCHLIST, instruments, earnings_info
+                positions, cash, settings.WATCHLIST, instruments, earnings_info, news_data
             )
             self.status.signals_generated += len(signals)
             self._signals_history.extend(signals)

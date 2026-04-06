@@ -197,3 +197,52 @@ class TestEarningsPromptInjection:
         earnings = make_earnings_info_dict()
         ctx = _build_market_context([], make_cash(), ["AAPL"], [], earnings_info=earnings)
         assert "EARNINGS" in ctx
+
+
+class TestNewsPromptInjection:
+    """Tests for === RECENT NEWS === section in _build_market_context."""
+
+    def _make_context(self, news_data=None):
+        """Helper to call _build_market_context with minimal required args."""
+        from src.bot.strategy import _build_market_context
+        return _build_market_context(
+            positions=[],
+            cash=make_cash(free=1000.0, total=1000.0, invested=0.0, ppl=0.0),
+            watchlist=["AAPL", "NVDA"],
+            instruments=[],
+            news_data=news_data,
+        )
+
+    def test_news_section_present_when_news_data_populated(self):
+        """=== RECENT NEWS === appears in prompt when news_data has items."""
+        from src.data.news_feed import NewsItem
+        from datetime import datetime, timezone, timedelta
+        item = NewsItem(
+            headline="Nvidia beats earnings",
+            source="Reuters",
+            published_at=datetime.now(timezone.utc) - timedelta(hours=2),
+            url="https://example.com",
+        )
+        context = self._make_context(news_data={"AAPL": [], "NVDA": [item]})
+        assert "=== RECENT NEWS ===" in context
+        assert "Nvidia beats earnings" in context
+        assert "Reuters" in context
+
+    def test_no_news_section_when_news_data_is_none(self):
+        """=== RECENT NEWS === is absent when news_data=None."""
+        context = self._make_context(news_data=None)
+        assert "=== RECENT NEWS ===" not in context
+
+    def test_no_recent_news_rendered_for_empty_ticker(self):
+        """Tickers with no items show '(no recent news)'."""
+        context = self._make_context(news_data={"AAPL": [], "NVDA": []})
+        assert "(no recent news)" in context
+
+    def test_format_age_outputs(self):
+        """_format_age returns correct band labels."""
+        from src.bot.strategy import _format_age
+        from datetime import datetime, timezone, timedelta
+        now = datetime.now(timezone.utc)
+        assert _format_age(now - timedelta(minutes=30)) == "30m ago"
+        assert _format_age(now - timedelta(hours=3)) == "3h ago"
+        assert _format_age(now - timedelta(days=2)) == "2d ago"

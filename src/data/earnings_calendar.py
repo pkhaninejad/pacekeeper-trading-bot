@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal, Optional
 
+import requests
+
 try:
     import yfinance as yf
 except ImportError:
@@ -121,4 +123,30 @@ class EarningsCalendar:
 
     def _fetch_finnhub(self, ticker: str) -> Optional[EarningsInfo]:
         """Try Finnhub /calendar/earnings for next earnings date."""
-        raise NotImplementedError
+        try:
+            today = date.today()
+            to_date = today + timedelta(days=90)
+            url = "https://finnhub.io/api/v1/calendar/earnings"
+            params = {
+                "from": today.isoformat(),
+                "to": to_date.isoformat(),
+                "symbol": ticker,
+                "token": self._finnhub_api_key,
+            }
+            resp = requests.get(url, params=params, timeout=5)
+            if resp.status_code != 200:
+                logger.debug("Finnhub returned %s for %s", resp.status_code, ticker)
+                return None
+            data = resp.json()
+            entries = data.get("earningsCalendar", [])
+            if not entries:
+                return None
+            # First entry is the nearest upcoming earnings
+            raw_date = entries[0].get("date")
+            if not raw_date:
+                return None
+            earnings_date = date.fromisoformat(raw_date)
+            return self._build_info(ticker, earnings_date, "finnhub")
+        except Exception as e:
+            logger.debug("Finnhub earnings fetch failed for %s: %s", ticker, e)
+            return None

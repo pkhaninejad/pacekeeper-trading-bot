@@ -97,3 +97,72 @@ class TestFetchYfinance:
             cal.get_next_earnings("AAPL")
             cal.get_next_earnings("AAPL")
             assert mock_yf.call_count == 1  # only fetched once
+
+
+class TestFetchFinnhub:
+    def setup_method(self):
+        _cache.clear()
+
+    def test_finnhub_used_when_yfinance_returns_none(self):
+        future_date = date.today() + timedelta(days=5)
+        finnhub_response = {
+            "earningsCalendar": [
+                {
+                    "symbol": "AAPL",
+                    "date": future_date.isoformat(),
+                    "epsActual": None,
+                    "epsEstimate": 1.5,
+                }
+            ]
+        }
+        mock_ticker = MagicMock()
+        mock_ticker.calendar = {}  # yfinance returns nothing
+
+        with patch("src.data.earnings_calendar.yf.Ticker", return_value=mock_ticker):
+            with patch("src.data.earnings_calendar.requests.get") as mock_get:
+                mock_get.return_value.status_code = 200
+                mock_get.return_value.json.return_value = finnhub_response
+
+                cal = EarningsCalendar(finnhub_api_key="test-key")
+                info = cal._fetch("AAPL")
+
+        assert info.earnings_date == future_date
+        assert info.source == "finnhub"
+
+    def test_finnhub_skipped_when_no_api_key(self):
+        mock_ticker = MagicMock()
+        mock_ticker.calendar = {}
+
+        with patch("src.data.earnings_calendar.yf.Ticker", return_value=mock_ticker):
+            with patch("src.data.earnings_calendar.requests.get") as mock_get:
+                cal = EarningsCalendar(finnhub_api_key="")
+                info = cal._fetch("AAPL")
+
+        mock_get.assert_not_called()
+        assert info.source == "unavailable"
+
+    def test_both_fail_returns_unavailable_not_in_window(self):
+        mock_ticker = MagicMock()
+        mock_ticker.calendar = {}
+
+        with patch("src.data.earnings_calendar.yf.Ticker", return_value=mock_ticker):
+            with patch("src.data.earnings_calendar.requests.get", side_effect=Exception("timeout")):
+                cal = EarningsCalendar(finnhub_api_key="test-key")
+                info = cal._fetch("AAPL")
+
+        assert info.in_window is False
+        assert info.source == "unavailable"
+
+    def test_finnhub_empty_calendar_returns_unavailable(self):
+        mock_ticker = MagicMock()
+        mock_ticker.calendar = {}
+
+        with patch("src.data.earnings_calendar.yf.Ticker", return_value=mock_ticker):
+            with patch("src.data.earnings_calendar.requests.get") as mock_get:
+                mock_get.return_value.status_code = 200
+                mock_get.return_value.json.return_value = {"earningsCalendar": []}
+
+                cal = EarningsCalendar(finnhub_api_key="test-key")
+                info = cal._fetch("AAPL")
+
+        assert info.source == "unavailable"

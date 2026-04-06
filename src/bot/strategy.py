@@ -138,7 +138,7 @@ def _build_market_context(
             news_lines.append("")  # blank line between tickers
         news_section = f"\n=== RECENT NEWS ===\n{chr(10).join(news_lines)}"
 
-    context = f"""Current datetime (UTC): {datetime.utcnow().isoformat()}
+    context = f"""Current datetime (UTC): {datetime.now(UTC).isoformat()}
 
 === PORTFOLIO ===
 Free cash: {cash.free:.2f}

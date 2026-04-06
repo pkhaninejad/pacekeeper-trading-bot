@@ -252,7 +252,8 @@ class TradingEngine:
 
             # 2. Generate new signals via Claude
             signals = self.strategy.generate_signals(
-                positions, cash, settings.WATCHLIST, instruments, earnings_info, news_data
+                positions, cash, settings.WATCHLIST, instruments, earnings_info, news_data,
+                outcome_log=self.outcome_log,
             )
             self.status.signals_generated += len(signals)
             self._signals_history.extend(signals)

@@ -60,6 +60,69 @@ def _format_age(published_at: "datetime") -> str:
     return f"{seconds // 86400}d ago"
 
 
+def _build_performance_summary(outcome_log: list) -> str:
+    """Compute a performance summary string for the Claude prompt.
+
+    Returns an empty string if fewer than 5 closed trades exist.
+    """
+    closed = [o for o in outcome_log if o.outcome != "OPEN"]
+    if len(closed) < 5:
+        return ""
+
+    open_count = sum(1 for o in outcome_log if o.outcome == "OPEN")
+    recent = closed[-20:]
+    wins = [o for o in recent if o.outcome == "TP_HIT"]
+    losses = [o for o in recent if o.outcome != "TP_HIT"]
+    win_rate = len(wins) / len(recent) * 100
+
+    buy_recent = [o for o in recent if o.action == "BUY"]
+    sell_recent = [o for o in recent if o.action == "SELL"]
+    buy_wins = sum(1 for o in buy_recent if o.outcome == "TP_HIT")
+    sell_wins = sum(1 for o in sell_recent if o.outcome == "TP_HIT")
+
+    avg_win = (sum(o.pnl_pct for o in wins if o.pnl_pct is not None) / len(wins)) if wins else 0.0
+    avg_loss = (sum(o.pnl_pct for o in losses if o.pnl_pct is not None) / len(losses)) if losses else 0.0
+    expectancy = (win_rate / 100 * avg_win) + ((1 - win_rate / 100) * avg_loss)
+
+    lines = [
+        f"=== YOUR RECENT SIGNAL PERFORMANCE (last {len(recent)} trades) ===",
+        f"  Overall: {len(wins)} wins / {len(losses)} losses / {open_count} open  (win rate {win_rate:.0f}%)",
+    ]
+    if buy_recent:
+        buy_label = "well calibrated" if buy_wins / len(buy_recent) >= 0.5 else "consider raising confidence threshold"
+        lines.append(
+            f"  BUY signals:  {buy_wins}W / {len(buy_recent) - buy_wins}L"
+            f"  ({buy_wins / len(buy_recent) * 100:.0f}% — {buy_label})"
+        )
+    if sell_recent:
+        sell_label = "well calibrated" if sell_wins / len(sell_recent) >= 0.5 else "consider raising confidence threshold for shorts"
+        lines.append(
+            f"  SELL signals: {sell_wins}W / {len(sell_recent) - sell_wins}L"
+            f"  ({sell_wins / len(sell_recent) * 100:.0f}% — {sell_label})"
+        )
+    lines.append(
+        f"  Avg winner: +{avg_win:.1f}%  |  Avg loser: {avg_loss:.1f}%  |  Expectancy: {expectancy:+.1f}%/trade"
+    )
+
+    recent_losses = [o for o in reversed(closed) if o.outcome != "TP_HIT"][:3]
+    if recent_losses:
+        lines.append("")
+        lines.append("  Recent losses:")
+        now = datetime.now(UTC)
+        for o in recent_losses:
+            age = ""
+            if o.closed_at:
+                closed_at = o.closed_at if o.closed_at.tzinfo else o.closed_at.replace(tzinfo=UTC)
+                days = (now - closed_at).days
+                age = f" — {days} day{'s' if days != 1 else ''} ago"
+            pnl = f"{o.pnl_pct:.1f}%" if o.pnl_pct is not None else "n/a"
+            lines.append(
+                f"    {o.ticker} {o.direction} (conf={o.confidence:.2f}) → {o.outcome} {pnl}{age}"
+            )
+
+    return "\n".join(lines)
+
+
 def _build_market_context(
     positions: list[Position],
     cash: CashInfo,
@@ -68,6 +131,7 @@ def _build_market_context(
     price_data: dict | None = None,
     earnings_info: dict[str, "EarningsInfo"] | None = None,
     news_data: dict[str, list["NewsItem"]] | None = None,
+    outcome_log: list | None = None,
 ) -> str:
     """Build the user prompt with current portfolio state."""
     if price_data is None:
@@ -138,6 +202,12 @@ def _build_market_context(
             news_lines.append("")  # blank line between tickers
         news_section = f"\n=== RECENT NEWS ===\n{chr(10).join(news_lines)}"
 
+    perf_section = ""
+    if outcome_log:
+        summary = _build_performance_summary(outcome_log)
+        if summary:
+            perf_section = f"\n{summary}\n"
+
     context = f"""Current datetime (UTC): {datetime.now(UTC).isoformat()}
 
 === PORTFOLIO ===
@@ -151,7 +221,7 @@ Open positions ({len(positions)}):
 
 === PRICE FEED (30-day) ===
 {chr(10).join(price_lines) if price_lines else '  (unavailable)'}
-{earnings_section}{news_section}
+{earnings_section}{news_section}{perf_section}
 === WATCHLIST ===
 {json.dumps({t: instrument_info.get(t, t) for t in watchlist}, indent=2)}
 
@@ -178,11 +248,12 @@ class ClaudeStrategy:
         instruments: list[Instrument],
         earnings_info: dict[str, "EarningsInfo"] | None = None,
         news_data: dict[str, list["NewsItem"]] | None = None,
+        outcome_log: list | None = None,
     ) -> list[TradeSignal]:
         """Call Claude and parse trade signals."""
         price_data = get_price_summary(watchlist)
         user_prompt = _build_market_context(
-            positions, cash, watchlist, instruments, price_data, earnings_info, news_data
+            positions, cash, watchlist, instruments, price_data, earnings_info, news_data, outcome_log
         )
 
         logger.info("Calling Claude for trading signals...")

@@ -246,3 +246,66 @@ class TestNewsPromptInjection:
         assert _format_age(now - timedelta(minutes=30)) == "30m ago"
         assert _format_age(now - timedelta(hours=3)) == "3h ago"
         assert _format_age(now - timedelta(days=2)) == "2d ago"
+
+
+class TestPerformanceSummaryInjection:
+    def _make_outcomes(self, n_wins: int, n_losses: int) -> list:
+        from src.api.models import TradeOutcome
+        from datetime import datetime, UTC, timedelta
+        outcomes = []
+        base = datetime(2026, 4, 1, 10, 0, 0, tzinfo=UTC)
+        for i in range(n_wins):
+            outcomes.append(TradeOutcome(
+                ticker="AAPL", action="BUY", direction="LONG", confidence=0.8,
+                outcome="TP_HIT", pnl_pct=4.0,
+                opened_at=base + timedelta(hours=i),
+                closed_at=base + timedelta(hours=i, minutes=30),
+            ))
+        for i in range(n_losses):
+            outcomes.append(TradeOutcome(
+                ticker="TSLA", action="SELL", direction="SHORT", confidence=0.7,
+                outcome="SL_HIT", pnl_pct=-2.0,
+                opened_at=base + timedelta(hours=n_wins + i),
+                closed_at=base + timedelta(hours=n_wins + i, minutes=30),
+            ))
+        return outcomes
+
+    def test_no_section_when_fewer_than_5_closed(self):
+        outcomes = self._make_outcomes(n_wins=2, n_losses=2)
+        ctx = _build_market_context([], make_cash(), ["AAPL"], [], outcome_log=outcomes)
+        assert "SIGNAL PERFORMANCE" not in ctx
+
+    def test_section_present_when_5_or_more_closed(self):
+        outcomes = self._make_outcomes(n_wins=3, n_losses=3)
+        ctx = _build_market_context([], make_cash(), ["AAPL"], [], outcome_log=outcomes)
+        assert "=== YOUR RECENT SIGNAL PERFORMANCE" in ctx
+        assert "win rate" in ctx.lower()
+
+    def test_win_rate_computed_correctly(self):
+        outcomes = self._make_outcomes(n_wins=6, n_losses=4)
+        ctx = _build_market_context([], make_cash(), ["AAPL"], [], outcome_log=outcomes)
+        assert "60%" in ctx
+
+    def test_recent_losses_listed(self):
+        outcomes = self._make_outcomes(n_wins=3, n_losses=5)
+        ctx = _build_market_context([], make_cash(), ["AAPL", "TSLA"], [], outcome_log=outcomes)
+        assert "SL_HIT" in ctx
+        assert "TSLA" in ctx
+
+    def test_no_section_when_outcome_log_is_none(self):
+        ctx = _build_market_context([], make_cash(), ["AAPL"], [], outcome_log=None)
+        assert "SIGNAL PERFORMANCE" not in ctx
+
+    def test_open_outcomes_excluded_from_win_loss_count(self):
+        from src.api.models import TradeOutcome
+        from datetime import datetime, UTC
+        now = datetime(2026, 4, 1, 10, 0, 0, tzinfo=UTC)
+        outcomes = self._make_outcomes(n_wins=5, n_losses=0)
+        for _ in range(3):
+            outcomes.append(TradeOutcome(
+                ticker="NVDA", action="BUY", direction="LONG",
+                confidence=0.8, opened_at=now,
+            ))
+        ctx = _build_market_context([], make_cash(), ["AAPL"], [], outcome_log=outcomes)
+        assert "5 wins" in ctx
+        assert "0 losses" in ctx

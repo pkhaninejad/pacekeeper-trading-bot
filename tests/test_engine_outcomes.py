@@ -80,3 +80,87 @@ class TestExecuteSignalCreatesOpenOutcome:
         await engine._execute_signal(mock_client, signal, make_cash(), [])
 
         assert engine._outcome_log == []
+
+
+class TestUpdateOutcome:
+    def test_updates_most_recent_open_for_ticker(self):
+        engine = TradingEngine()
+        now = datetime.now(UTC)
+        engine._outcome_log.append(TradeOutcome(
+            ticker="NVDA", action="BUY", direction="LONG",
+            confidence=0.8, opened_at=now,
+        ))
+        engine._update_outcome("NVDA", "TP_HIT", pnl_pct=4.0)
+        o = engine._outcome_log[0]
+        assert o.outcome == "TP_HIT"
+        assert o.pnl_pct == 4.0
+        assert o.closed_at is not None
+
+    def test_ignores_already_closed_outcomes(self):
+        engine = TradingEngine()
+        now = datetime.now(UTC)
+        engine._outcome_log.append(TradeOutcome(
+            ticker="NVDA", action="BUY", direction="LONG",
+            confidence=0.8, opened_at=now, outcome="TP_HIT",
+            pnl_pct=4.0, closed_at=now,
+        ))
+        engine._outcome_log.append(TradeOutcome(
+            ticker="NVDA", action="BUY", direction="LONG",
+            confidence=0.75, opened_at=now,
+        ))
+        engine._update_outcome("NVDA", "SL_HIT", pnl_pct=-2.0)
+        assert engine._outcome_log[0].outcome == "TP_HIT"   # unchanged
+        assert engine._outcome_log[1].outcome == "SL_HIT"
+
+    def test_no_open_outcome_for_ticker_is_noop(self):
+        engine = TradingEngine()
+        engine._update_outcome("NVDA", "SL_HIT", pnl_pct=-2.0)  # must not raise
+        assert engine._outcome_log == []
+
+
+class TestManageExitsUpdatesOutcomes:
+    @pytest.mark.asyncio
+    async def test_stop_loss_sets_sl_hit(self):
+        from unittest.mock import patch
+        engine = TradingEngine()
+        now = datetime.now(UTC)
+        engine._outcome_log.append(TradeOutcome(
+            ticker="NVDA", action="BUY", direction="LONG",
+            confidence=0.8, opened_at=now,
+        ))
+        pos = make_position(ticker="NVDA_US_EQ", quantity=10.0,
+                            averagePrice=100.0, currentPrice=97.9, ppl=-21.0)
+        mock_client = MagicMock()
+        mock_client.place_market_order = AsyncMock(return_value=make_order())
+
+        with patch.object(engine.risk, "check_stop_loss", return_value=True):
+            with patch.object(engine.risk, "check_take_profit", return_value=False):
+                await engine._manage_exits(mock_client, [pos])
+
+        o = engine._outcome_log[0]
+        assert o.outcome == "SL_HIT"
+        assert o.ticker == "NVDA"
+        assert o.pnl_pct == pytest.approx(-2.1, abs=0.1)
+        assert o.closed_at is not None
+
+    @pytest.mark.asyncio
+    async def test_take_profit_sets_tp_hit(self):
+        from unittest.mock import patch
+        engine = TradingEngine()
+        now = datetime.now(UTC)
+        engine._outcome_log.append(TradeOutcome(
+            ticker="NVDA", action="BUY", direction="LONG",
+            confidence=0.8, opened_at=now,
+        ))
+        pos = make_position(ticker="NVDA_US_EQ", quantity=10.0,
+                            averagePrice=100.0, currentPrice=104.0, ppl=40.0)
+        mock_client = MagicMock()
+        mock_client.place_market_order = AsyncMock(return_value=make_order())
+
+        with patch.object(engine.risk, "check_stop_loss", return_value=False):
+            with patch.object(engine.risk, "check_take_profit", return_value=True):
+                await engine._manage_exits(mock_client, [pos])
+
+        o = engine._outcome_log[0]
+        assert o.outcome == "TP_HIT"
+        assert o.pnl_pct == pytest.approx(4.0, abs=0.1)

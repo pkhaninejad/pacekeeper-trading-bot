@@ -294,6 +294,9 @@ class TradingEngine:
                         "timestamp": datetime.now(UTC).isoformat(),
                     })
                     self.status.total_trades_today += 1
+                    short_ticker = pos.ticker.split("_")[0]
+                    outcome_type = "TP_HIT" if exit_reason == "take-profit" else "SL_HIT"
+                    self._update_outcome(short_ticker, outcome_type, pnl_pct=pos.pnl_pct)
                 except Exception as e:
                     logger.error("Failed to close %s: %s", pos.ticker, e)
 
@@ -376,3 +379,12 @@ class TradingEngine:
     def _log_trade(self, entry: dict):
         self._trade_log.append(entry)
         logger.info("Trade logged: %s", entry)
+
+    def _update_outcome(self, ticker: str, outcome: str, pnl_pct: float | None):
+        """Find the last OPEN outcome for ticker and close it."""
+        for entry in reversed(self._outcome_log):
+            if entry.ticker == ticker and entry.outcome == "OPEN":
+                entry.outcome = outcome
+                entry.pnl_pct = pnl_pct
+                entry.closed_at = datetime.now(UTC)
+                return

@@ -164,3 +164,66 @@ class TestManageExitsUpdatesOutcomes:
         o = engine._outcome_log[0]
         assert o.outcome == "TP_HIT"
         assert o.pnl_pct == pytest.approx(4.0, abs=0.1)
+
+
+class TestClosePositionUpdatesOutcome:
+    @pytest.mark.asyncio
+    async def test_close_position_sets_manual_close(self):
+        from unittest.mock import patch
+        engine = TradingEngine()
+        engine._ticker_map["NVDA"] = "NVDA_US_EQ"
+        now = datetime.now(UTC)
+        engine._outcome_log.append(TradeOutcome(
+            ticker="NVDA", action="BUY", direction="LONG",
+            confidence=0.8, opened_at=now,
+        ))
+        pos = make_position(ticker="NVDA_US_EQ", quantity=10.0,
+                            averagePrice=100.0, currentPrice=103.0, ppl=30.0)
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get_positions = AsyncMock(return_value=[pos])
+        mock_client.get_cash = AsyncMock(return_value=make_cash())
+        mock_client.place_market_order = AsyncMock(return_value=make_order(id=99))
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            await engine.close_position("NVDA")
+
+        o = engine._outcome_log[0]
+        assert o.outcome == "MANUAL_CLOSE"
+        assert o.pnl_pct == pytest.approx(3.0, abs=0.1)
+        assert o.closed_at is not None
+
+    @pytest.mark.asyncio
+    async def test_close_all_positions_sets_manual_close_for_each(self):
+        from unittest.mock import patch
+        engine = TradingEngine()
+        now = datetime.now(UTC)
+        engine._outcome_log.append(TradeOutcome(
+            ticker="NVDA", action="BUY", direction="LONG",
+            confidence=0.8, opened_at=now,
+        ))
+        engine._outcome_log.append(TradeOutcome(
+            ticker="AAPL", action="BUY", direction="LONG",
+            confidence=0.75, opened_at=now,
+        ))
+        pos1 = make_position(ticker="NVDA_US_EQ", quantity=10.0,
+                             averagePrice=100.0, currentPrice=104.0, ppl=40.0)
+        pos2 = make_position(ticker="AAPL_US_EQ", quantity=5.0,
+                             averagePrice=150.0, currentPrice=153.0, ppl=15.0)
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get_positions = AsyncMock(return_value=[pos1, pos2])
+        mock_client.get_cash = AsyncMock(return_value=make_cash())
+        mock_client.place_market_order = AsyncMock(side_effect=[
+            make_order(id=101), make_order(id=102),
+        ])
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            await engine.close_all_positions()
+
+        nvda_o = next(o for o in engine._outcome_log if o.ticker == "NVDA")
+        aapl_o = next(o for o in engine._outcome_log if o.ticker == "AAPL")
+        assert nvda_o.outcome == "MANUAL_CLOSE"
+        assert aapl_o.outcome == "MANUAL_CLOSE"

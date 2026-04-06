@@ -132,6 +132,7 @@ class TradingEngine:
                 "order_id": order.id,
                 "timestamp": now.isoformat(),
             })
+            self._update_outcome(ticker, "MANUAL_CLOSE", pnl_pct=pos.pnl_pct)
             self.status.total_trades_today += 1
             cash = await client.get_cash()
             self._pnl_history.append({
@@ -165,6 +166,7 @@ class TradingEngine:
                         "order_id": order.id,
                         "timestamp": now.isoformat(),
                     })
+                    self._update_outcome(short_ticker, "MANUAL_CLOSE", pnl_pct=pos.pnl_pct)
                     self.status.total_trades_today += 1
                     results.append({"ticker": short_ticker, "order_id": order.id, "status": "closed"})
                 except Exception as e:
@@ -323,8 +325,9 @@ class TradingEngine:
             price = signal.suggested_price or 100.0  # fallback
             quantity = self.risk.compute_quantity(signal, cash, price)
 
+        quantity = round(quantity, 2)
         logger.info(
-            "Executing %s %s %s qty=%.4f confidence=%.2f",
+            "Executing %s %s %s qty=%.2f confidence=%.2f",
             signal.order_type, signal.action, signal.ticker, quantity, signal.confidence,
         )
 

@@ -15,6 +15,7 @@ from src.api.models import (
 from src.bot.strategy import ClaudeStrategy
 from src.bot.risk_manager import RiskManager
 from src.bot.market_hours import is_market_open, next_open
+from src.data.earnings_calendar import EarningsCalendar
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,11 @@ class TradingEngine:
     def __init__(self):
         self.strategy = ClaudeStrategy()
         self.risk = RiskManager()
+        self.earnings = EarningsCalendar(
+            days_before=settings.EARNINGS_DAYS_BEFORE,
+            days_after=settings.EARNINGS_DAYS_AFTER,
+            finnhub_api_key=settings.FINNHUB_API_KEY,
+        )
         self.status = BotStatus(
             enabled=settings.BOT_ENABLED,
             environment=settings.T212_ENV,
@@ -146,16 +152,19 @@ class TradingEngine:
             # Refresh positions after exits
             positions = await client.get_positions()
 
+            # Fetch earnings calendar for watchlist
+            earnings_info = self.earnings.get_earnings_info(settings.WATCHLIST)
+
             # 2. Generate new signals via Claude
             signals = self.strategy.generate_signals(
-                positions, cash, settings.WATCHLIST, instruments
+                positions, cash, settings.WATCHLIST, instruments, earnings_info
             )
             self.status.signals_generated += len(signals)
             self._signals_history.extend(signals)
 
             # 3. Execute approved signals
             for signal in signals:
-                approved, reason = self.risk.validate(signal, positions, cash)
+                approved, reason = self.risk.validate(signal, positions, cash, earnings_info)
                 if not approved:
                     logger.info("Signal rejected [%s]: %s", signal.ticker, reason)
                     continue

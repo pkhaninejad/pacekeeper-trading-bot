@@ -121,3 +121,14 @@ class BotStatus(BaseModel):
     environment: str = "demo"
     market_open: bool = False
     next_market_open: Optional[datetime] = None
+
+
+class TradeOutcome(BaseModel):
+    ticker: str
+    action: str                    # "BUY" or "SELL"
+    direction: str                 # "LONG" or "SHORT"
+    confidence: float
+    outcome: Literal["TP_HIT", "SL_HIT", "MANUAL_CLOSE", "OPEN"] = "OPEN"
+    pnl_pct: Optional[float] = None
+    opened_at: datetime
+    closed_at: Optional[datetime] = None

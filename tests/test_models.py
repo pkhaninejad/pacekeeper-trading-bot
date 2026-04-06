@@ -5,6 +5,7 @@ from datetime import datetime
 from src.api.models import (
     Position, TradeSignal, CashInfo, Order, Instrument,
     MarketOrderRequest, LimitOrderRequest, StopOrderRequest, BotStatus,
+    TradeOutcome,
 )
 
 
@@ -122,3 +123,35 @@ class TestBotStatus:
         assert status.environment == "demo"
         assert status.last_run is None
         assert status.next_run is None
+
+
+class TestTradeOutcome:
+    def test_defaults(self):
+        outcome = TradeOutcome(
+            ticker="NVDA", action="BUY", direction="LONG",
+            confidence=0.8, opened_at=datetime(2026, 4, 6, 10, 0, 0),
+        )
+        assert outcome.outcome == "OPEN"
+        assert outcome.pnl_pct is None
+        assert outcome.closed_at is None
+
+    def test_closed_outcome(self):
+        now = datetime(2026, 4, 6, 12, 0, 0)
+        outcome = TradeOutcome(
+            ticker="AAPL", action="SELL", direction="SHORT",
+            confidence=0.72, opened_at=datetime(2026, 4, 5, 10, 0, 0),
+            outcome="SL_HIT", pnl_pct=-2.0, closed_at=now,
+        )
+        assert outcome.outcome == "SL_HIT"
+        assert outcome.pnl_pct == -2.0
+        assert outcome.closed_at == now
+
+    def test_tp_hit_outcome(self):
+        outcome = TradeOutcome(
+            ticker="TSLA", action="BUY", direction="LONG",
+            confidence=0.9, opened_at=datetime(2026, 4, 1, 9, 30, 0),
+            outcome="TP_HIT", pnl_pct=4.1,
+            closed_at=datetime(2026, 4, 3, 14, 0, 0),
+        )
+        assert outcome.outcome == "TP_HIT"
+        assert outcome.pnl_pct == pytest.approx(4.1)

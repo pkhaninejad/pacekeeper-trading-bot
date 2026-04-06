@@ -15,6 +15,11 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Literal, Optional
 
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 CACHE_TTL_HOURS = 24
@@ -91,7 +96,28 @@ class EarningsCalendar:
 
     def _fetch_yfinance(self, ticker: str) -> Optional[EarningsInfo]:
         """Try yfinance ticker.calendar for next earnings date."""
-        raise NotImplementedError
+        if yf is None:
+            return None
+        try:
+            t = yf.Ticker(ticker)
+            cal = t.calendar
+            if not cal or "Earnings Date" not in cal:
+                return None
+            dates = cal["Earnings Date"]
+            if not dates:
+                return None
+            # calendar returns a list; take the first (soonest) entry
+            raw = dates[0]
+            if hasattr(raw, "date"):
+                earnings_date = raw.date()
+            elif isinstance(raw, date):
+                earnings_date = raw
+            else:
+                return None
+            return self._build_info(ticker, earnings_date, "yfinance")
+        except Exception as e:
+            logger.debug("yfinance earnings fetch failed for %s: %s", ticker, e)
+            return None
 
     def _fetch_finnhub(self, ticker: str) -> Optional[EarningsInfo]:
         """Try Finnhub /calendar/earnings for next earnings date."""

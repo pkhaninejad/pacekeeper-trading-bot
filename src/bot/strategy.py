@@ -6,8 +6,7 @@ Uses Claude to analyse market conditions and generate long/short signals.
 
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import UTC, datetime
 import anthropic
 from src.config.settings import settings
 from src.api.models import Position, CashInfo, TradeSignal, Instrument
@@ -52,7 +51,7 @@ Return a JSON array of TradeSignal objects — one per ticker you have a view on
 
 def _format_age(published_at: "datetime") -> str:
     """Return human-readable relative age string e.g. '2h ago', '1d ago'."""
-    delta = datetime.utcnow() - published_at.replace(tzinfo=None)
+    delta = datetime.now(UTC) - published_at.astimezone(UTC)
     seconds = int(delta.total_seconds())
     if seconds < 3600:
         return f"{seconds // 60}m ago"

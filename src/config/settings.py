@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     BLOCK_NEW_POSITIONS_ON_EARNINGS: bool = True
     FINNHUB_API_KEY: str = ""               # optional; enables Finnhub fallback
 
+    # News feed
+    NEWS_API_KEY: str = ""                  # optional NewsAPI.org fallback
+    NEWS_LOOKBACK_DAYS: int = 3             # filter headlines older than N days
+    NEWS_MAX_HEADLINES_PER_TICKER: int = 5  # cap per ticker per cycle
+    NEWS_CACHE_TTL_SECONDS: int = 900       # 15-minute default
+
     # Dashboard
     DASHBOARD_HOST: str = "0.0.0.0"
     DASHBOARD_PORT: int = 4000

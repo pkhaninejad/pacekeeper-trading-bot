@@ -79,6 +79,7 @@ class EarningsCalendar:
         """Compute days_until and in_window from an earnings date."""
         today = date.today()
         days_until = (earnings_date - today).days
+        # days_until < 0 means earnings passed; window spans [−days_after, days_before]
         in_window = -self.days_after <= days_until <= self.days_before
         return EarningsInfo(
             ticker=ticker,

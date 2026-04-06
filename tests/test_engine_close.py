@@ -115,3 +115,67 @@ class TestClosePosition:
         # Nothing logged
         assert engine._trade_log == []
         assert engine._pnl_history == []
+
+
+# ---------------------------------------------------------------------------
+# close_all_positions()
+# ---------------------------------------------------------------------------
+
+class TestCloseAllPositions:
+    @pytest.mark.asyncio
+    async def test_close_all_logs_trades_and_pnl(self):
+        """Two open positions: both logged, one PnL snapshot at the end."""
+        pos1 = make_position(ticker="NVDA_US_EQ", quantity=10.0)
+        pos2 = make_position(ticker="AAPL_US_EQ", quantity=5.0)
+        cash = make_cash(ppl=800.0, total=20_800.0, invested=20_000.0)
+
+        order1 = make_order(id=101, ticker="NVDA_US_EQ", orderedQuantity=-10.0)
+        order2 = make_order(id=102, ticker="AAPL_US_EQ", orderedQuantity=-5.0)
+
+        mock_client = make_mock_client(
+            positions=[pos1, pos2],
+            cash=cash,
+        )
+        # Return different orders for each call
+        mock_client.place_market_order = AsyncMock(side_effect=[order1, order2])
+
+        engine = TradingEngine()
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            results = await engine.close_all_positions()
+
+        # Both trades logged
+        assert len(engine._trade_log) == 2
+        assert engine._trade_log[0]["action"] == "MANUAL_CLOSE"
+        assert engine._trade_log[1]["action"] == "MANUAL_CLOSE"
+
+        # One PnL snapshot at the end
+        assert len(engine._pnl_history) == 1
+        assert engine._pnl_history[0]["ppl"] == 800.0
+
+        # Result list
+        assert len(results) == 2
+        assert results[0]["status"] == "closed"
+        assert results[1]["status"] == "closed"
+
+    @pytest.mark.asyncio
+    async def test_close_all_handles_partial_failure(self):
+        """If one position fails to close, error is captured; others still close."""
+        pos1 = make_position(ticker="NVDA_US_EQ", quantity=10.0)
+        pos2 = make_position(ticker="AAPL_US_EQ", quantity=5.0)
+        cash = make_cash()
+
+        mock_client = make_mock_client(positions=[pos1, pos2], cash=cash)
+        mock_client.place_market_order = AsyncMock(
+            side_effect=[Exception("T212 error"), make_order(id=102)]
+        )
+
+        engine = TradingEngine()
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            results = await engine.close_all_positions()
+
+        assert results[0]["status"] == "error"
+        assert results[1]["status"] == "closed"
+        # Only successful close is logged
+        assert len(engine._trade_log) == 1

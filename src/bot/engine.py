@@ -137,6 +137,43 @@ class TradingEngine:
             })
             return {"message": f"Closed {ticker}", "order_id": order.id}
 
+    async def close_all_positions(self) -> list[dict]:
+        """Close all open positions. Logs each successful close.
+        Appends one PnL snapshot after all closes attempt.
+        Per-position errors are captured and returned as error entries.
+        """
+        async with Trading212Client() as client:
+            positions = await client.get_positions()
+            results = []
+            for pos in positions:
+                short_ticker = pos.ticker.split("_")[0]
+                try:
+                    quantity = -pos.quantity
+                    order = await client.place_market_order(
+                        MarketOrderRequest(ticker=pos.ticker, quantity=quantity)
+                    )
+                    now = datetime.now(UTC)
+                    self._log_trade({
+                        "action": "MANUAL_CLOSE",
+                        "ticker": short_ticker,
+                        "quantity": quantity,
+                        "order_id": order.id,
+                        "timestamp": now.isoformat(),
+                    })
+                    self.status.total_trades_today += 1
+                    results.append({"ticker": short_ticker, "order_id": order.id, "status": "closed"})
+                except Exception as e:
+                    results.append({"ticker": short_ticker, "status": "error", "detail": str(e)})
+
+            cash = await client.get_cash()
+            self._pnl_history.append({
+                "t": datetime.now(UTC).isoformat(),
+                "ppl": round(cash.ppl, 2),
+                "total": round(cash.total, 2),
+                "invested": round(cash.invested, 2),
+            })
+            return results
+
     # -------------------------------------------------------------------------
     # Core cycle
     # -------------------------------------------------------------------------

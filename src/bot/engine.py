@@ -73,7 +73,7 @@ class TradingEngine:
                 await self._cycle()
             except Exception as e:
                 logger.error("Engine cycle error: %s", e, exc_info=True)
-            self.status.next_run = datetime.utcnow().replace(
+            self.status.next_run = datetime.now(UTC).replace(
                 second=0, microsecond=0
             )
             await asyncio.sleep(settings.TRADE_INTERVAL_SECONDS)
@@ -165,13 +165,17 @@ class TradingEngine:
                 except Exception as e:
                     results.append({"ticker": short_ticker, "status": "error", "detail": str(e)})
 
-            cash = await client.get_cash()
-            self._pnl_history.append({
-                "t": datetime.now(UTC).isoformat(),
-                "ppl": round(cash.ppl, 2),
-                "total": round(cash.total, 2),
-                "invested": round(cash.invested, 2),
-            })
+            if positions:
+                try:
+                    cash = await client.get_cash()
+                    self._pnl_history.append({
+                        "t": datetime.now(UTC).isoformat(),
+                        "ppl": round(cash.ppl, 2),
+                        "total": round(cash.total, 2),
+                        "invested": round(cash.invested, 2),
+                    })
+                except Exception as e:
+                    logger.warning("Could not fetch cash after close-all: %s", e)
             return results
 
     # -------------------------------------------------------------------------
@@ -195,7 +199,7 @@ class TradingEngine:
                 return
 
         logger.info("=== Trading cycle started ===")
-        self.status.last_run = datetime.utcnow()
+        self.status.last_run = datetime.now(UTC)
 
         async with Trading212Client() as client:
             # Fetch market state
@@ -216,12 +220,12 @@ class TradingEngine:
             self.status.total_pnl = cash.ppl
 
             # Snapshot P&L — reset each new trading day
-            today = datetime.utcnow().strftime("%Y-%m-%d")
+            today = datetime.now(UTC).strftime("%Y-%m-%d")
             if today != self._session_date:
                 self._session_date = today
                 self._pnl_history = []
             self._pnl_history.append({
-                "t": datetime.utcnow().isoformat(),
+                "t": datetime.now(UTC).isoformat(),
                 "ppl": round(cash.ppl, 2),
                 "total": round(cash.total, 2),
                 "invested": round(cash.invested, 2),
@@ -282,7 +286,7 @@ class TradingEngine:
                         "quantity": close_qty,
                         "reason": exit_reason,
                         "order_id": order.id,
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     })
                     self.status.total_trades_today += 1
                 except Exception as e:
@@ -350,7 +354,7 @@ class TradingEngine:
                     "confidence": signal.confidence,
                     "reasoning": signal.reasoning,
                     "order_id": order.id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 })
 
         except Exception as e:

@@ -85,8 +85,6 @@ class TradingEngine:
 
     def toggle(self) -> bool:
         self.status.enabled = not self.status.enabled
-        if not self.status.enabled:
-            self.stop()
         return self.status.enabled
 
     @property

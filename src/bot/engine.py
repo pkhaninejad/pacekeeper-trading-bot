@@ -100,9 +100,12 @@ class TradingEngine:
         self.status.next_market_open = None if open_now else next_open()
 
         if not open_now:
-            nxt = self.status.next_market_open
-            logger.info("Market closed — skipping cycle (next open: %s ET)", nxt)
-            return
+            if settings.SKIP_MARKET_HOURS_CHECK:
+                logger.warning("Market closed but SKIP_MARKET_HOURS_CHECK=True — proceeding anyway")
+            else:
+                nxt = self.status.next_market_open
+                logger.info("Market closed — skipping cycle (next open: %s ET)", nxt)
+                return
 
         logger.info("=== Trading cycle started ===")
         self.status.last_run = datetime.utcnow()

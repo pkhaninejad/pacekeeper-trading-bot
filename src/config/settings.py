@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # Bot behaviour
     BOT_ENABLED: bool = True
+    SKIP_MARKET_HOURS_CHECK: bool = False   # Set True to trade outside NYSE hours (testing)
     TRADE_INTERVAL_SECONDS: int = 300       # How often the bot evaluates (5 min)
     MAX_POSITION_SIZE_PCT: float = 0.05     # Max 5% of portfolio per trade
     MAX_OPEN_POSITIONS: int = 10

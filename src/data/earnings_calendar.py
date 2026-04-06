@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal, Optional
 
 try:
@@ -37,7 +37,7 @@ class EarningsInfo:
 
 
 def _is_fresh(entry: dict) -> bool:
-    age = (datetime.utcnow() - entry["fetched_at"]).total_seconds()
+    age = (datetime.now(UTC) - entry["fetched_at"]).total_seconds()
     return age < CACHE_TTL_HOURS * 3600
 
 
@@ -77,7 +77,7 @@ class EarningsCalendar:
                 in_window=False, source="unavailable",
             )
 
-        _cache[ticker] = {"data": info, "fetched_at": datetime.utcnow()}
+        _cache[ticker] = {"data": info, "fetched_at": datetime.now(UTC)}
         return info
 
     def _build_info(self, ticker: str, earnings_date: date, source: Literal["yfinance", "finnhub"]) -> EarningsInfo:

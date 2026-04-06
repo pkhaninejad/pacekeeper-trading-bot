@@ -25,6 +25,12 @@ class Settings(BaseSettings):
         "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "NFLX"
     ]
 
+    # Earnings calendar
+    EARNINGS_DAYS_BEFORE: int = 2           # days before earnings to block new positions
+    EARNINGS_DAYS_AFTER: int = 1            # days after earnings to stop blocking
+    BLOCK_NEW_POSITIONS_ON_EARNINGS: bool = True
+    FINNHUB_API_KEY: str = ""               # optional; enables Finnhub fallback
+
     # Dashboard
     DASHBOARD_HOST: str = "0.0.0.0"
     DASHBOARD_PORT: int = 4000

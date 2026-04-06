@@ -64,6 +64,20 @@ The bot runs as a FastAPI server with a background async trading loop started vi
 
 **In-memory state only:** Signal history, trade log, instrument cache, and ticker map all live in the `TradingEngine` instance and are lost on restart. No database.
 
+## Branching and PRs
+
+Do not use git worktrees. For all feature work: create a branch, implement, then open a PR. Branch naming: `feat/<topic>` or `fix/<topic>`.
+
+## File Size Guidelines
+
+Keep files focused and small. When a file grows large, extract cohesive functionality into its own module rather than adding more to the existing file. Prefer many small, single-purpose files over a few large ones.
+
+- If a file exceeds ~200 lines, consider whether it is doing too much and split it.
+- Extract helper functions, data models, or sub-strategies into separate modules.
+- Never add to a file that is already large — refactor first, then add.
+
+This keeps token consumption low and each file easy to reason about in context.
+
 ## Trading212 API Notes
 
 - `T212_ENV=demo` maps to `demo.trading212.com`; `live` maps to `live.trading212.com` — the same key pair works for both

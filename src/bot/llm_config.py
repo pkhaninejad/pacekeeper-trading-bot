@@ -12,7 +12,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-CREDENTIALS_FILE = Path("credentials.json")
+# Anchored to project root regardless of working directory
+CREDENTIALS_FILE = Path(__file__).resolve().parent.parent.parent / "credentials.json"
 
 # Default model string and base_url per provider.
 # base_url is empty for cloud providers; non-empty for local/compatible endpoints.
@@ -35,6 +36,10 @@ class ProviderConfig:
     api_key: str    # empty string for Ollama (no key needed)
     base_url: str   # non-empty for Ollama and Qwen; empty for other cloud providers
 
+    def __post_init__(self):
+        if self.provider not in SUPPORTED_PROVIDERS:
+            raise ValueError(f"provider must be one of {SUPPORTED_PROVIDERS}, got {self.provider!r}")
+
 
 def load_provider_config() -> ProviderConfig:
     """Read credentials.json; fall back to .env/settings defaults if absent or malformed."""
@@ -42,7 +47,7 @@ def load_provider_config() -> ProviderConfig:
 
     if CREDENTIALS_FILE.exists():
         try:
-            data = json.loads(CREDENTIALS_FILE.read_text())
+            data = json.loads(CREDENTIALS_FILE.read_text(encoding="utf-8"))
             return ProviderConfig(
                 provider=data.get("provider", "anthropic"),
                 model=data.get("model", settings.CLAUDE_MODEL),
@@ -62,4 +67,7 @@ def load_provider_config() -> ProviderConfig:
 
 def save_provider_config(config: ProviderConfig) -> None:
     """Write provider config to credentials.json."""
-    CREDENTIALS_FILE.write_text(json.dumps(asdict(config), indent=2))
+    try:
+        CREDENTIALS_FILE.write_text(json.dumps(asdict(config), indent=2), encoding="utf-8")
+    except OSError as e:
+        raise RuntimeError(f"Failed to save credentials to {CREDENTIALS_FILE}: {e}") from e

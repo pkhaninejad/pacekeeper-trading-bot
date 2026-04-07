@@ -9,9 +9,16 @@ class Settings(BaseSettings):
     T212_API_SECRET: str = ""
     T212_ENV: Literal["demo", "live"] = "demo"
 
-    # Anthropic
+    # Anthropic (default provider)
     ANTHROPIC_API_KEY: str = ""
     CLAUDE_MODEL: str = "claude-sonnet-4-6"
+
+    # Additional LLM provider keys (used as fallback if credentials.json absent)
+    OPENAI_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    DEEPSEEK_API_KEY: str = ""
+    QWEN_API_KEY: str = ""
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
 
     # Bot behaviour
     BOT_ENABLED: bool = True

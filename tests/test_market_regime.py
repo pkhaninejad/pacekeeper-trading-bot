@@ -120,3 +120,90 @@ class TestRegimeCache:
             r2 = detector.get_regime(use_cache=True)
         # yf.Ticker called once per symbol = 2 total (SPY + ^VIX), not 4
         assert mock_ticker.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# RiskManager regime integration
+# ---------------------------------------------------------------------------
+
+from src.api.models import TradeSignal, CashInfo
+from src.bot.risk_manager import RiskManager
+
+
+def make_signal(**kwargs) -> TradeSignal:
+    defaults = dict(
+        ticker="AAPL", action="BUY", direction="LONG",
+        confidence=0.8, reasoning="test", order_type="MARKET",
+    )
+    defaults.update(kwargs)
+    return TradeSignal(**defaults)
+
+
+def make_cash(**kwargs) -> CashInfo:
+    defaults = dict(free=10_000.0, total=20_000.0, ppl=0.0, result=0.0, invested=10_000.0, pieCash=0.0)
+    defaults.update(kwargs)
+    return CashInfo(**defaults)
+
+
+class TestRiskManagerRegime:
+    def setup_method(self):
+        self.rm = RiskManager()
+
+    def test_extreme_fear_blocks_new_long(self):
+        regime = MarketRegime(label="EXTREME_FEAR", vix=35.0, spy_change_pct=-4.0, risk_multiplier=0.0)
+        signal = make_signal(action="BUY", direction="LONG")
+        approved, reason = self.rm.validate(signal, [], make_cash(), regime=regime)
+        assert approved is False
+        assert "EXTREME_FEAR" in reason
+
+    def test_extreme_fear_does_not_block_close(self):
+        regime = MarketRegime(label="EXTREME_FEAR", vix=35.0, spy_change_pct=-4.0, risk_multiplier=0.0)
+        signal = make_signal(action="SELL", direction="CLOSE")
+        approved, _ = self.rm.validate(signal, [], make_cash(), regime=regime)
+        assert approved is True
+
+    def test_bear_scales_position_size_to_50pct(self):
+        regime = MarketRegime(label="BEAR", vix=27.0, spy_change_pct=-2.0, risk_multiplier=0.5)
+        # suggested_quantity large enough to trigger scaling
+        # max_position_pct = 0.05, total = 20_000 → max = 1_000
+        # With BEAR multiplier 0.5 → effective max = 500 → qty scaled to 500/100 = 5
+        signal = make_signal(
+            suggested_quantity=200.0,   # 200 * 100 = 20,000 — exceeds max
+            suggested_price=100.0,
+        )
+        cash = make_cash(free=30_000.0, total=20_000.0)
+        self.rm.validate(signal, [], cash, regime=regime)
+        expected_qty = (20_000.0 * 0.05 * 0.5) / 100.0  # 5.0
+        assert signal.suggested_quantity == pytest.approx(expected_qty)
+
+    def test_neutral_scales_position_size_to_80pct(self):
+        regime = MarketRegime(label="NEUTRAL", vix=22.0, spy_change_pct=-0.5, risk_multiplier=0.8)
+        signal = make_signal(
+            suggested_quantity=200.0,
+            suggested_price=100.0,
+        )
+        cash = make_cash(free=30_000.0, total=20_000.0)
+        self.rm.validate(signal, [], cash, regime=regime)
+        expected_qty = (20_000.0 * 0.05 * 0.8) / 100.0  # 8.0
+        assert signal.suggested_quantity == pytest.approx(expected_qty)
+
+    def test_bull_does_not_scale(self):
+        regime = MarketRegime(label="BULL", vix=15.0, spy_change_pct=0.5, risk_multiplier=1.0)
+        signal = make_signal(
+            suggested_quantity=200.0,
+            suggested_price=100.0,
+        )
+        cash = make_cash(free=30_000.0, total=20_000.0)
+        self.rm.validate(signal, [], cash, regime=regime)
+        expected_qty = (20_000.0 * 0.05 * 1.0) / 100.0  # 10.0
+        assert signal.suggested_quantity == pytest.approx(expected_qty)
+
+    def test_no_regime_uses_full_size(self):
+        signal = make_signal(
+            suggested_quantity=200.0,
+            suggested_price=100.0,
+        )
+        cash = make_cash(free=30_000.0, total=20_000.0)
+        self.rm.validate(signal, [], cash, regime=None)
+        expected_qty = (20_000.0 * 0.05) / 100.0  # 10.0
+        assert signal.suggested_quantity == pytest.approx(expected_qty)

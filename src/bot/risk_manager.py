@@ -6,6 +6,8 @@ import logging
 from src.config.settings import settings
 from src.api.models import TradeSignal, Position, CashInfo
 from src.data.earnings_calendar import EarningsInfo
+from src.data.macro_calendar import MacroEvent
+from src.data.market_regime import MarketRegime
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,8 @@ class RiskManager:
         positions: list[Position],
         cash: CashInfo,
         earnings_info: dict[str, "EarningsInfo"] | None = None,
+        macro_events: list["MacroEvent"] | None = None,
+        regime: "MarketRegime | None" = None,
     ) -> tuple[bool, str]:
         """
         Returns (approved, reason).
@@ -34,8 +38,20 @@ class RiskManager:
         if signal.confidence < self.min_confidence:
             return False, f"Confidence {signal.confidence:.2f} below threshold {self.min_confidence}"
 
-        # Earnings window gate (only blocks new position opens, not CLOSE)
         is_close = signal.direction == "CLOSE"
+
+        # Macro calendar gate (only blocks new position opens, not CLOSE)
+        if (
+            not is_close
+            and settings.BLOCK_NEW_POSITIONS_ON_MACRO
+            and macro_events
+        ):
+            blocking = [e for e in macro_events if e.hours_until <= settings.MACRO_BLOCK_HOURS]
+            if blocking:
+                names = ", ".join(e.event for e in blocking[:3])
+                return False, f"Macro event block: {names} within {settings.MACRO_BLOCK_HOURS}h — no new positions"
+
+        # Earnings window gate (only blocks new position opens, not CLOSE)
         if (
             not is_close
             and settings.BLOCK_NEW_POSITIONS_ON_EARNINGS
@@ -50,6 +66,11 @@ class RiskManager:
                     f"Earnings window blocked: {signal.ticker} earnings "
                     f"{count} day(s) {direction} — no new positions allowed"
                 )
+
+        # Market regime gate (only blocks new LONG opens, not CLOSE)
+        if not is_close and signal.direction == "LONG" and regime is not None:
+            if regime.label == "EXTREME_FEAR":
+                return False, f"EXTREME_FEAR regime (VIX {regime.vix:.1f} >30): new LONG positions blocked"
 
         # Equity accounts on Trading212 do not support opening short positions.
         if signal.direction == "SHORT":
@@ -68,18 +89,19 @@ class RiskManager:
             if required > cash.free:
                 return False, f"Insufficient cash: need {required:.2f}, have {cash.free:.2f}"
 
-        # Position size limit
+        # Position size limit — apply regime multiplier to effective max
         if signal.suggested_quantity and signal.suggested_price:
+            multiplier = regime.risk_multiplier if (regime and not is_close) else 1.0
+            effective_max = cash.total * self.max_position_pct * multiplier
             trade_value = abs(signal.suggested_quantity) * signal.suggested_price
-            max_allowed = cash.total * self.max_position_pct
-            if trade_value > max_allowed:
-                # Auto-scale down
-                signal.suggested_quantity = (max_allowed / signal.suggested_price) * (
+            if trade_value > effective_max:
+                signal.suggested_quantity = (effective_max / signal.suggested_price) * (
                     1 if signal.suggested_quantity > 0 else -1
                 )
                 logger.info(
-                    "Scaled position size for %s to %.4f (max %.2f)",
-                    signal.ticker, signal.suggested_quantity, max_allowed,
+                    "Scaled position size for %s to %.4f (effective_max %.2f, regime=%s)",
+                    signal.ticker, signal.suggested_quantity, effective_max,
+                    regime.label if regime else "none",
                 )
 
         # Don't double up same direction

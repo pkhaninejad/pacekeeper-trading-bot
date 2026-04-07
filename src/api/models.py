@@ -121,6 +121,8 @@ class BotStatus(BaseModel):
     environment: str = "demo"
     market_open: bool = False
     next_market_open: Optional[datetime] = None
+    market_regime: Optional[str] = None
+    vix: Optional[float] = None
 
 
 class TradeOutcome(BaseModel):

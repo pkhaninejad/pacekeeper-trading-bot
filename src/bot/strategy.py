@@ -7,9 +7,10 @@ Uses Claude to analyse market conditions and generate long/short signals.
 import json
 import logging
 from datetime import UTC, datetime
-import anthropic
+import litellm
 from src.config.settings import settings
 from src.api.models import Position, CashInfo, TradeSignal, Instrument
+from src.bot.llm_config import ProviderConfig
 from src.bot.price_feed import get_price_summary
 from src.data.earnings_calendar import EarningsInfo
 from src.data.news_feed import NewsItem
@@ -234,11 +235,8 @@ Return ONLY a JSON array of TradeSignal objects.
     return context
 
 
-class ClaudeStrategy:
-    """Uses Claude Sonnet to generate long/short signals."""
-
-    def __init__(self):
-        self._client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+class AIStrategy:
+    """LLM-powered trading strategy. Provider-agnostic via LiteLLM."""
 
     def generate_signals(
         self,
@@ -246,26 +244,36 @@ class ClaudeStrategy:
         cash: CashInfo,
         watchlist: list[str],
         instruments: list[Instrument],
+        provider_config: "ProviderConfig | None" = None,
         earnings_info: dict[str, "EarningsInfo"] | None = None,
         news_data: dict[str, list["NewsItem"]] | None = None,
         outcome_log: list | None = None,
     ) -> list[TradeSignal]:
-        """Call Claude and parse trade signals."""
+        """Call the configured LLM provider and parse trade signals."""
+        if provider_config is None:
+            from src.bot.llm_config import load_provider_config
+            provider_config = load_provider_config()
+
         price_data = get_price_summary(watchlist)
         user_prompt = _build_market_context(
-            positions, cash, watchlist, instruments, price_data, earnings_info, news_data, outcome_log
+            positions, cash, watchlist, instruments, price_data,
+            earnings_info, news_data, outcome_log,
         )
 
-        logger.info("Calling Claude for trading signals...")
+        logger.info("Calling %s/%s for trading signals...", provider_config.provider, provider_config.model)
         try:
-            message = self._client.messages.create(
-                model=settings.CLAUDE_MODEL,
+            response = litellm.completion(
+                model=provider_config.model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                api_key=provider_config.api_key or None,
+                api_base=provider_config.base_url or None,
                 max_tokens=2048,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_prompt}],
             )
-            raw = message.content[0].text.strip()
-            logger.debug("Claude raw response: %s", raw)
+            raw = response.choices[0].message.content.strip()
+            logger.debug("LLM raw response: %s", raw)
 
             # Strip markdown code fences if present
             if raw.startswith("```"):
@@ -288,8 +296,8 @@ class ClaudeStrategy:
             return signals
 
         except json.JSONDecodeError as e:
-            logger.error("Failed to parse Claude response as JSON: %s", e)
+            logger.error("Failed to parse LLM response as JSON: %s", e)
             return []
         except Exception as e:
-            logger.error("Claude API error: %s", e)
+            logger.error("LLM API error: %s", e)
             return []

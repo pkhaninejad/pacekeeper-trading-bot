@@ -88,7 +88,7 @@ class RiskManager:
             (p for p in positions if p.ticker.split("_")[0] == signal.ticker or p.ticker == signal.ticker),
             None,
         )
-        if signal.action == "SELL" and existing is None:
+        if signal.action == "SELL" and existing is None and not is_close:
             return False, f"No open position to sell for {signal.ticker}"
         if existing and not is_close:
             if signal.direction == "LONG" and existing.is_long:

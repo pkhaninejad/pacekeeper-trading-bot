@@ -58,6 +58,16 @@
       background: rgba(63,185,80,.2);
       color: var(--green);
     }
+    .regime-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 700;
+    }
+    .regime-badge.bull        { background: rgba(63,185,80,.2);  color: var(--green);  }
+    .regime-badge.neutral     { background: rgba(88,166,255,.2); color: var(--blue);   }
+    .regime-badge.bear        { background: rgba(210,153,34,.2); color: var(--yellow); }
+    .regime-badge.extreme-fear { background: rgba(248,81,73,.2); color: var(--red);    }
     .status-dot {
       width: 10px; height: 10px;
       border-radius: 50%;
@@ -274,6 +284,7 @@
     <h1>Claude <span>Trade Bot</span></h1>
     <span class="env-badge" id="env-badge">DEMO</span>
     <span class="market-badge" id="market-badge">CLOSED</span>
+    <span class="regime-badge" id="regime-badge" style="display:none"></span>
     <span id="next-open-label" style="font-size:11px;color:var(--muted)"></span>
     <span class="status-dot" id="status-dot"></span>
     <button id="toggle-btn">Pause Bot</button>
@@ -526,6 +537,16 @@
       const mb = document.getElementById('market-badge');
       mb.textContent = s.market_open ? 'MARKET OPEN' : 'MARKET CLOSED';
       mb.className = 'market-badge' + (s.market_open ? ' open' : '');
+
+      const rb = document.getElementById('regime-badge');
+      if (s.market_regime) {
+        const vixStr = s.vix != null ? ` · VIX ${s.vix.toFixed(1)}` : '';
+        rb.textContent = s.market_regime.replace('_', ' ') + vixStr;
+        rb.className = 'regime-badge ' + s.market_regime.toLowerCase().replace('_', '-');
+        rb.style.display = '';
+      } else {
+        rb.style.display = 'none';
+      }
 
       const nol = document.getElementById('next-open-label');
       if (!s.market_open && s.next_market_open) {

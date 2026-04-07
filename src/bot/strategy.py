@@ -1,7 +1,8 @@
 """
-Claude AI-powered trading strategy.
+AI-powered trading strategy.
 
-Uses Claude to analyse market conditions and generate long/short signals.
+Uses an LLM (via LiteLLM) to analyse market conditions and generate trading signals.
+Supports any provider supported by LiteLLM: anthropic, openai, gemini, ollama, deepseek, qwen.
 """
 
 import json
@@ -10,7 +11,7 @@ from datetime import UTC, datetime
 import litellm
 from src.config.settings import settings
 from src.api.models import Position, CashInfo, TradeSignal, Instrument
-from src.bot.llm_config import ProviderConfig
+from src.bot.llm_config import ProviderConfig, load_provider_config
 from src.bot.price_feed import get_price_summary
 from src.data.earnings_calendar import EarningsInfo
 from src.data.news_feed import NewsItem
@@ -251,7 +252,6 @@ class AIStrategy:
     ) -> list[TradeSignal]:
         """Call the configured LLM provider and parse trade signals."""
         if provider_config is None:
-            from src.bot.llm_config import load_provider_config
             provider_config = load_provider_config()
 
         price_data = get_price_summary(watchlist)

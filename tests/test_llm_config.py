@@ -2,7 +2,6 @@
 
 import json
 import pytest
-from pathlib import Path
 from src.bot.llm_config import ProviderConfig, load_provider_config, save_provider_config
 
 
@@ -23,6 +22,9 @@ class TestLoadProviderConfig:
         patch_credentials_file.write_text("not { valid json }")
         config = load_provider_config()
         assert config.provider == "anthropic"
+        from src.config.settings import settings
+        assert config.model == settings.CLAUDE_MODEL
+        assert config.api_key == settings.ANTHROPIC_API_KEY
 
     def test_loads_saved_provider(self, patch_credentials_file):
         patch_credentials_file.write_text(json.dumps({
@@ -76,6 +78,7 @@ class TestSaveProviderConfig:
         assert loaded.provider == original.provider
         assert loaded.model == original.model
         assert loaded.api_key == original.api_key
+        assert loaded.base_url == original.base_url
 
 
 class TestProviderConfigValidation:
@@ -87,10 +90,11 @@ class TestProviderConfigValidation:
         from src.bot.llm_config import SUPPORTED_PROVIDERS, PROVIDER_DEFAULTS
         for provider in SUPPORTED_PROVIDERS:
             defaults = PROVIDER_DEFAULTS[provider]
+            api_key = "" if provider == "ollama" else "test-key"
             config = ProviderConfig(
                 provider=provider,
                 model=defaults["model"],
-                api_key="test-key",
+                api_key=api_key,
                 base_url=defaults["base_url"],
             )
             assert config.provider == provider

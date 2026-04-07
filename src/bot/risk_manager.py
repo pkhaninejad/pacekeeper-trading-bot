@@ -4,7 +4,7 @@ Risk management: validates signals before execution, enforces limits.
 
 import logging
 from src.config.settings import settings
-from src.api.models import TradeSignal, Position, CashInfo
+from src.api.models import TradeSignal, Position, CashInfo, RegimeResult
 from src.data.earnings_calendar import EarningsInfo
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,7 @@ class RiskManager:
         positions: list[Position],
         cash: CashInfo,
         earnings_info: dict[str, "EarningsInfo"] | None = None,
+        regime: "RegimeResult | None" = None,
     ) -> tuple[bool, str]:
         """
         Returns (approved, reason).
@@ -62,22 +63,29 @@ class RiskManager:
             if required > cash.free:
                 return False, f"Insufficient cash: need {required:.2f}, have {cash.free:.2f}"
 
-        # Position size limit
+        # Position size limit (regime multiplier applied here)
         if signal.suggested_quantity and signal.suggested_price:
             trade_value = abs(signal.suggested_quantity) * signal.suggested_price
-            max_allowed = cash.total * self.max_position_pct
+            multiplier = regime.position_size_multiplier if regime else 1.0
+            max_allowed = cash.total * self.max_position_pct * multiplier
             if trade_value > max_allowed:
                 # Auto-scale down
                 signal.suggested_quantity = (max_allowed / signal.suggested_price) * (
                     1 if signal.suggested_quantity > 0 else -1
                 )
                 logger.info(
-                    "Scaled position size for %s to %.4f (max %.2f)",
+                    "Scaled position size for %s to %.4f (max %.2f, regime=%s)",
                     signal.ticker, signal.suggested_quantity, max_allowed,
+                    regime.regime if regime else "none",
                 )
 
-        # Don't double up same direction
-        existing = next((p for p in positions if p.ticker == signal.ticker), None)
+        # Don't double up same direction; also block SELL with no position
+        existing = next(
+            (p for p in positions if p.ticker.split("_")[0] == signal.ticker or p.ticker == signal.ticker),
+            None,
+        )
+        if signal.action == "SELL" and existing is None:
+            return False, f"No open position to sell for {signal.ticker}"
         if existing and not is_close:
             if signal.direction == "LONG" and existing.is_long:
                 return False, f"Already long {signal.ticker}"

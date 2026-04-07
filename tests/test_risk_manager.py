@@ -279,3 +279,65 @@ class TestEarningsWindow:
         earnings = make_earnings_info("TSLA", in_window=True)  # different ticker
         approved, _ = self.rm.validate(signal, [], make_cash(), earnings_info=earnings)
         assert approved is True
+
+
+# ---------------------------------------------------------------------------
+# RiskManager regime multiplier
+# ---------------------------------------------------------------------------
+
+from src.api.models import RegimeResult
+
+
+def make_regime(regime: str, multiplier: float) -> RegimeResult:
+    return RegimeResult(
+        regime=regime,
+        spy_vs_200ema=0.0,
+        vix=20.0,
+        position_size_multiplier=multiplier,
+        description="test",
+    )
+
+
+class TestRegimeMultiplier:
+    def setup_method(self):
+        self.rm = RiskManager()
+
+    def test_bear_regime_reduces_max_allowed(self):
+        # max_position_pct=0.05, total=20_000 → normal max=1_000
+        # BEAR multiplier=0.5 → max=500
+        # Signal asks for qty=8 @ price=100 = 800 → should be scaled down to 5.0
+        signal = make_signal(suggested_quantity=8.0, suggested_price=100.0)
+        cash = make_cash(free=1_000.0, total=20_000.0)
+        regime = make_regime("BEAR", 0.50)
+        approved, _ = self.rm.validate(signal, [], cash, regime=regime)
+        assert approved is True
+        expected_qty = (20_000.0 * 0.05 * 0.50) / 100.0  # 500 / 100 = 5.0
+        assert signal.suggested_quantity == pytest.approx(expected_qty)
+
+    def test_neutral_regime_reduces_max_allowed(self):
+        # NEUTRAL multiplier=0.75 → max=750
+        signal = make_signal(suggested_quantity=8.0, suggested_price=100.0)
+        cash = make_cash(free=1_000.0, total=20_000.0)
+        regime = make_regime("NEUTRAL", 0.75)
+        approved, _ = self.rm.validate(signal, [], cash, regime=regime)
+        assert approved is True
+        expected_qty = (20_000.0 * 0.05 * 0.75) / 100.0  # 750 / 100 = 7.5
+        assert signal.suggested_quantity == pytest.approx(expected_qty)
+
+    def test_bull_regime_no_reduction(self):
+        # BULL multiplier=1.0 → no change from default
+        # qty=8 @ price=100 = 800; max = 20_000 * 0.05 * 1.0 = 1_000 → no scaling
+        signal = make_signal(suggested_quantity=8.0, suggested_price=100.0)
+        cash = make_cash(free=1_000.0, total=20_000.0)
+        regime = make_regime("BULL", 1.0)
+        approved, _ = self.rm.validate(signal, [], cash, regime=regime)
+        assert approved is True
+        assert signal.suggested_quantity == pytest.approx(8.0)
+
+    def test_no_regime_behaves_as_before(self):
+        # No regime arg → multiplier defaults to 1.0, existing behaviour unchanged
+        signal = make_signal(suggested_quantity=8.0, suggested_price=100.0)
+        cash = make_cash(free=1_000.0, total=20_000.0)
+        approved, _ = self.rm.validate(signal, [], cash)
+        assert approved is True
+        assert signal.suggested_quantity == pytest.approx(8.0)

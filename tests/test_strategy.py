@@ -319,3 +319,38 @@ class TestPerformanceSummaryInjection:
         ctx = _build_market_context([], make_cash(), ["AAPL"], [], outcome_log=outcomes)
         assert "5 wins" in ctx
         assert "0 losses" in ctx
+
+
+# ---------------------------------------------------------------------------
+# Regime section in prompt
+# ---------------------------------------------------------------------------
+
+from src.data.market_regime import MarketRegime
+
+
+class TestBuildMarketContextRegime:
+    def _ctx(self, regime):
+        cash = make_cash()
+        return _build_market_context([], cash, ["AAPL"], [], regime=regime)
+
+    def test_regime_section_present_when_regime_provided(self):
+        regime = MarketRegime(label="BEAR", vix=28.4, spy_change_pct=-3.2, risk_multiplier=0.5)
+        ctx = self._ctx(regime)
+        assert "MARKET REGIME" in ctx
+        assert "BEAR" in ctx
+        assert "28.4" in ctx
+
+    def test_regime_section_absent_when_none(self):
+        ctx = self._ctx(None)
+        assert "MARKET REGIME" not in ctx
+
+    def test_extreme_fear_guidance_in_prompt(self):
+        regime = MarketRegime(label="EXTREME_FEAR", vix=32.0, spy_change_pct=-5.0, risk_multiplier=0.0)
+        ctx = self._ctx(regime)
+        assert "blocked" in ctx.lower() or "CLOSE" in ctx
+
+    def test_bull_guidance_in_prompt(self):
+        regime = MarketRegime(label="BULL", vix=15.0, spy_change_pct=0.8, risk_multiplier=1.0)
+        ctx = self._ctx(regime)
+        assert "BULL" in ctx
+        assert "normal" in ctx.lower()

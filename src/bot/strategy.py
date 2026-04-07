@@ -14,6 +14,8 @@ from src.api.models import Position, CashInfo, TradeSignal, Instrument
 from src.bot.llm_config import ProviderConfig, load_provider_config
 from src.bot.price_feed import get_price_summary
 from src.data.earnings_calendar import EarningsInfo
+from src.data.macro_calendar import MacroEvent
+from src.data.market_regime import MarketRegime
 from src.data.news_feed import NewsItem
 
 logger = logging.getLogger(__name__)
@@ -125,6 +127,46 @@ def _build_performance_summary(outcome_log: list) -> str:
     return "\n".join(lines)
 
 
+def _build_macro_section(macro_events: list["MacroEvent"] | None, block_hours: int) -> str:
+    """Format the === MACRO RISK === prompt section."""
+    if not macro_events:
+        return "\n=== MACRO RISK ===\n  No HIGH-impact macro events in the next 24h.\n"
+    lines = []
+    for ev in macro_events:
+        h = ev.hours_until
+        if h <= block_hours:
+            when = f"in {h:.0f}h" if h >= 1 else "imminent"
+            lines.append(
+                f"  \u26a0\ufe0f  {ev.event} — {when} ({ev.release_time.strftime('%Y-%m-%d %H:%M')} UTC)"
+                f" — new positions BLOCKED"
+            )
+        else:
+            lines.append(
+                f"  \u26a0\ufe0f  {ev.event} — in {h:.0f}h ({ev.release_time.strftime('%Y-%m-%d %H:%M')} UTC)"
+            )
+    return f"\n=== MACRO RISK ===\n{chr(10).join(lines)}\n"
+
+
+_REGIME_GUIDANCE = {
+    "BULL": "Bullish regime — normal signal generation.",
+    "NEUTRAL": "Neutral regime — apply standard confidence thresholds.",
+    "BEAR": "Bearish regime — raise the confidence bar for new LONGs, favour CLOSE signals on existing positions.",
+    "EXTREME_FEAR": "Extreme fear (VIX >30) — new LONG positions are blocked by the risk manager. Focus only on CLOSE signals.",
+}
+
+
+def _build_regime_section(regime: "MarketRegime | None") -> str:
+    """Format the === MARKET REGIME === prompt section."""
+    if regime is None:
+        return ""
+    guidance = _REGIME_GUIDANCE.get(regime.label, "")
+    return (
+        f"\n=== MARKET REGIME ===\n"
+        f"  Label: {regime.label}  |  VIX: {regime.vix:.1f}  |  SPY 1d: {regime.spy_change_pct:+.1f}%\n"
+        f"  {guidance}\n"
+    )
+
+
 def _build_market_context(
     positions: list[Position],
     cash: CashInfo,
@@ -133,7 +175,9 @@ def _build_market_context(
     price_data: dict | None = None,
     earnings_info: dict[str, "EarningsInfo"] | None = None,
     news_data: dict[str, list["NewsItem"]] | None = None,
+    macro_events: list["MacroEvent"] | None = None,
     outcome_log: list | None = None,
+    regime: "MarketRegime | None" = None,
 ) -> str:
     """Build the user prompt with current portfolio state."""
     if price_data is None:
@@ -204,6 +248,9 @@ def _build_market_context(
             news_lines.append("")  # blank line between tickers
         news_section = f"\n=== RECENT NEWS ===\n{chr(10).join(news_lines)}"
 
+    macro_section = _build_macro_section(macro_events, settings.MACRO_BLOCK_HOURS)
+    regime_section = _build_regime_section(regime)
+
     perf_section = ""
     if outcome_log:
         summary = _build_performance_summary(outcome_log)
@@ -223,7 +270,7 @@ Open positions ({len(positions)}):
 
 === PRICE FEED (30-day) ===
 {chr(10).join(price_lines) if price_lines else '  (unavailable)'}
-{earnings_section}{news_section}{perf_section}
+{earnings_section}{macro_section}{regime_section}{news_section}{perf_section}
 === WATCHLIST ===
 {json.dumps({t: instrument_info.get(t, t) for t in watchlist}, indent=2)}
 
@@ -248,7 +295,9 @@ class AIStrategy:
         provider_config: "ProviderConfig | None" = None,
         earnings_info: dict[str, "EarningsInfo"] | None = None,
         news_data: dict[str, list["NewsItem"]] | None = None,
+        macro_events: list["MacroEvent"] | None = None,
         outcome_log: list | None = None,
+        regime: "MarketRegime | None" = None,
     ) -> list[TradeSignal]:
         """Call the configured LLM provider and parse trade signals."""
         if provider_config is None:
@@ -257,7 +306,8 @@ class AIStrategy:
         price_data = get_price_summary(watchlist)
         user_prompt = _build_market_context(
             positions, cash, watchlist, instruments, price_data,
-            earnings_info, news_data, outcome_log,
+            earnings_info, news_data, macro_events, outcome_log,
+            regime=regime,
         )
 
         logger.info("Calling %s/%s for trading signals...", provider_config.provider, provider_config.model)

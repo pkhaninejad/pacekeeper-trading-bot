@@ -122,13 +122,30 @@ class TestValidate:
         signal = make_signal(ticker="AAPL", action="BUY", direction="SHORT")
         approved, reason = self.rm.validate(signal, positions, make_cash())
         assert approved is False
-        assert "Already short" in reason
+        assert "Short selling is not supported" in reason
 
     def test_close_signal_bypasses_direction_check(self):
         positions = [make_position(ticker="AAPL", quantity=5)]
         signal = make_signal(ticker="AAPL", action="SELL", direction="CLOSE")
         approved, _ = self.rm.validate(signal, positions, make_cash())
         assert approved is True
+
+    def test_close_signal_accepts_t212_ticker_match(self):
+        positions = [make_position(ticker="AAPL_US_EQ", quantity=5)]
+        signal = make_signal(ticker="AAPL", action="SELL", direction="CLOSE")
+        approved, _ = self.rm.validate(signal, positions, make_cash())
+        assert approved is True
+
+    def test_close_signal_without_position_is_allowed(self):
+        signal = make_signal(ticker="AAPL", action="SELL", direction="CLOSE")
+        approved, _ = self.rm.validate(signal, [], make_cash())
+        assert approved is True
+
+    def test_new_short_signal_rejected(self):
+        signal = make_signal(ticker="TSLA", action="SELL", direction="SHORT")
+        approved, reason = self.rm.validate(signal, [], make_cash())
+        assert approved is False
+        assert "Short selling is not supported" in reason
 
 
 # ---------------------------------------------------------------------------

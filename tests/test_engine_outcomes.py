@@ -1,5 +1,6 @@
 """Tests for TradingEngine outcome log — open/close lifecycle."""
 import pytest
+import httpx
 from datetime import datetime, UTC
 from unittest.mock import AsyncMock, MagicMock
 from src.bot.engine import TradingEngine
@@ -80,6 +81,62 @@ class TestExecuteSignalCreatesOpenOutcome:
         await engine._execute_signal(mock_client, signal, make_cash(), [])
 
         assert engine._outcome_log == []
+
+    @pytest.mark.asyncio
+    async def test_close_signal_matches_short_ticker_position(self):
+        engine = TradingEngine()
+        signal = make_signal(ticker="NVDA", action="SELL", direction="CLOSE")
+        mock_client = MagicMock()
+        mock_client.place_market_order = AsyncMock(return_value=make_order())
+        mock_client.get_position = AsyncMock(
+            return_value=make_position(ticker="NVDA_US_EQ", quantity=3.0)
+        )
+        positions = [make_position(ticker="NVDA_US_EQ", quantity=3.0)]
+
+        await engine._execute_signal(mock_client, signal, make_cash(), positions)
+
+        request = mock_client.place_market_order.call_args[0][0]
+        assert request.ticker == "NVDA_US_EQ"
+        assert request.quantity == -3.0
+
+    @pytest.mark.asyncio
+    async def test_close_signal_selling_not_owned_is_safely_skipped(self):
+        engine = TradingEngine()
+        signal = make_signal(ticker="NFLX", action="SELL", direction="CLOSE")
+        request = httpx.Request("POST", "https://demo.trading212.com/api/v0/equity/orders/market")
+        response = httpx.Response(
+            400,
+            request=request,
+            json={
+                "type": "/api-errors/selling-equity-not-owned",
+                "detail": "Selling more equities than owned, owned: 0.0",
+            },
+        )
+        mock_client = MagicMock()
+        mock_client.get_position = AsyncMock(
+            return_value=make_position(ticker="NFLX_US_EQ", quantity=2.0)
+        )
+        mock_client.place_market_order = AsyncMock(
+            side_effect=httpx.HTTPStatusError("bad request", request=request, response=response)
+        )
+        positions = [make_position(ticker="NFLX_US_EQ", quantity=2.0)]
+
+        await engine._execute_signal(mock_client, signal, make_cash(), positions)
+
+        assert len(engine._trade_log) == 0
+
+    @pytest.mark.asyncio
+    async def test_close_signal_skips_when_live_position_missing(self):
+        engine = TradingEngine()
+        signal = make_signal(ticker="AAPL", action="SELL", direction="CLOSE")
+        mock_client = MagicMock()
+        mock_client.get_position = AsyncMock(return_value=None)
+        mock_client.place_market_order = AsyncMock(return_value=make_order())
+        positions = [make_position(ticker="AAPL_US_EQ", quantity=1.0)]
+
+        await engine._execute_signal(mock_client, signal, make_cash(), positions)
+
+        mock_client.place_market_order.assert_not_awaited()
 
 
 class TestUpdateOutcome:
@@ -215,6 +272,7 @@ class TestClosePositionUpdatesOutcome:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client.get_positions = AsyncMock(return_value=[pos1, pos2])
+        mock_client.get_position = AsyncMock(side_effect=[pos1, pos2])
         mock_client.get_cash = AsyncMock(return_value=make_cash())
         mock_client.place_market_order = AsyncMock(side_effect=[
             make_order(id=101), make_order(id=102),

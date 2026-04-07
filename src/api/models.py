@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 from typing import Optional, Literal, Union
 from datetime import datetime
 
@@ -55,7 +55,7 @@ class Order(BaseModel):
     creationTime: Optional[str] = None
     modifiedTime: Optional[str] = None
     executor: Optional[str] = None
-    orderedQuantity: float
+    orderedQuantity: float = Field(validation_alias=AliasChoices("orderedQuantity", "quantity"))
     filledQuantity: Optional[float] = None
     ticker: str
     limitPrice: Optional[float] = None

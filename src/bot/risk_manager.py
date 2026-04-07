@@ -28,6 +28,8 @@ class RiskManager:
         """
         Returns (approved, reason).
         """
+        normalized_ticker = self._normalize_ticker(signal.ticker)
+
         # Confidence gate
         if signal.confidence < self.min_confidence:
             return False, f"Confidence {signal.confidence:.2f} below threshold {self.min_confidence}"
@@ -49,9 +51,13 @@ class RiskManager:
                     f"{count} day(s) {direction} — no new positions allowed"
                 )
 
+        # Equity accounts on Trading212 do not support opening short positions.
+        if signal.direction == "SHORT":
+            return False, f"Short selling is not supported for {normalized_ticker}"
+
         # Max open positions gate (only for new positions)
-        position_tickers = {p.ticker for p in positions}
-        is_new = signal.ticker not in position_tickers
+        existing = self._find_position(positions, signal.ticker)
+        is_new = existing is None
 
         if is_new and not is_close and len(positions) >= self.max_open_positions:
             return False, f"Max open positions ({self.max_open_positions}) reached"
@@ -77,7 +83,6 @@ class RiskManager:
                 )
 
         # Don't double up same direction
-        existing = next((p for p in positions if p.ticker == signal.ticker), None)
         if existing and not is_close:
             if signal.direction == "LONG" and existing.is_long:
                 return False, f"Already long {signal.ticker}"
@@ -85,6 +90,17 @@ class RiskManager:
                 return False, f"Already short {signal.ticker}"
 
         return True, "Approved"
+
+    @staticmethod
+    def _normalize_ticker(ticker: str) -> str:
+        return ticker.split("_")[0]
+
+    def _find_position(self, positions: list[Position], ticker: str) -> Position | None:
+        normalized = self._normalize_ticker(ticker)
+        return next(
+            (p for p in positions if p.ticker == ticker or self._normalize_ticker(p.ticker) == normalized),
+            None,
+        )
 
     def compute_quantity(
         self,

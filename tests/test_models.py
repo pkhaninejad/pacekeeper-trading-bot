@@ -5,7 +5,7 @@ from datetime import datetime
 from src.api.models import (
     Position, TradeSignal, CashInfo, Order, Instrument,
     MarketOrderRequest, LimitOrderRequest, StopOrderRequest, BotStatus,
-    TradeOutcome,
+    TradeOutcome, RegimeResult,
 )
 
 
@@ -155,3 +155,23 @@ class TestTradeOutcome:
         )
         assert outcome.outcome == "TP_HIT"
         assert outcome.pnl_pct == pytest.approx(4.1)
+
+
+from src.api.models import RegimeResult, BotStatus
+
+def test_regime_result_bull():
+    r = RegimeResult(
+        regime="BULL",
+        spy_vs_200ema=3.5,
+        vix=15.0,
+        position_size_multiplier=1.0,
+        description="Bull market",
+    )
+    assert r.regime == "BULL"
+    assert r.position_size_multiplier == 1.0
+
+def test_bot_status_has_regime_field():
+    s = BotStatus(enabled=True, environment="demo")
+    assert s.regime is None  # optional, defaults to None
+    s.regime = "BEAR"
+    assert s.regime == "BEAR"

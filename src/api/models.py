@@ -55,7 +55,7 @@ class Order(BaseModel):
     creationTime: Optional[str] = None
     modifiedTime: Optional[str] = None
     executor: Optional[str] = None
-    orderedQuantity: float
+    orderedQuantity: Optional[float] = None
     filledQuantity: Optional[float] = None
     ticker: str
     limitPrice: Optional[float] = None
@@ -121,6 +121,7 @@ class BotStatus(BaseModel):
     environment: str = "demo"
     market_open: bool = False
     next_market_open: Optional[datetime] = None
+    regime: Optional[str] = None
 
 
 class TradeOutcome(BaseModel):
@@ -132,3 +133,11 @@ class TradeOutcome(BaseModel):
     pnl_pct: Optional[float] = None
     opened_at: datetime
     closed_at: Optional[datetime] = None
+
+
+class RegimeResult(BaseModel):
+    regime: Literal["BULL", "NEUTRAL", "BEAR", "EXTREME_FEAR"]
+    spy_vs_200ema: float        # % above/below 200-day EMA
+    vix: float                  # current VIX level
+    position_size_multiplier: float   # 1.0, 0.75, 0.50, or 0.0
+    description: str

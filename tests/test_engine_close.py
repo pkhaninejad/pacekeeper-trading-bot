@@ -1,5 +1,6 @@
 """Tests for TradingEngine close/toggle methods."""
 import pytest
+import httpx
 from unittest.mock import AsyncMock, MagicMock, patch
 from src.bot.engine import TradingEngine
 from src.api.models import CashInfo, Position, Order
@@ -31,10 +32,13 @@ def make_order(**kwargs) -> Order:
 
 def make_mock_client(positions=None, cash=None, order=None):
     """Return a mock Trading212Client usable as async context manager."""
+    positions = positions or []
     client = MagicMock()
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
-    client.get_positions = AsyncMock(return_value=positions or [])
+    client.get_positions = AsyncMock(return_value=positions)
+    pos_by_ticker = {p.ticker: p for p in positions}
+    client.get_position = AsyncMock(side_effect=lambda ticker: pos_by_ticker.get(ticker))
     client.get_cash = AsyncMock(return_value=cash or make_cash())
     client.place_market_order = AsyncMock(return_value=order or make_order())
     return client
@@ -116,6 +120,30 @@ class TestClosePosition:
         assert engine._trade_log == []
         assert engine._pnl_history == []
 
+    @pytest.mark.asyncio
+    async def test_close_position_not_owned_error_is_mapped_to_value_error(self):
+        """If broker reports no owned shares, endpoint should treat it as no open position."""
+        pos = make_position(ticker="FB_US_EQ", quantity=1.0)
+        mock_client = make_mock_client(positions=[pos])
+        request = httpx.Request("POST", "https://demo.trading212.com/api/v0/equity/orders/market")
+        response = httpx.Response(
+            400,
+            request=request,
+            json={
+                "type": "/api-errors/selling-equity-not-owned",
+                "detail": "Selling more equities than owned, owned: 0.0",
+            },
+        )
+        mock_client.place_market_order = AsyncMock(
+            side_effect=httpx.HTTPStatusError("bad request", request=request, response=response)
+        )
+        engine = TradingEngine()
+        engine._ticker_map["FB"] = "FB_US_EQ"
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            with pytest.raises(ValueError, match="No open position for FB"):
+                await engine.close_position("FB")
+
 
 # ---------------------------------------------------------------------------
 # close_all_positions()
@@ -179,3 +207,83 @@ class TestCloseAllPositions:
         assert results[1]["status"] == "closed"
         # Only successful close is logged
         assert len(engine._trade_log) == 1
+
+    @pytest.mark.asyncio
+    async def test_close_all_skips_zero_quantity_positions(self):
+        """Zero-quantity entries are skipped and never sent as sell orders."""
+        pos1 = make_position(ticker="NVDA_US_EQ", quantity=10.0)
+        pos2 = make_position(ticker="AAPL_US_EQ", quantity=0.0)
+        cash = make_cash()
+
+        mock_client = make_mock_client(positions=[pos1, pos2], cash=cash)
+        mock_client.place_market_order = AsyncMock(return_value=make_order(id=101))
+
+        engine = TradingEngine()
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            results = await engine.close_all_positions()
+
+        assert mock_client.place_market_order.await_count == 1
+        assert results[0]["ticker"] == "NVDA"
+        assert results[0]["status"] == "closed"
+        assert results[1]["ticker"] == "AAPL"
+        assert results[1]["status"] == "skipped"
+
+    @pytest.mark.asyncio
+    async def test_close_all_skips_when_live_position_is_missing(self):
+        """If live lookup shows missing position, close-all should skip it."""
+        pos1 = make_position(ticker="NVDA_US_EQ", quantity=10.0)
+        mock_client = make_mock_client(positions=[pos1], cash=make_cash())
+        mock_client.get_position = AsyncMock(return_value=None)
+
+        engine = TradingEngine()
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            results = await engine.close_all_positions()
+
+        assert results[0]["status"] == "skipped"
+        assert results[0]["detail"] == "Position already closed"
+        mock_client.place_market_order.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_close_all_skips_when_live_max_sell_is_zero(self):
+        """Live quantity can be stale; maxSell=0 must skip close."""
+        pos1 = make_position(ticker="NVDA_US_EQ", quantity=10.0)
+        live_pos = make_position(ticker="NVDA_US_EQ", quantity=10.0, maxSell=0.0)
+        mock_client = make_mock_client(positions=[pos1], cash=make_cash())
+        mock_client.get_position = AsyncMock(return_value=live_pos)
+
+        engine = TradingEngine()
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            results = await engine.close_all_positions()
+
+        assert results[0]["status"] == "skipped"
+        assert results[0]["detail"] == "Position already closed"
+        mock_client.place_market_order.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_close_all_not_owned_error_becomes_skipped(self):
+        """Race after live check should be treated as skipped, not error."""
+        pos1 = make_position(ticker="NFLX_US_EQ", quantity=2.0)
+        mock_client = make_mock_client(positions=[pos1], cash=make_cash())
+        request = httpx.Request("POST", "https://demo.trading212.com/api/v0/equity/orders/market")
+        response = httpx.Response(
+            400,
+            request=request,
+            json={
+                "type": "/api-errors/selling-equity-not-owned",
+                "detail": "Selling more equities than owned, owned: 0.0",
+            },
+        )
+        mock_client.place_market_order = AsyncMock(
+            side_effect=httpx.HTTPStatusError("bad request", request=request, response=response)
+        )
+
+        engine = TradingEngine()
+
+        with patch("src.bot.engine.Trading212Client", return_value=mock_client):
+            results = await engine.close_all_positions()
+
+        assert results[0]["status"] == "skipped"
+        assert results[0]["detail"] == "Position already closed"

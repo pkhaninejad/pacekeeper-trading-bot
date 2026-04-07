@@ -215,6 +215,58 @@
       padding: 24px;
     }
     #last-update { color: var(--blue); }
+
+    /* ── LLM Settings panel ── */
+    .llm-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .llm-panel h2 {
+      font-size: 14px; font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .llm-form {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .llm-form label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing:.04em; }
+    .llm-form select, .llm-form input[type="text"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      min-width: 160px;
+    }
+    .llm-form input[type="text"] { min-width: 220px; }
+    #llm-save-btn {
+      background: var(--blue);
+      border: none;
+      color: #000;
+      padding: 7px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    #llm-save-btn:hover { opacity: .85; }
+    #llm-toast {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    #llm-toast.ok  { background: rgba(63,185,80,.15); color: var(--green); display: inline-block; }
+    #llm-toast.err { background: rgba(248,81,73,.15);  color: var(--red);   display: inline-block; }
   </style>
 </head>
 <body>
@@ -253,6 +305,34 @@
       <div class="card">
         <div class="label">Signals Generated</div>
         <div class="value" id="kpi-signals">—</div>
+      </div>
+    </div>
+
+    <!-- LLM Settings -->
+    <div class="llm-panel">
+      <h2>LLM Settings</h2>
+      <div class="llm-form">
+        <div>
+          <label for="llm-provider">Provider</label>
+          <select id="llm-provider">
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Gemini</option>
+            <option value="ollama">Ollama</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="qwen">Qwen</option>
+          </select>
+        </div>
+        <div>
+          <label for="llm-model">Model</label>
+          <input type="text" id="llm-model" placeholder="model name" />
+        </div>
+        <div id="llm-cred-wrap">
+          <label for="llm-credential" id="llm-cred-label">API Key</label>
+          <input type="text" id="llm-credential" placeholder="enter key" />
+        </div>
+        <button id="llm-save-btn">Save</button>
+        <span id="llm-toast"></span>
       </div>
     </div>
 
@@ -561,7 +641,8 @@
   // ── Positions ─────────────────────────────────────────────────────────────
   async function refreshPositions() {
     try {
-      const data = await fetchJSON('/api/positions');
+      const raw = await fetchJSON('/api/positions');
+      const data = (raw || []).filter(p => Math.abs(Number(p.quantity || 0)) > 1e-6);
       const tbody = document.getElementById('positions-body');
       if (!data.length) {
         tbody.innerHTML = '<tr><td colspan="8" style="color:var(--muted);text-align:center">No open positions</td></tr>';
@@ -652,7 +733,7 @@
   // ── Toggle ────────────────────────────────────────────────────────────────
   document.getElementById('toggle-btn').addEventListener('click', async () => {
     await fetch('/api/bot/toggle', { method: 'POST' });
-    refreshStatus();
+    await refreshStatus();
   });
 
   // ── SSE ───────────────────────────────────────────────────────────────────
@@ -686,6 +767,74 @@
   refresh();
   setInterval(refresh, 15000);
   connectSSE();
+
+  // ── LLM Settings ─────────────────────────────────────────────────────────
+  const PROVIDER_USES_URL = new Set(['ollama', 'qwen']);
+
+  async function loadLLMConfig() {
+    try {
+      const cfg = await fetchJSON('/api/llm/config');
+      const providerDefaults = cfg.provider_defaults || {};
+      document.getElementById('llm-provider').value = cfg.provider;
+      document.getElementById('llm-model').value = cfg.model;
+      updateLLMCredField(cfg.provider, cfg.api_key, cfg.base_url);
+      window._llmDefaults = providerDefaults;
+    } catch(e) { console.warn('llm config load failed', e); }
+  }
+
+  function updateLLMCredField(provider, apiKey, baseUrl) {
+    const label = document.getElementById('llm-cred-label');
+    const input = document.getElementById('llm-credential');
+    if (PROVIDER_USES_URL.has(provider)) {
+      label.textContent = 'Base URL';
+      input.placeholder = 'http://localhost:11434';
+      input.value = baseUrl || '';
+    } else {
+      label.textContent = 'API Key';
+      input.placeholder = 'enter API key';
+      input.value = apiKey || '';
+    }
+  }
+
+  document.getElementById('llm-provider').addEventListener('change', function() {
+    const provider = this.value;
+    const defaults = (window._llmDefaults || {})[provider] || {};
+    document.getElementById('llm-model').value = defaults.model || '';
+    updateLLMCredField(provider, '', defaults.base_url || '');
+  });
+
+  document.getElementById('llm-save-btn').addEventListener('click', async () => {
+    const provider = document.getElementById('llm-provider').value;
+    const model = document.getElementById('llm-model').value.trim();
+    const credVal = document.getElementById('llm-credential').value.trim();
+    const isUrl = PROVIDER_USES_URL.has(provider);
+    const body = {
+      provider,
+      model,
+      api_key: isUrl ? '' : credVal,
+      base_url: isUrl ? credVal : '',
+    };
+    const toast = document.getElementById('llm-toast');
+    try {
+      const res = await fetch('/api/llm/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || res.statusText);
+      }
+      toast.textContent = 'Saved';
+      toast.className = 'ok';
+    } catch(e) {
+      toast.textContent = `Error: ${e.message}`;
+      toast.className = 'err';
+    }
+    setTimeout(() => { toast.className = ''; toast.textContent = ''; }, 3000);
+  });
+
+  loadLLMConfig();
 </script>
 </body>
 </html>

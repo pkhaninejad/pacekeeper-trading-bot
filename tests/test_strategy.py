@@ -1,17 +1,29 @@
-"""Tests for ClaudeStrategy in src/bot/strategy.py."""
+"""Tests for AIStrategy in src/bot/strategy.py."""
 
 import json
 import pytest
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 from src.api.models import Position, CashInfo, Instrument, TradeSignal
-from src.bot.strategy import _build_market_context, ClaudeStrategy
+from src.bot.strategy import _build_market_context, AIStrategy
+from src.bot.llm_config import ProviderConfig
 from src.data.earnings_calendar import EarningsInfo
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _make_config() -> ProviderConfig:
+    return ProviderConfig(provider="anthropic", model="claude-sonnet-4-6", api_key="test-key", base_url="")
+
+
+def _mock_litellm(text: str):
+    """Return a MagicMock shaped like a litellm completion response."""
+    resp = MagicMock()
+    resp.choices[0].message.content = text
+    return resp
+
 
 def make_cash(**kwargs) -> CashInfo:
     defaults = dict(free=5_000.0, total=10_000.0, ppl=200.0, result=200.0, invested=9_800.0, pieCash=0.0)
@@ -70,27 +82,17 @@ class TestBuildMarketContext:
 
 
 # ---------------------------------------------------------------------------
-# ClaudeStrategy.generate_signals
+# AIStrategy.generate_signals
 # ---------------------------------------------------------------------------
 
 class TestGenerateSignals:
-    def _make_strategy(self, raw_response: str) -> ClaudeStrategy:
-        """Return a ClaudeStrategy with a mocked Anthropic client."""
-        strategy = ClaudeStrategy.__new__(ClaudeStrategy)
-        mock_client = MagicMock()
-        mock_message = MagicMock()
-        mock_message.content = [MagicMock(text=raw_response)]
-        mock_client.messages.create.return_value = mock_message
-        strategy._client = mock_client
-        return strategy
-
     def test_valid_json_array_parsed(self):
         payload = json.dumps([{
             "ticker": "AAPL", "action": "BUY", "direction": "LONG",
             "confidence": 0.85, "reasoning": "bullish", "order_type": "MARKET",
         }])
-        strategy = self._make_strategy(payload)
-        signals = strategy.generate_signals([], make_cash(), ["AAPL"], [])
+        with patch("src.bot.strategy.litellm.completion", return_value=_mock_litellm(payload)):
+            signals = AIStrategy().generate_signals([], make_cash(), ["AAPL"], [], provider_config=_make_config())
         assert len(signals) == 1
         assert signals[0].ticker == "AAPL"
         assert signals[0].confidence == 0.85
@@ -100,8 +102,8 @@ class TestGenerateSignals:
             "ticker": "TSLA", "action": "SELL", "direction": "CLOSE",
             "confidence": 0.9, "reasoning": "take profit", "order_type": "MARKET",
         })
-        strategy = self._make_strategy(payload)
-        signals = strategy.generate_signals([], make_cash(), ["TSLA"], [])
+        with patch("src.bot.strategy.litellm.completion", return_value=_mock_litellm(payload)):
+            signals = AIStrategy().generate_signals([], make_cash(), ["TSLA"], [], provider_config=_make_config())
         assert len(signals) == 1
         assert signals[0].ticker == "TSLA"
 
@@ -110,14 +112,14 @@ class TestGenerateSignals:
             "ticker": "NVDA", "action": "BUY", "direction": "LONG",
             "confidence": 0.75, "reasoning": "gpu demand", "order_type": "MARKET",
         }]) + "\n```"
-        strategy = self._make_strategy(payload)
-        signals = strategy.generate_signals([], make_cash(), ["NVDA"], [])
+        with patch("src.bot.strategy.litellm.completion", return_value=_mock_litellm(payload)):
+            signals = AIStrategy().generate_signals([], make_cash(), ["NVDA"], [], provider_config=_make_config())
         assert len(signals) == 1
         assert signals[0].ticker == "NVDA"
 
     def test_invalid_json_returns_empty(self):
-        strategy = self._make_strategy("not valid json at all")
-        signals = strategy.generate_signals([], make_cash(), ["AAPL"], [])
+        with patch("src.bot.strategy.litellm.completion", return_value=_mock_litellm("not valid json")):
+            signals = AIStrategy().generate_signals([], make_cash(), ["AAPL"], [], provider_config=_make_config())
         assert signals == []
 
     def test_malformed_signal_skipped(self):
@@ -126,16 +128,13 @@ class TestGenerateSignals:
              "confidence": 0.8, "reasoning": "ok", "order_type": "MARKET"},
             {"this": "is", "missing": "required fields"},
         ])
-        strategy = self._make_strategy(payload)
-        signals = strategy.generate_signals([], make_cash(), ["AAPL"], [])
-        assert len(signals) == 1  # malformed one skipped
+        with patch("src.bot.strategy.litellm.completion", return_value=_mock_litellm(payload)):
+            signals = AIStrategy().generate_signals([], make_cash(), ["AAPL"], [], provider_config=_make_config())
+        assert len(signals) == 1
 
     def test_api_exception_returns_empty(self):
-        strategy = ClaudeStrategy.__new__(ClaudeStrategy)
-        mock_client = MagicMock()
-        mock_client.messages.create.side_effect = Exception("API down")
-        strategy._client = mock_client
-        signals = strategy.generate_signals([], make_cash(), ["AAPL"], [])
+        with patch("src.bot.strategy.litellm.completion", side_effect=Exception("API down")):
+            signals = AIStrategy().generate_signals([], make_cash(), ["AAPL"], [], provider_config=_make_config())
         assert signals == []
 
     def test_multiple_signals_returned(self):
@@ -145,11 +144,22 @@ class TestGenerateSignals:
             {"ticker": "TSLA", "action": "BUY", "direction": "SHORT",
              "confidence": 0.7, "reasoning": "overbought", "order_type": "MARKET"},
         ])
-        strategy = self._make_strategy(payload)
-        signals = strategy.generate_signals([], make_cash(), ["AAPL", "TSLA"], [])
+        with patch("src.bot.strategy.litellm.completion", return_value=_mock_litellm(payload)):
+            signals = AIStrategy().generate_signals([], make_cash(), ["AAPL", "TSLA"], [], provider_config=_make_config())
         assert len(signals) == 2
-        tickers = {s.ticker for s in signals}
-        assert tickers == {"AAPL", "TSLA"}
+        assert {s.ticker for s in signals} == {"AAPL", "TSLA"}
+
+    def test_uses_provider_config_model(self):
+        config = ProviderConfig(provider="openai", model="gpt-4o", api_key="sk-test", base_url="")
+        payload = json.dumps([{
+            "ticker": "AAPL", "action": "HOLD", "direction": "LONG",
+            "confidence": 0.5, "reasoning": "uncertain", "order_type": "MARKET",
+        }])
+        with patch("src.bot.strategy.litellm.completion", return_value=_mock_litellm(payload)) as mock_call:
+            AIStrategy().generate_signals([], make_cash(), ["AAPL"], [], provider_config=config)
+        mock_call.assert_called_once()
+        assert mock_call.call_args.kwargs["model"] == "gpt-4o"
+        assert mock_call.call_args.kwargs["api_key"] == "sk-test"
 
 
 def make_earnings_info_dict(**overrides) -> dict:

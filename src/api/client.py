@@ -18,11 +18,13 @@ from src.api.models import (
     AccountInfo, CashInfo, Position, Order,
     Instrument, MarketOrderRequest, LimitOrderRequest, StopOrderRequest,
 )
+from src.bot.position_utils import is_closable_quantity
 
 logger = logging.getLogger(__name__)
 
 _RATE_LIMIT_DELAY = 1.0   # seconds between requests
 _global_lock: Optional[asyncio.Lock] = None
+_POSITION_EPSILON = 1e-6
 
 
 def _get_lock() -> asyncio.Lock:
@@ -36,6 +38,20 @@ def _auth_header() -> str:
     raw = f"{settings.T212_API_KEY}:{settings.T212_API_SECRET}"
     encoded = base64.b64encode(raw.encode()).decode()
     return f"Basic {encoded}"
+
+
+def _is_selling_not_owned_response(response: httpx.Response) -> bool:
+    if response.status_code != 400:
+        return False
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            if payload.get("type") == "/api-errors/selling-equity-not-owned":
+                return True
+            return "Selling more equities than owned" in str(payload.get("detail", ""))
+    except Exception:
+        return "selling-equity-not-owned" in (response.text or "")
+    return False
 
 
 class Trading212Client:
@@ -74,7 +90,10 @@ class Trading212Client:
                     body = r.json()
                 except Exception:
                     body = r.text
-                logger.error("T212 API error %d: %s", r.status_code, body)
+                if _is_selling_not_owned_response(r):
+                    logger.info("T212 rejected stale close order: %s", body)
+                else:
+                    logger.error("T212 API error %d: %s", r.status_code, body)
             r.raise_for_status()
             return r.json()
         r.raise_for_status()  # raise after exhausting retries
@@ -115,7 +134,14 @@ class Trading212Client:
 
     async def get_positions(self) -> list[Position]:
         data = await self._get("/equity/portfolio")
-        return [Position(**p) for p in (data if isinstance(data, list) else [])]
+        positions = [Position(**p) for p in (data if isinstance(data, list) else [])]
+        # Some API responses may include zero-quantity remnants; treat them as closed.
+        filtered: list[Position] = []
+        for p in positions:
+            closable = p.maxSell if p.maxSell is not None else p.quantity
+            if is_closable_quantity(closable, epsilon=_POSITION_EPSILON):
+                filtered.append(p)
+        return filtered
 
     async def get_position(self, ticker: str) -> Optional[Position]:
         try:

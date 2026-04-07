@@ -10,8 +10,9 @@ from typing import Optional
 from src.api.client import Trading212Client
 from src.api.models import (
     MarketOrderRequest, LimitOrderRequest, StopOrderRequest,
-    TradeSignal, BotStatus, Position, TradeOutcome,
+    TradeSignal, BotStatus, Position, TradeOutcome, RegimeResult,
 )
+from src.data.market_regime import get_regime
 from src.bot.strategy import ClaudeStrategy
 from src.bot.risk_manager import RiskManager
 from src.bot.market_hours import is_market_open, next_open
@@ -49,6 +50,7 @@ class TradingEngine:
         self._pnl_history: list[dict] = []   # [{t, ppl, total, invested}]
         self._outcome_log: list[TradeOutcome] = []
         self._session_date: str = ""          # YYYY-MM-DD; resets history each new day
+        self._last_regime: RegimeResult | None = None
         # Pre-seeded shortName → T212 ticker map; extended at runtime from instruments API
         self._ticker_map: dict = {
             "AAPL": "AAPL_US_EQ",
@@ -205,6 +207,19 @@ class TradingEngine:
                 logger.info("Market closed — skipping cycle (next open: %s ET)", nxt)
                 return
 
+        # Fetch market regime (cached 1h) — EXTREME_FEAR blocks new signals
+        self._last_regime = get_regime()
+        self.status.regime = self._last_regime.regime
+        if self._last_regime.regime == "EXTREME_FEAR":
+            logger.warning(
+                "EXTREME_FEAR regime (VIX=%.1f) — skipping signals, managing exits only",
+                self._last_regime.vix,
+            )
+            async with Trading212Client() as client:
+                positions = await client.get_positions()
+                await self._manage_exits(client, positions)
+            return
+
         logger.info("=== Trading cycle started ===")
         self.status.last_run = datetime.now(UTC)
 
@@ -254,13 +269,16 @@ class TradingEngine:
             signals = self.strategy.generate_signals(
                 positions, cash, settings.WATCHLIST, instruments, earnings_info, news_data,
                 outcome_log=self.outcome_log,
+                regime=self._last_regime,
             )
             self.status.signals_generated += len(signals)
             self._signals_history.extend(signals)
 
             # 3. Execute approved signals
             for signal in signals:
-                approved, reason = self.risk.validate(signal, positions, cash, earnings_info)
+                approved, reason = self.risk.validate(
+                    signal, positions, cash, earnings_info, regime=self._last_regime
+                )
                 if not approved:
                     logger.info("Signal rejected [%s]: %s", signal.ticker, reason)
                     continue

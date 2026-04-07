@@ -9,7 +9,7 @@ import logging
 from datetime import UTC, datetime
 import anthropic
 from src.config.settings import settings
-from src.api.models import Position, CashInfo, TradeSignal, Instrument
+from src.api.models import Position, CashInfo, TradeSignal, Instrument, RegimeResult
 from src.bot.price_feed import get_price_summary
 from src.data.earnings_calendar import EarningsInfo
 from src.data.news_feed import NewsItem
@@ -132,6 +132,7 @@ def _build_market_context(
     earnings_info: dict[str, "EarningsInfo"] | None = None,
     news_data: dict[str, list["NewsItem"]] | None = None,
     outcome_log: list | None = None,
+    regime: "RegimeResult | None" = None,
 ) -> str:
     """Build the user prompt with current portfolio state."""
     if price_data is None:
@@ -208,6 +209,31 @@ def _build_market_context(
         if summary:
             perf_section = f"\n{summary}\n"
 
+    regime_section = ""
+    if regime:
+        spy_label = "above" if regime.spy_vs_200ema >= 0 else "below"
+        pct_label = f"{abs(regime.spy_vs_200ema):.1f}% {spy_label} 200EMA"
+        size_label = (
+            f"reduced {int((1 - regime.position_size_multiplier) * 100)}% by risk manager"
+            if regime.position_size_multiplier < 1.0
+            else "normal (100%)"
+        )
+        bias_map = {
+            "BULL": "Favour LONG signals",
+            "NEUTRAL": "No directional bias",
+            "BEAR": "Prefer SHORT signals or HOLD",
+            "EXTREME_FEAR": "CLOSE only — no new positions",
+        }
+        bias = bias_map.get(regime.regime, "")
+        regime_section = (
+            f"\n=== MARKET REGIME ===\n"
+            f"Regime:        {regime.regime}\n"
+            f"SPY vs 200EMA: {regime.spy_vs_200ema:+.1f}% ({pct_label})\n"
+            f"VIX:           {regime.vix:.1f}\n"
+            f"Position size: {size_label}\n"
+            f"Bias:          {bias}\n"
+        )
+
     context = f"""Current datetime (UTC): {datetime.now(UTC).isoformat()}
 
 === PORTFOLIO ===
@@ -221,7 +247,7 @@ Open positions ({len(positions)}):
 
 === PRICE FEED (30-day) ===
 {chr(10).join(price_lines) if price_lines else '  (unavailable)'}
-{earnings_section}{news_section}{perf_section}
+{earnings_section}{news_section}{perf_section}{regime_section}
 === WATCHLIST ===
 {json.dumps({t: instrument_info.get(t, t) for t in watchlist}, indent=2)}
 
@@ -249,11 +275,13 @@ class ClaudeStrategy:
         earnings_info: dict[str, "EarningsInfo"] | None = None,
         news_data: dict[str, list["NewsItem"]] | None = None,
         outcome_log: list | None = None,
+        regime: "RegimeResult | None" = None,
     ) -> list[TradeSignal]:
         """Call Claude and parse trade signals."""
         price_data = get_price_summary(watchlist)
         user_prompt = _build_market_context(
-            positions, cash, watchlist, instruments, price_data, earnings_info, news_data, outcome_log
+            positions, cash, watchlist, instruments, price_data,
+            earnings_info, news_data, outcome_log, regime,
         )
 
         logger.info("Calling Claude for trading signals...")

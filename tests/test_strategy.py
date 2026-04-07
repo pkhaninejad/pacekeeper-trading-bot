@@ -309,3 +309,42 @@ class TestPerformanceSummaryInjection:
         ctx = _build_market_context([], make_cash(), ["AAPL"], [], outcome_log=outcomes)
         assert "5 wins" in ctx
         assert "0 losses" in ctx
+
+
+# ---------------------------------------------------------------------------
+# Market regime section injection
+# ---------------------------------------------------------------------------
+
+from src.api.models import RegimeResult
+
+
+def _make_cash():
+    return CashInfo(free=10000, total=20000, ppl=0, result=0, invested=10000, pieCash=0)
+
+
+def _make_regime(regime_name: str) -> RegimeResult:
+    labels = {
+        "BULL": (1.0, "bull market"),
+        "NEUTRAL": (0.75, "neutral"),
+        "BEAR": (0.50, "bear market"),
+    }
+    mult, desc = labels[regime_name]
+    return RegimeResult(
+        regime=regime_name,
+        spy_vs_200ema=3.0 if regime_name == "BULL" else -3.0,
+        vix=15.0 if regime_name == "BULL" else 32.0,
+        position_size_multiplier=mult,
+        description=desc,
+    )
+
+
+def test_regime_section_included_in_prompt():
+    regime = _make_regime("BEAR")
+    prompt = _build_market_context([], _make_cash(), ["AAPL"], [], regime=regime)
+    assert "MARKET REGIME" in prompt
+    assert "BEAR" in prompt
+
+
+def test_no_regime_prompt_has_no_regime_section():
+    prompt = _build_market_context([], _make_cash(), ["AAPL"], [])
+    assert "MARKET REGIME" not in prompt

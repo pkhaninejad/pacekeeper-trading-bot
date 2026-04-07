@@ -63,6 +63,10 @@ class RiskManager:
             if required > cash.free:
                 return False, f"Insufficient cash: need {required:.2f}, have {cash.free:.2f}"
 
+        # EXTREME_FEAR gate — block all new positions (multiplier=0.0)
+        if regime and regime.position_size_multiplier == 0.0 and not is_close:
+            return False, f"EXTREME_FEAR regime (VIX={regime.vix:.1f}) — no new positions allowed"
+
         # Position size limit (regime multiplier applied here)
         if signal.suggested_quantity and signal.suggested_price:
             trade_value = abs(signal.suggested_quantity) * signal.suggested_price

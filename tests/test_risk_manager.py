@@ -341,3 +341,19 @@ class TestRegimeMultiplier:
         approved, _ = self.rm.validate(signal, [], cash)
         assert approved is True
         assert signal.suggested_quantity == pytest.approx(8.0)
+
+    def test_extreme_fear_blocks_new_position(self):
+        signal = make_signal(action="BUY", direction="LONG")
+        cash = make_cash()
+        regime = make_regime("EXTREME_FEAR", 0.0)
+        approved, reason = self.rm.validate(signal, [], cash, regime=regime)
+        assert approved is False
+        assert "EXTREME_FEAR" in reason
+
+    def test_extreme_fear_allows_close(self):
+        # CLOSE signals are allowed even in EXTREME_FEAR
+        positions = [make_position(ticker="AAPL", quantity=5)]
+        signal = make_signal(ticker="AAPL", action="SELL", direction="CLOSE")
+        regime = make_regime("EXTREME_FEAR", 0.0)
+        approved, _ = self.rm.validate(signal, positions, make_cash(), regime=regime)
+        assert approved is True

@@ -158,6 +158,12 @@ async def get_pnl_history():
     return engine.pnl_history
 
 
+@app.get("/api/performance", tags=["Bot"])
+async def get_performance():
+    """Full signal outcome history (in-memory, cleared on restart)."""
+    return [o.model_dump() for o in engine._outcome_log]
+
+
 @app.get("/api/signals", tags=["Bot"])
 async def get_signals():
     return [s.model_dump() for s in engine.signals_history]
@@ -178,31 +184,18 @@ async def trigger_cycle():
 @app.post("/api/positions/{ticker}/close", tags=["Positions"])
 async def close_position(ticker: str):
     """Close a specific position by ticker."""
-    from src.api.models import MarketOrderRequest
-    async with Trading212Client() as client:
-        pos = await client.get_position(ticker)
-        if not pos:
-            raise HTTPException(status_code=404, detail=f"No open position for {ticker}")
-        qty = -pos.quantity
-        order = await client.place_market_order(MarketOrderRequest(ticker=ticker, quantity=qty))
+    try:
+        result = await engine.close_position(ticker)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     _cache.pop("positions", None)
-    return {"message": f"Closed {ticker}", "order_id": order.id}
+    return result
 
 
 @app.post("/api/positions/close-all", tags=["Positions"])
 async def close_all_positions():
     """Close all open positions."""
-    from src.api.models import MarketOrderRequest
-    async with Trading212Client() as client:
-        positions = await client.get_positions()
-        results = []
-        for pos in positions:
-            try:
-                qty = -pos.quantity
-                order = await client.place_market_order(MarketOrderRequest(ticker=pos.ticker, quantity=qty))
-                results.append({"ticker": pos.ticker, "order_id": order.id, "status": "closed"})
-            except Exception as e:
-                results.append({"ticker": pos.ticker, "status": "error", "detail": str(e)})
+    results = await engine.close_all_positions()
     _cache.pop("positions", None)
     return {"closed": results}
 

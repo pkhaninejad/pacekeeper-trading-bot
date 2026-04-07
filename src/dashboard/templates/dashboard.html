@@ -58,6 +58,26 @@
       background: rgba(63,185,80,.2);
       color: var(--green);
     }
+    .regime-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 700;
+      background: rgba(63,185,80,.2);
+      color: var(--green);
+    }
+    .regime-badge.neutral {
+      background: rgba(210,153,34,.2);
+      color: var(--yellow);
+    }
+    .regime-badge.bear {
+      background: rgba(248,81,73,.2);
+      color: var(--red);
+    }
+    .regime-badge.extreme-fear {
+      background: rgba(188,140,255,.2);
+      color: var(--purple);
+    }
     .status-dot {
       width: 10px; height: 10px;
       border-radius: 50%;
@@ -222,6 +242,7 @@
     <h1>Claude <span>Trade Bot</span></h1>
     <span class="env-badge" id="env-badge">DEMO</span>
     <span class="market-badge" id="market-badge">CLOSED</span>
+    <span class="regime-badge" id="regime-badge" style="display:none">BULL</span>
     <span id="next-open-label" style="font-size:11px;color:var(--muted)"></span>
     <span class="status-dot" id="status-dot"></span>
     <button id="toggle-btn">Pause Bot</button>
@@ -453,6 +474,21 @@
         nol.textContent = `opens ${d.toLocaleDateString([], {weekday:'short'})} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
       } else {
         nol.textContent = '';
+      }
+
+      const rb = document.getElementById('regime-badge');
+      if (s.regime) {
+        rb.textContent = s.regime.replace('_', ' ');
+        const classMap = {
+          'BULL': '',
+          'NEUTRAL': 'neutral',
+          'BEAR': 'bear',
+          'EXTREME_FEAR': 'extreme-fear',
+        };
+        rb.className = 'regime-badge ' + (classMap[s.regime] || '');
+        rb.style.display = '';
+      } else {
+        rb.style.display = 'none';
       }
     } catch(e) { console.warn('status fetch failed', e); }
   }

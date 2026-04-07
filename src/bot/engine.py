@@ -7,14 +7,18 @@ import logging
 from datetime import UTC, datetime
 from typing import Optional
 
+import httpx
+
 from src.api.client import Trading212Client
 from src.api.models import (
     MarketOrderRequest, LimitOrderRequest, StopOrderRequest,
     TradeSignal, BotStatus, Position, TradeOutcome,
 )
-from src.bot.strategy import ClaudeStrategy
+from src.bot.strategy import AIStrategy
+from src.bot.llm_config import ProviderConfig, load_provider_config
 from src.bot.risk_manager import RiskManager
 from src.bot.market_hours import is_market_open, next_open
+from src.bot.position_utils import is_closable_quantity, resolve_close_quantity
 from src.data.earnings_calendar import EarningsCalendar
 from src.data.news_feed import NewsFeed
 from src.config.settings import settings
@@ -24,7 +28,8 @@ logger = logging.getLogger(__name__)
 
 class TradingEngine:
     def __init__(self):
-        self.strategy = ClaudeStrategy()
+        self.strategy = AIStrategy()
+        self._provider_config: ProviderConfig = load_provider_config()
         self.risk = RiskManager()
         self.earnings = EarningsCalendar(
             days_before=settings.EARNINGS_DAYS_BEFORE,
@@ -88,6 +93,11 @@ class TradingEngine:
         self.status.enabled = not self.status.enabled
         return self.status.enabled
 
+    def update_provider_config(self, config: ProviderConfig) -> None:
+        """Hot-swap the LLM provider. Takes effect on the next trading cycle."""
+        self._provider_config = config
+        logger.info("Provider config updated: %s/%s", config.provider, config.model)
+
     @property
     def signals_history(self) -> list[TradeSignal]:
         return self._signals_history[-100:]
@@ -118,12 +128,19 @@ class TradingEngine:
             )
             if pos is None:
                 raise ValueError(f"No open position for {ticker}")
+            quantity = resolve_close_quantity(pos.quantity, pos.maxSell)
+            if quantity is None:
+                raise ValueError(f"No open position for {ticker}")
 
             t212_ticker = self._ticker_map.get(ticker, pos.ticker)
-            quantity = -pos.quantity
-            order = await client.place_market_order(
-                MarketOrderRequest(ticker=t212_ticker, quantity=quantity)
-            )
+            try:
+                order = await client.place_market_order(
+                    MarketOrderRequest(ticker=t212_ticker, quantity=quantity)
+                )
+            except Exception as e:
+                if self._is_selling_not_owned_error(e):
+                    raise ValueError(f"No open position for {ticker}") from e
+                raise
             now = datetime.now(UTC)
             self._log_trade({
                 "action": "MANUAL_CLOSE",
@@ -153,8 +170,23 @@ class TradingEngine:
             results = []
             for pos in positions:
                 short_ticker = pos.ticker.split("_")[0]
+                live_pos = await client.get_position(pos.ticker)
+                if not live_pos:
+                    results.append({
+                        "ticker": short_ticker,
+                        "status": "skipped",
+                        "detail": "Position already closed",
+                    })
+                    continue
+                quantity = resolve_close_quantity(live_pos.quantity, live_pos.maxSell)
+                if quantity is None:
+                    results.append({
+                        "ticker": short_ticker,
+                        "status": "skipped",
+                        "detail": "Position already closed",
+                    })
+                    continue
                 try:
-                    quantity = -pos.quantity
                     order = await client.place_market_order(
                         MarketOrderRequest(ticker=pos.ticker, quantity=quantity)
                     )
@@ -170,6 +202,13 @@ class TradingEngine:
                     self.status.total_trades_today += 1
                     results.append({"ticker": short_ticker, "order_id": order.id, "status": "closed"})
                 except Exception as e:
+                    if self._is_selling_not_owned_error(e):
+                        results.append({
+                            "ticker": short_ticker,
+                            "status": "skipped",
+                            "detail": "Position already closed",
+                        })
+                        continue
                     results.append({"ticker": short_ticker, "status": "error", "detail": str(e)})
 
             if positions:
@@ -252,19 +291,37 @@ class TradingEngine:
 
             # 2. Generate new signals via Claude
             signals = self.strategy.generate_signals(
-                positions, cash, settings.WATCHLIST, instruments, earnings_info, news_data,
+                positions, cash, settings.WATCHLIST, instruments,
+                provider_config=self._provider_config,
+                earnings_info=earnings_info,
+                news_data=news_data,
                 outcome_log=self.outcome_log,
             )
             self.status.signals_generated += len(signals)
             self._signals_history.extend(signals)
 
             # 3. Execute approved signals
+            attempted_close_tickers: set[str] = set()
             for signal in signals:
+                normalized_signal_ticker = self._normalize_ticker(signal.ticker)
+                if signal.direction == "CLOSE":
+                    if normalized_signal_ticker in attempted_close_tickers:
+                        logger.info(
+                            "Skip duplicate CLOSE signal for %s in same cycle",
+                            normalized_signal_ticker,
+                        )
+                        continue
+                    attempted_close_tickers.add(normalized_signal_ticker)
                 approved, reason = self.risk.validate(signal, positions, cash, earnings_info)
                 if not approved:
                     logger.info("Signal rejected [%s]: %s", signal.ticker, reason)
                     continue
                 await self._execute_signal(client, signal, cash, positions)
+                if signal.direction == "CLOSE":
+                    positions = [
+                        p for p in positions
+                        if self._normalize_ticker(p.ticker) != normalized_signal_ticker
+                    ]
 
         logger.info("=== Trading cycle complete ===")
 
@@ -284,7 +341,10 @@ class TradingEngine:
             if should_exit:
                 logger.info("Closing %s position in %s: %s",
                            "LONG" if pos.is_long else "SHORT", pos.ticker, exit_reason)
-                close_qty = -pos.quantity  # opposite to close
+                close_qty = resolve_close_quantity(pos.quantity, pos.maxSell)
+                if close_qty is None:
+                    logger.info("Skip auto-close for %s: quantity already zero", pos.ticker)
+                    continue
                 req = MarketOrderRequest(ticker=pos.ticker, quantity=close_qty)
                 try:
                     order = await client.place_market_order(req)
@@ -301,6 +361,9 @@ class TradingEngine:
                     outcome_type = "TP_HIT" if exit_reason == "take-profit" else "SL_HIT"
                     self._update_outcome(short_ticker, outcome_type, pnl_pct=pos.pnl_pct)
                 except Exception as e:
+                    if self._is_selling_not_owned_error(e):
+                        logger.info("Skip auto-close for %s: position already closed", pos.ticker)
+                        continue
                     logger.error("Failed to close %s: %s", pos.ticker, e)
 
     async def _execute_signal(
@@ -311,15 +374,26 @@ class TradingEngine:
         positions: list[Position],
     ):
         """Place order based on signal."""
+        normalized_ticker = self._normalize_ticker(signal.ticker)
+
         # Resolve T212 ticker (e.g. NVDA → NVDA_US_EQ)
         t212_ticker = self._ticker_map.get(signal.ticker, signal.ticker)
 
         # Determine quantity
         if signal.direction == "CLOSE":
-            existing = next((p for p in positions if p.ticker == signal.ticker), None)
+            existing = self._find_position(positions, signal.ticker)
             if not existing:
+                logger.info("Skip CLOSE for %s: no matching open position", normalized_ticker)
                 return
-            quantity = -existing.quantity
+            t212_ticker = existing.ticker
+            live_existing = await client.get_position(t212_ticker)
+            if not live_existing:
+                logger.info("Skip CLOSE for %s: position already closed", normalized_ticker)
+                return
+            quantity = resolve_close_quantity(live_existing.quantity, live_existing.maxSell)
+            if quantity is None:
+                logger.info("Skip CLOSE for %s: position quantity already zero", normalized_ticker)
+                return
         elif signal.suggested_quantity:
             quantity = signal.suggested_quantity
         else:
@@ -378,7 +452,37 @@ class TradingEngine:
                     ))
 
         except Exception as e:
+            if self._is_selling_not_owned_error(e):
+                logger.info("Skip order for %s: position already closed", signal.ticker)
+                return
             logger.error("Order execution failed for %s: %s", signal.ticker, e)
+
+    @staticmethod
+    def _normalize_ticker(ticker: str) -> str:
+        return ticker.split("_")[0]
+
+    def _find_position(self, positions: list[Position], ticker: str) -> Position | None:
+        normalized = self._normalize_ticker(ticker)
+        return next(
+            (p for p in positions if p.ticker == ticker or self._normalize_ticker(p.ticker) == normalized),
+            None,
+        )
+
+    @staticmethod
+    def _is_selling_not_owned_error(error: Exception) -> bool:
+        if not isinstance(error, httpx.HTTPStatusError):
+            return False
+        try:
+            payload = error.response.json()
+            if isinstance(payload, dict):
+                if payload.get("type") == "/api-errors/selling-equity-not-owned":
+                    return True
+                detail = str(payload.get("detail", ""))
+                return "Selling more equities than owned" in detail
+        except Exception:
+            pass
+        text = error.response.text or ""
+        return "selling-equity-not-owned" in text
 
     def _log_trade(self, entry: dict):
         self._trade_log.append(entry)

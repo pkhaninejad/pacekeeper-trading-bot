@@ -20,6 +20,8 @@ from src.bot.risk_manager import RiskManager
 from src.bot.market_hours import is_market_open, next_open
 from src.bot.position_utils import is_closable_quantity, resolve_close_quantity
 from src.data.earnings_calendar import EarningsCalendar
+from src.data.macro_calendar import MacroCalendar
+from src.data.market_regime import RegimeDetector
 from src.data.news_feed import NewsFeed
 from src.config.settings import settings
 
@@ -43,6 +45,8 @@ class TradingEngine:
             finnhub_api_key=settings.FINNHUB_API_KEY,
             news_api_key=settings.NEWS_API_KEY,
         )
+        self.macro = MacroCalendar(finnhub_api_key=settings.FINNHUB_API_KEY)
+        self.regime_detector = RegimeDetector()
         self.status = BotStatus(
             enabled=settings.BOT_ENABLED,
             environment=settings.T212_ENV,
@@ -289,13 +293,23 @@ class TradingEngine:
             # Fetch news headlines for watchlist
             news_data = self.news.get_news(settings.WATCHLIST)
 
+            # Fetch macro economic calendar
+            macro_events = self.macro.get_high_impact_events(hours_ahead=24)
+
+            # Fetch market regime (SPY trend + VIX)
+            regime = self.regime_detector.get_regime()
+            self.status.market_regime = regime.label
+            self.status.vix = regime.vix
+
             # 2. Generate new signals via Claude
             signals = self.strategy.generate_signals(
                 positions, cash, settings.WATCHLIST, instruments,
                 provider_config=self._provider_config,
                 earnings_info=earnings_info,
                 news_data=news_data,
+                macro_events=macro_events,
                 outcome_log=self.outcome_log,
+                regime=regime,
             )
             self.status.signals_generated += len(signals)
             self._signals_history.extend(signals)
@@ -312,7 +326,7 @@ class TradingEngine:
                         )
                         continue
                     attempted_close_tickers.add(normalized_signal_ticker)
-                approved, reason = self.risk.validate(signal, positions, cash, earnings_info)
+                approved, reason = self.risk.validate(signal, positions, cash, earnings_info, macro_events, regime=regime)
                 if not approved:
                     logger.info("Signal rejected [%s]: %s", signal.ticker, reason)
                     continue

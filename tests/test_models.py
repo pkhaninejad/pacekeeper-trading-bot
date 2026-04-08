@@ -179,3 +179,12 @@ def test_bot_status_has_regime_field():
     assert s.regime is None  # optional, defaults to None
     s.regime = "BEAR"
     assert s.regime == "BEAR"
+
+def test_bot_status_has_account_type_field():
+    s = BotStatus(enabled=True)
+    assert hasattr(s, "account_type")
+    assert s.account_type == "invest"
+
+def test_bot_status_cfd_account_type():
+    s = BotStatus(enabled=True, account_type="cfd")
+    assert s.account_type == "cfd"

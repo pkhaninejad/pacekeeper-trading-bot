@@ -119,6 +119,7 @@ class BotStatus(BaseModel):
     open_positions: int = 0
     signals_generated: int = 0
     environment: str = "demo"
+    account_type: str = "invest"
     market_open: bool = False
     next_market_open: Optional[datetime] = None
     regime: Optional[str] = None

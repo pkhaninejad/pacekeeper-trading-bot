@@ -49,6 +49,7 @@ class TradingEngine:
         self.status = BotStatus(
             enabled=settings.BOT_ENABLED,
             environment=settings.T212_ENV,
+            account_type=settings.T212_ACCOUNT_TYPE,
         )
         self._running = False
         self._signals_history: list[TradeSignal] = []

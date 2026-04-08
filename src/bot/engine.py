@@ -12,7 +12,7 @@ import httpx
 from src.api.client import Trading212Client
 from src.api.models import (
     MarketOrderRequest, LimitOrderRequest, StopOrderRequest,
-    TradeSignal, BotStatus, Position, TradeOutcome,
+    TradeSignal, BotStatus, Position, TradeOutcome, RegimeResult,
 )
 from src.bot.strategy import AIStrategy
 from src.bot.llm_config import ProviderConfig, load_provider_config
@@ -21,7 +21,7 @@ from src.bot.market_hours import is_market_open, next_open
 from src.bot.position_utils import is_closable_quantity, resolve_close_quantity
 from src.data.earnings_calendar import EarningsCalendar
 from src.data.macro_calendar import MacroCalendar
-from src.data.market_regime import RegimeDetector
+from src.data.market_regime import get_regime
 from src.data.news_feed import NewsFeed
 from src.config.settings import settings
 
@@ -46,7 +46,6 @@ class TradingEngine:
             news_api_key=settings.NEWS_API_KEY,
         )
         self.macro = MacroCalendar(finnhub_api_key=settings.FINNHUB_API_KEY)
-        self.regime_detector = RegimeDetector()
         self.status = BotStatus(
             enabled=settings.BOT_ENABLED,
             environment=settings.T212_ENV,
@@ -58,6 +57,7 @@ class TradingEngine:
         self._pnl_history: list[dict] = []   # [{t, ppl, total, invested}]
         self._outcome_log: list[TradeOutcome] = []
         self._session_date: str = ""          # YYYY-MM-DD; resets history each new day
+        self._last_regime: RegimeResult | None = None
         # Pre-seeded shortName → T212 ticker map; extended at runtime from instruments API
         self._ticker_map: dict = {
             "AAPL": "AAPL_US_EQ",
@@ -248,6 +248,20 @@ class TradingEngine:
                 logger.info("Market closed — skipping cycle (next open: %s ET)", nxt)
                 return
 
+        # Fetch market regime (cached 1h) — EXTREME_FEAR blocks new signals
+        self._last_regime = get_regime()
+        self.status.regime = self._last_regime.regime
+        self.status.vix = self._last_regime.vix
+        if self._last_regime.regime == "EXTREME_FEAR":
+            logger.warning(
+                "EXTREME_FEAR regime (VIX=%.1f) — skipping signals, managing exits only",
+                self._last_regime.vix,
+            )
+            async with Trading212Client() as client:
+                positions = await client.get_positions()
+                await self._manage_exits(client, positions)
+            return
+
         logger.info("=== Trading cycle started ===")
         self.status.last_run = datetime.now(UTC)
 
@@ -296,11 +310,6 @@ class TradingEngine:
             # Fetch macro economic calendar
             macro_events = self.macro.get_high_impact_events(hours_ahead=24)
 
-            # Fetch market regime (SPY trend + VIX)
-            regime = self.regime_detector.get_regime()
-            self.status.market_regime = regime.label
-            self.status.vix = regime.vix
-
             # 2. Generate new signals via Claude
             signals = self.strategy.generate_signals(
                 positions, cash, settings.WATCHLIST, instruments,
@@ -309,7 +318,7 @@ class TradingEngine:
                 news_data=news_data,
                 macro_events=macro_events,
                 outcome_log=self.outcome_log,
-                regime=regime,
+                regime=self._last_regime,
             )
             self.status.signals_generated += len(signals)
             self._signals_history.extend(signals)
@@ -326,7 +335,9 @@ class TradingEngine:
                         )
                         continue
                     attempted_close_tickers.add(normalized_signal_ticker)
-                approved, reason = self.risk.validate(signal, positions, cash, earnings_info, macro_events, regime=regime)
+                approved, reason = self.risk.validate(
+                    signal, positions, cash, earnings_info, macro_events, regime=self._last_regime
+                )
                 if not approved:
                     logger.info("Signal rejected [%s]: %s", signal.ticker, reason)
                     continue

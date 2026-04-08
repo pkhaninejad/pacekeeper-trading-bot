@@ -63,11 +63,21 @@
       padding: 2px 8px;
       border-radius: 20px;
       font-weight: 700;
+      background: rgba(63,185,80,.2);
+      color: var(--green);
     }
-    .regime-badge.bull        { background: rgba(63,185,80,.2);  color: var(--green);  }
-    .regime-badge.neutral     { background: rgba(88,166,255,.2); color: var(--blue);   }
-    .regime-badge.bear        { background: rgba(210,153,34,.2); color: var(--yellow); }
-    .regime-badge.extreme-fear { background: rgba(248,81,73,.2); color: var(--red);    }
+    .regime-badge.neutral {
+      background: rgba(88,166,255,.2);
+      color: var(--blue);
+    }
+    .regime-badge.bear {
+      background: rgba(210,153,34,.2);
+      color: var(--yellow);
+    }
+    .regime-badge.extreme-fear {
+      background: rgba(248,81,73,.2);
+      color: var(--red);
+    }
     .status-dot {
       width: 10px; height: 10px;
       border-radius: 50%;
@@ -539,10 +549,16 @@
       mb.className = 'market-badge' + (s.market_open ? ' open' : '');
 
       const rb = document.getElementById('regime-badge');
-      if (s.market_regime) {
+      if (s.regime) {
         const vixStr = s.vix != null ? ` · VIX ${s.vix.toFixed(1)}` : '';
-        rb.textContent = s.market_regime.replace('_', ' ') + vixStr;
-        rb.className = 'regime-badge ' + s.market_regime.toLowerCase().replace('_', '-');
+        rb.textContent = s.regime.replace('_', ' ') + vixStr;
+        const classMap = {
+          'BULL': '',
+          'NEUTRAL': 'neutral',
+          'BEAR': 'bear',
+          'EXTREME_FEAR': 'extreme-fear',
+        };
+        rb.className = 'regime-badge ' + (classMap[s.regime] || '');
         rb.style.display = '';
       } else {
         rb.style.display = 'none';

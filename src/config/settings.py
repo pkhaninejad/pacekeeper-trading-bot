@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     BLOCK_NEW_POSITIONS_ON_EARNINGS: bool = True
     FINNHUB_API_KEY: str = ""               # optional; enables Finnhub fallback
 
+    # Macro economic calendar
+    MACRO_BLOCK_HOURS: int = 12             # block new positions within N hours of HIGH-impact event
+    BLOCK_NEW_POSITIONS_ON_MACRO: bool = True
+
     # News feed
     NEWS_API_KEY: str = ""                  # optional NewsAPI.org fallback
     NEWS_LOOKBACK_DAYS: int = 3             # filter headlines older than N days

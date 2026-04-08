@@ -68,7 +68,9 @@ class Settings(BaseSettings):
 
     @property
     def account_path_prefix(self) -> str:
-        return "/equity" if self.T212_ACCOUNT_TYPE == "invest" else "/cfd"
+        # Trading212's public API v0 only exposes Invest/ISA endpoints under /equity.
+        # CFD accounts are not supported by the official REST API.
+        return "/equity"
 
 
 settings = Settings()

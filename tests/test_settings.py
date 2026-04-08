@@ -59,6 +59,7 @@ class TestSettings:
         s = Settings(T212_ACCOUNT_TYPE="invest")
         assert s.account_path_prefix == "/equity"
 
-    def test_account_path_prefix_cfd(self):
+    def test_account_path_prefix_cfd_still_returns_equity(self):
+        # T212 public API only exposes /equity paths — CFD has no official REST API.
         s = Settings(T212_ACCOUNT_TYPE="cfd")
-        assert s.account_path_prefix == "/cfd"
+        assert s.account_path_prefix == "/equity"

@@ -381,18 +381,12 @@ class TestRegimeMultiplier:
 # ---------------------------------------------------------------------------
 
 class TestCFDShortSupport:
-    def test_short_blocked_in_invest_mode(self, monkeypatch):
-        monkeypatch.setattr("src.bot.risk_manager.settings.T212_ACCOUNT_TYPE", "invest")
-        rm = RiskManager()
-        signal = make_signal(action="BUY", direction="SHORT", confidence=0.8)
-        approved, reason = rm.validate(signal, [], make_cash())
-        assert approved is False
-        assert "Short selling is not supported" in reason
-
-    def test_short_allowed_in_cfd_mode(self, monkeypatch):
-        monkeypatch.setattr("src.bot.risk_manager.settings.T212_ACCOUNT_TYPE", "cfd")
-        rm = RiskManager()
-        signal = make_signal(action="BUY", direction="SHORT", confidence=0.8)
-        approved, reason = rm.validate(signal, [], make_cash())
-        assert approved is True
-        assert reason == "Approved"
+    def test_short_blocked_regardless_of_account_type(self, monkeypatch):
+        # T212 public API has no CFD endpoints — shorts are blocked for all account types.
+        for acct_type in ("invest", "cfd"):
+            monkeypatch.setattr("src.bot.risk_manager.settings.T212_ACCOUNT_TYPE", acct_type)
+            rm = RiskManager()
+            signal = make_signal(action="BUY", direction="SHORT", confidence=0.8)
+            approved, reason = rm.validate(signal, [], make_cash())
+            assert approved is False
+            assert "Short selling is not supported" in reason

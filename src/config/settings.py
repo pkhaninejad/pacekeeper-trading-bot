@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     STOP_LOSS_PCT: float = 0.02             # 2% stop-loss
     TAKE_PROFIT_PCT: float = 0.04           # 4% take-profit
     WATCHLIST: list[str] = [
-        "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "NFLX"
+        "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "NFLX",
+        "AMD", "JPM", "V", "UBER", "PLTR"
     ]
 
     # Earnings calendar

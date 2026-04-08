@@ -70,8 +70,9 @@ class RiskManager:
         if regime and regime.position_size_multiplier == 0.0 and not is_close:
             return False, f"EXTREME_FEAR regime (VIX={regime.vix:.1f}) — no new positions allowed"
 
-        # Equity accounts on Trading212 do not support opening short positions.
-        if signal.direction == "SHORT":
+        # Equity (Invest/ISA) accounts do not support short positions; CFD accounts do.
+        if signal.direction == "SHORT" and settings.T212_ACCOUNT_TYPE != "cfd":
+            logger.info("Short signal blocked for %s — account type is not CFD", normalized_ticker)
             return False, f"Short selling is not supported for {normalized_ticker}"
 
         # Max open positions gate (only for new positions)

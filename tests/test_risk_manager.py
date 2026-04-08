@@ -374,3 +374,25 @@ class TestRegimeMultiplier:
         regime = make_regime("EXTREME_FEAR", 0.0)
         approved, _ = self.rm.validate(signal, positions, make_cash(), regime=regime)
         assert approved is True
+
+
+# ---------------------------------------------------------------------------
+# RiskManager CFD SHORT support
+# ---------------------------------------------------------------------------
+
+class TestCFDShortSupport:
+    def test_short_blocked_in_invest_mode(self, monkeypatch):
+        monkeypatch.setattr("src.bot.risk_manager.settings.T212_ACCOUNT_TYPE", "invest")
+        rm = RiskManager()
+        signal = make_signal(action="BUY", direction="SHORT", confidence=0.8)
+        approved, reason = rm.validate(signal, [], make_cash())
+        assert approved is False
+        assert "Short selling is not supported" in reason
+
+    def test_short_allowed_in_cfd_mode(self, monkeypatch):
+        monkeypatch.setattr("src.bot.risk_manager.settings.T212_ACCOUNT_TYPE", "cfd")
+        rm = RiskManager()
+        signal = make_signal(action="BUY", direction="SHORT", confidence=0.8)
+        approved, reason = rm.validate(signal, [], make_cash())
+        assert approved is True
+        assert reason == "Approved"

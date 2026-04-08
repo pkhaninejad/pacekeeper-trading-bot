@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import AsyncGenerator
 
 import httpx
@@ -15,9 +15,14 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from pydantic import BaseModel
 from src.api.client import Trading212Client
 from src.api.models import BotStatus
 from src.bot.engine import TradingEngine
+from src.bot.llm_config import (
+    ProviderConfig, save_provider_config,
+    SUPPORTED_PROVIDERS, PROVIDER_DEFAULTS,
+)
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -27,6 +32,8 @@ _sse_clients: list[asyncio.Queue] = []
 
 _cache: dict = {}
 _CACHE_TTL = 30  # seconds
+_CLOSED_SUPPRESS_SECONDS = 45
+_recently_closed: dict[str, datetime] = {}
 
 
 def _cache_get(key: str):
@@ -38,6 +45,33 @@ def _cache_get(key: str):
 
 def _cache_set(key: str, data):
     _cache[key] = {"data": data, "ts": datetime.utcnow()}
+
+
+def _normalize_ticker(ticker: str) -> str:
+    return ticker.split("_")[0]
+
+
+def _mark_recently_closed(ticker: str):
+    normalized = _normalize_ticker(ticker)
+    if not normalized:
+        return
+    _recently_closed[normalized] = datetime.now(UTC)
+
+
+def _prune_recently_closed(now: datetime):
+    stale = [
+        t for t, ts in _recently_closed.items()
+        if now - ts > timedelta(seconds=_CLOSED_SUPPRESS_SECONDS)
+    ]
+    for t in stale:
+        _recently_closed.pop(t, None)
+
+
+def _is_recently_closed(ticker: str, now: datetime) -> bool:
+    ts = _recently_closed.get(_normalize_ticker(ticker))
+    if not ts:
+        return False
+    return now - ts <= timedelta(seconds=_CLOSED_SUPPRESS_SECONDS)
 
 
 async def _broadcast(event: str, data: dict):
@@ -101,14 +135,16 @@ async def get_account():
 
 @app.get("/api/positions", tags=["Positions"])
 async def get_positions():
-    cached = _cache_get("positions")
-    if cached:
-        return cached
     try:
         async with Trading212Client() as client:
             positions = await client.get_positions()
-        result = [p.model_dump() for p in positions]
-        _cache_set("positions", result)
+        now = datetime.now(UTC)
+        _prune_recently_closed(now)
+        result = [
+            p.model_dump()
+            for p in positions
+            if not _is_recently_closed(p.ticker, now)
+        ]
         return result
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail=str(e))
@@ -181,6 +217,52 @@ async def trigger_cycle():
     return {"message": "Cycle triggered"}
 
 
+# ─── LLM provider config ──────────────────────────────────────────────────────
+
+class LLMConfigRequest(BaseModel):
+    provider: str
+    model: str
+    api_key: str
+    base_url: str = ""
+
+
+@app.get("/api/llm/config", tags=["Bot"])
+async def get_llm_config():
+    """Return the active LLM provider config (API key masked)."""
+    config = engine._provider_config
+    masked_key = ""
+    if config.api_key:
+        visible = config.api_key[:8] if len(config.api_key) >= 8 else config.api_key
+        masked_key = visible + "****"
+    return {
+        "provider": config.provider,
+        "model": config.model,
+        "api_key": masked_key,
+        "base_url": config.base_url,
+        "supported_providers": SUPPORTED_PROVIDERS,
+        "provider_defaults": PROVIDER_DEFAULTS,
+    }
+
+
+@app.post("/api/llm/config", tags=["Bot"])
+async def set_llm_config(req: LLMConfigRequest):
+    """Update the active LLM provider. Persists to credentials.json."""
+    if req.provider not in SUPPORTED_PROVIDERS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported provider '{req.provider}'. Choose from: {SUPPORTED_PROVIDERS}",
+        )
+    config = ProviderConfig(
+        provider=req.provider,
+        model=req.model,
+        api_key=req.api_key,
+        base_url=req.base_url,
+    )
+    save_provider_config(config)
+    engine.update_provider_config(config)
+    return {"ok": True}
+
+
 @app.post("/api/positions/{ticker}/close", tags=["Positions"])
 async def close_position(ticker: str):
     """Close a specific position by ticker."""
@@ -188,7 +270,13 @@ async def close_position(ticker: str):
         result = await engine.close_position(ticker)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    _cache.pop("positions", None)
+    except httpx.HTTPStatusError as e:
+        try:
+            detail = e.response.json()
+        except Exception:
+            detail = str(e)
+        raise HTTPException(status_code=e.response.status_code, detail=detail)
+    _mark_recently_closed(ticker)
     return result
 
 
@@ -196,7 +284,9 @@ async def close_position(ticker: str):
 async def close_all_positions():
     """Close all open positions."""
     results = await engine.close_all_positions()
-    _cache.pop("positions", None)
+    for item in results:
+        if item.get("status") in {"closed", "skipped"}:
+            _mark_recently_closed(str(item.get("ticker", "")))
     return {"closed": results}
 
 

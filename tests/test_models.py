@@ -99,6 +99,10 @@ class TestCashInfo:
 
 
 class TestOrderModels:
+    def test_order_accepts_quantity_alias(self):
+        order = Order(id=123, ticker="NVDA_US_EQ", quantity=1.25)
+        assert order.orderedQuantity == 1.25
+
     def test_market_order_request(self):
         req = MarketOrderRequest(ticker="AAPL", quantity=10.0)
         assert req.ticker == "AAPL"

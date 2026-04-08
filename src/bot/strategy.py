@@ -1,17 +1,20 @@
 """
-Claude AI-powered trading strategy.
+AI-powered trading strategy.
 
-Uses Claude to analyse market conditions and generate long/short signals.
+Uses an LLM (via LiteLLM) to analyse market conditions and generate trading signals.
+Supports any provider supported by LiteLLM: anthropic, openai, gemini, ollama, deepseek, qwen.
 """
 
 import json
 import logging
 from datetime import UTC, datetime
-import anthropic
+import litellm
 from src.config.settings import settings
 from src.api.models import Position, CashInfo, TradeSignal, Instrument, RegimeResult
+from src.bot.llm_config import ProviderConfig, load_provider_config
 from src.bot.price_feed import get_price_summary
 from src.data.earnings_calendar import EarningsInfo
+from src.data.macro_calendar import MacroEvent
 from src.data.news_feed import NewsItem
 
 logger = logging.getLogger(__name__)
@@ -123,6 +126,27 @@ def _build_performance_summary(outcome_log: list) -> str:
     return "\n".join(lines)
 
 
+def _build_macro_section(macro_events: list["MacroEvent"] | None, block_hours: int) -> str:
+    """Format the === MACRO RISK === prompt section."""
+    if not macro_events:
+        return "\n=== MACRO RISK ===\n  No HIGH-impact macro events in the next 24h.\n"
+    lines = []
+    for ev in macro_events:
+        h = ev.hours_until
+        if h <= block_hours:
+            when = f"in {h:.0f}h" if h >= 1 else "imminent"
+            lines.append(
+                f"  \u26a0\ufe0f  {ev.event} — {when} ({ev.release_time.strftime('%Y-%m-%d %H:%M')} UTC)"
+                f" — new positions BLOCKED"
+            )
+        else:
+            lines.append(
+                f"  \u26a0\ufe0f  {ev.event} — in {h:.0f}h ({ev.release_time.strftime('%Y-%m-%d %H:%M')} UTC)"
+            )
+    return f"\n=== MACRO RISK ===\n{chr(10).join(lines)}\n"
+
+
+
 def _build_market_context(
     positions: list[Position],
     cash: CashInfo,
@@ -131,6 +155,7 @@ def _build_market_context(
     price_data: dict | None = None,
     earnings_info: dict[str, "EarningsInfo"] | None = None,
     news_data: dict[str, list["NewsItem"]] | None = None,
+    macro_events: list["MacroEvent"] | None = None,
     outcome_log: list | None = None,
     regime: "RegimeResult | None" = None,
 ) -> str:
@@ -203,6 +228,8 @@ def _build_market_context(
             news_lines.append("")  # blank line between tickers
         news_section = f"\n=== RECENT NEWS ===\n{chr(10).join(news_lines)}"
 
+    macro_section = _build_macro_section(macro_events, settings.MACRO_BLOCK_HOURS)
+
     perf_section = ""
     if outcome_log:
         summary = _build_performance_summary(outcome_log)
@@ -247,7 +274,7 @@ Open positions ({len(positions)}):
 
 === PRICE FEED (30-day) ===
 {chr(10).join(price_lines) if price_lines else '  (unavailable)'}
-{earnings_section}{news_section}{perf_section}{regime_section}
+{earnings_section}{macro_section}{news_section}{perf_section}{regime_section}
 === WATCHLIST ===
 {json.dumps({t: instrument_info.get(t, t) for t in watchlist}, indent=2)}
 
@@ -260,11 +287,8 @@ Return ONLY a JSON array of TradeSignal objects.
     return context
 
 
-class ClaudeStrategy:
-    """Uses Claude Sonnet to generate long/short signals."""
-
-    def __init__(self):
-        self._client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+class AIStrategy:
+    """LLM-powered trading strategy. Provider-agnostic via LiteLLM."""
 
     def generate_signals(
         self,
@@ -272,28 +296,38 @@ class ClaudeStrategy:
         cash: CashInfo,
         watchlist: list[str],
         instruments: list[Instrument],
+        provider_config: "ProviderConfig | None" = None,
         earnings_info: dict[str, "EarningsInfo"] | None = None,
         news_data: dict[str, list["NewsItem"]] | None = None,
+        macro_events: list["MacroEvent"] | None = None,
         outcome_log: list | None = None,
         regime: "RegimeResult | None" = None,
     ) -> list[TradeSignal]:
-        """Call Claude and parse trade signals."""
+        """Call the configured LLM provider and parse trade signals."""
+        if provider_config is None:
+            provider_config = load_provider_config()
+
         price_data = get_price_summary(watchlist)
         user_prompt = _build_market_context(
             positions, cash, watchlist, instruments, price_data,
-            earnings_info, news_data, outcome_log, regime,
+            earnings_info, news_data, macro_events, outcome_log,
+            regime=regime,
         )
 
-        logger.info("Calling Claude for trading signals...")
+        logger.info("Calling %s/%s for trading signals...", provider_config.provider, provider_config.model)
         try:
-            message = self._client.messages.create(
-                model=settings.CLAUDE_MODEL,
+            response = litellm.completion(
+                model=provider_config.model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                api_key=provider_config.api_key or None,
+                api_base=provider_config.base_url or None,
                 max_tokens=2048,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_prompt}],
             )
-            raw = message.content[0].text.strip()
-            logger.debug("Claude raw response: %s", raw)
+            raw = response.choices[0].message.content.strip()
+            logger.debug("LLM raw response: %s", raw)
 
             # Strip markdown code fences if present
             if raw.startswith("```"):
@@ -316,8 +350,8 @@ class ClaudeStrategy:
             return signals
 
         except json.JSONDecodeError as e:
-            logger.error("Failed to parse Claude response as JSON: %s", e)
+            logger.error("Failed to parse LLM response as JSON: %s", e)
             return []
         except Exception as e:
-            logger.error("Claude API error: %s", e)
+            logger.error("LLM API error: %s", e)
             return []

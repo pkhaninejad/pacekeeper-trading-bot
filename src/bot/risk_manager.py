@@ -6,6 +6,7 @@ import logging
 from src.config.settings import settings
 from src.api.models import TradeSignal, Position, CashInfo, RegimeResult
 from src.data.earnings_calendar import EarningsInfo
+from src.data.macro_calendar import MacroEvent
 
 logger = logging.getLogger(__name__)
 
@@ -24,17 +25,32 @@ class RiskManager:
         positions: list[Position],
         cash: CashInfo,
         earnings_info: dict[str, "EarningsInfo"] | None = None,
+        macro_events: list["MacroEvent"] | None = None,
         regime: "RegimeResult | None" = None,
     ) -> tuple[bool, str]:
         """
         Returns (approved, reason).
         """
+        normalized_ticker = self._normalize_ticker(signal.ticker)
+
         # Confidence gate
         if signal.confidence < self.min_confidence:
             return False, f"Confidence {signal.confidence:.2f} below threshold {self.min_confidence}"
 
-        # Earnings window gate (only blocks new position opens, not CLOSE)
         is_close = signal.direction == "CLOSE"
+
+        # Macro calendar gate (only blocks new position opens, not CLOSE)
+        if (
+            not is_close
+            and settings.BLOCK_NEW_POSITIONS_ON_MACRO
+            and macro_events
+        ):
+            blocking = [e for e in macro_events if e.hours_until <= settings.MACRO_BLOCK_HOURS]
+            if blocking:
+                names = ", ".join(e.event for e in blocking[:3])
+                return False, f"Macro event block: {names} within {settings.MACRO_BLOCK_HOURS}h — no new positions"
+
+        # Earnings window gate (only blocks new position opens, not CLOSE)
         if (
             not is_close
             and settings.BLOCK_NEW_POSITIONS_ON_EARNINGS
@@ -50,9 +66,17 @@ class RiskManager:
                     f"{count} day(s) {direction} — no new positions allowed"
                 )
 
+        # EXTREME_FEAR gate — block all new positions (multiplier=0.0)
+        if regime and regime.position_size_multiplier == 0.0 and not is_close:
+            return False, f"EXTREME_FEAR regime (VIX={regime.vix:.1f}) — no new positions allowed"
+
+        # Equity accounts on Trading212 do not support opening short positions.
+        if signal.direction == "SHORT":
+            return False, f"Short selling is not supported for {normalized_ticker}"
+
         # Max open positions gate (only for new positions)
-        position_tickers = {p.ticker for p in positions}
-        is_new = signal.ticker not in position_tickers
+        existing = self._find_position(positions, signal.ticker)
+        is_new = existing is None
 
         if is_new and not is_close and len(positions) >= self.max_open_positions:
             return False, f"Max open positions ({self.max_open_positions}) reached"
@@ -63,17 +87,12 @@ class RiskManager:
             if required > cash.free:
                 return False, f"Insufficient cash: need {required:.2f}, have {cash.free:.2f}"
 
-        # EXTREME_FEAR gate — block all new positions (multiplier=0.0)
-        if regime and regime.position_size_multiplier == 0.0 and not is_close:
-            return False, f"EXTREME_FEAR regime (VIX={regime.vix:.1f}) — no new positions allowed"
-
         # Position size limit (regime multiplier applied here)
         if signal.suggested_quantity and signal.suggested_price:
             trade_value = abs(signal.suggested_quantity) * signal.suggested_price
-            multiplier = regime.position_size_multiplier if regime else 1.0
+            multiplier = regime.position_size_multiplier if (regime and not is_close) else 1.0
             max_allowed = cash.total * self.max_position_pct * multiplier
             if trade_value > max_allowed:
-                # Auto-scale down
                 signal.suggested_quantity = (max_allowed / signal.suggested_price) * (
                     1 if signal.suggested_quantity > 0 else -1
                 )
@@ -84,12 +103,9 @@ class RiskManager:
                 )
 
         # Don't double up same direction; also block SELL with no position
-        existing = next(
-            (p for p in positions if p.ticker.split("_")[0] == signal.ticker or p.ticker == signal.ticker),
-            None,
-        )
         if signal.action == "SELL" and existing is None and not is_close:
             return False, f"No open position to sell for {signal.ticker}"
+
         if existing and not is_close:
             if signal.direction == "LONG" and existing.is_long:
                 return False, f"Already long {signal.ticker}"
@@ -97,6 +113,17 @@ class RiskManager:
                 return False, f"Already short {signal.ticker}"
 
         return True, "Approved"
+
+    @staticmethod
+    def _normalize_ticker(ticker: str) -> str:
+        return ticker.split("_")[0]
+
+    def _find_position(self, positions: list[Position], ticker: str) -> Position | None:
+        normalized = self._normalize_ticker(ticker)
+        return next(
+            (p for p in positions if p.ticker == ticker or self._normalize_ticker(p.ticker) == normalized),
+            None,
+        )
 
     def compute_quantity(
         self,

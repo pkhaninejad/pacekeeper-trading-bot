@@ -50,3 +50,15 @@ class TestSettings:
         s = Settings(MAX_OPEN_POSITIONS=5, STOP_LOSS_PCT=0.03)
         assert s.MAX_OPEN_POSITIONS == 5
         assert s.STOP_LOSS_PCT == pytest.approx(0.03)
+
+    def test_default_account_type_is_invest(self):
+        s = Settings()
+        assert s.T212_ACCOUNT_TYPE == "invest"
+
+    def test_account_path_prefix_invest(self):
+        s = Settings(T212_ACCOUNT_TYPE="invest")
+        assert s.account_path_prefix == "/equity"
+
+    def test_account_path_prefix_cfd(self):
+        s = Settings(T212_ACCOUNT_TYPE="cfd")
+        assert s.account_path_prefix == "/cfd"

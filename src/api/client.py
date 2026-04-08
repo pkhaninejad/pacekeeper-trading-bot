@@ -57,6 +57,7 @@ def _is_selling_not_owned_response(response: httpx.Response) -> bool:
 class Trading212Client:
     def __init__(self):
         self._base = settings.t212_base_url
+        self._api_prefix = settings.account_path_prefix
         self._headers = {
             "Authorization": _auth_header(),
             "Content-Type": "application/json",
@@ -121,11 +122,11 @@ class Trading212Client:
     # -------------------------------------------------------------------------
 
     async def get_account_info(self) -> AccountInfo:
-        data = await self._get("/equity/account/info")
+        data = await self._get(f"{self._api_prefix}/account/info")
         return AccountInfo(**data)
 
     async def get_cash(self) -> CashInfo:
-        data = await self._get("/equity/account/cash")
+        data = await self._get(f"{self._api_prefix}/account/cash")
         return CashInfo(**data)
 
     # -------------------------------------------------------------------------
@@ -133,7 +134,7 @@ class Trading212Client:
     # -------------------------------------------------------------------------
 
     async def get_positions(self) -> list[Position]:
-        data = await self._get("/equity/portfolio")
+        data = await self._get(f"{self._api_prefix}/portfolio")
         positions = [Position(**p) for p in (data if isinstance(data, list) else [])]
         # Some API responses may include zero-quantity remnants; treat them as closed.
         filtered: list[Position] = []
@@ -145,7 +146,7 @@ class Trading212Client:
 
     async def get_position(self, ticker: str) -> Optional[Position]:
         try:
-            data = await self._get(f"/equity/portfolio/{ticker}")
+            data = await self._get(f"{self._api_prefix}/portfolio/{ticker}")
             return Position(**data)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
@@ -157,33 +158,33 @@ class Trading212Client:
     # -------------------------------------------------------------------------
 
     async def get_orders(self) -> list[Order]:
-        data = await self._get("/equity/orders")
+        data = await self._get(f"{self._api_prefix}/orders")
         return [Order(**o) for o in (data if isinstance(data, list) else [])]
 
     async def place_market_order(self, req: MarketOrderRequest) -> Order:
-        data = await self._post("/equity/orders/market", req.model_dump())
+        data = await self._post(f"{self._api_prefix}/orders/market", req.model_dump())
         return Order(**data)
 
     async def place_limit_order(self, req: LimitOrderRequest) -> Order:
-        data = await self._post("/equity/orders/limit", req.model_dump())
+        data = await self._post(f"{self._api_prefix}/orders/limit", req.model_dump())
         return Order(**data)
 
     async def place_stop_order(self, req: StopOrderRequest) -> Order:
-        data = await self._post("/equity/orders/stop", req.model_dump())
+        data = await self._post(f"{self._api_prefix}/orders/stop", req.model_dump())
         return Order(**data)
 
     async def cancel_order(self, order_id: int) -> dict:
-        return await self._delete(f"/equity/orders/{order_id}")
+        return await self._delete(f"{self._api_prefix}/orders/{order_id}")
 
     async def cancel_all_orders(self) -> list[dict]:
-        return await self._delete("/equity/orders")
+        return await self._delete(f"{self._api_prefix}/orders")
 
     # -------------------------------------------------------------------------
     # Instruments / metadata
     # -------------------------------------------------------------------------
 
     async def get_instruments(self) -> list[Instrument]:
-        data = await self._get("/equity/metadata/instruments")
+        data = await self._get(f"{self._api_prefix}/metadata/instruments")
         return [Instrument(**i) for i in (data if isinstance(data, list) else [])]
 
     # -------------------------------------------------------------------------
@@ -198,7 +199,7 @@ class Trading212Client:
     ) -> list[dict]:
         """Fetch OHLCV candles for a ticker (chart data endpoint)."""
         data = await self._get(
-            f"/equity/history/orders/{ticker}",
+            f"{self._api_prefix}/history/orders/{ticker}",
             params={"limit": limit},
         )
         return data if isinstance(data, list) else []

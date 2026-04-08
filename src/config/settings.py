@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     T212_API_KEY: str = ""
     T212_API_SECRET: str = ""
     T212_ENV: Literal["demo", "live"] = "demo"
+    T212_ACCOUNT_TYPE: Literal["invest", "cfd"] = "invest"
 
     # Anthropic (default provider)
     ANTHROPIC_API_KEY: str = ""
@@ -64,6 +65,10 @@ class Settings(BaseSettings):
             if self.T212_ENV == "demo"
             else "https://live.trading212.com/api/v0"
         )
+
+    @property
+    def account_path_prefix(self) -> str:
+        return "/equity" if self.T212_ACCOUNT_TYPE == "invest" else "/cfd"
 
 
 settings = Settings()

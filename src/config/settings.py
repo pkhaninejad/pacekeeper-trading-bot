@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     T212_API_KEY: str = ""
     T212_API_SECRET: str = ""
     T212_ENV: Literal["demo", "live"] = "demo"
+    T212_ACCOUNT_TYPE: Literal["invest", "cfd"] = "invest"
 
     # Anthropic (default provider)
     ANTHROPIC_API_KEY: str = ""
@@ -29,7 +30,8 @@ class Settings(BaseSettings):
     STOP_LOSS_PCT: float = 0.02             # 2% stop-loss
     TAKE_PROFIT_PCT: float = 0.04           # 4% take-profit
     WATCHLIST: list[str] = [
-        "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "NFLX"
+        "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "NFLX",
+        "AMD", "JPM", "V", "UBER", "PLTR"
     ]
 
     # Earnings calendar
@@ -37,6 +39,10 @@ class Settings(BaseSettings):
     EARNINGS_DAYS_AFTER: int = 1            # days after earnings to stop blocking
     BLOCK_NEW_POSITIONS_ON_EARNINGS: bool = True
     FINNHUB_API_KEY: str = ""               # optional; enables Finnhub fallback
+
+    # Macro economic calendar
+    MACRO_BLOCK_HOURS: int = 12             # block new positions within N hours of HIGH-impact event
+    BLOCK_NEW_POSITIONS_ON_MACRO: bool = True
 
     # News feed
     NEWS_API_KEY: str = ""                  # optional NewsAPI.org fallback
@@ -60,6 +66,12 @@ class Settings(BaseSettings):
             if self.T212_ENV == "demo"
             else "https://live.trading212.com/api/v0"
         )
+
+    @property
+    def account_path_prefix(self) -> str:
+        # Trading212's public API v0 only exposes Invest/ISA endpoints under /equity.
+        # CFD accounts are not supported by the official REST API.
+        return "/equity"
 
 
 settings = Settings()

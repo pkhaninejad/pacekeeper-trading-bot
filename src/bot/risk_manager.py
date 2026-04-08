@@ -4,8 +4,9 @@ Risk management: validates signals before execution, enforces limits.
 
 import logging
 from src.config.settings import settings
-from src.api.models import TradeSignal, Position, CashInfo
+from src.api.models import TradeSignal, Position, CashInfo, RegimeResult
 from src.data.earnings_calendar import EarningsInfo
+from src.data.macro_calendar import MacroEvent
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,8 @@ class RiskManager:
         positions: list[Position],
         cash: CashInfo,
         earnings_info: dict[str, "EarningsInfo"] | None = None,
+        macro_events: list["MacroEvent"] | None = None,
+        regime: "RegimeResult | None" = None,
     ) -> tuple[bool, str]:
         """
         Returns (approved, reason).
@@ -34,8 +37,20 @@ class RiskManager:
         if signal.confidence < self.min_confidence:
             return False, f"Confidence {signal.confidence:.2f} below threshold {self.min_confidence}"
 
-        # Earnings window gate (only blocks new position opens, not CLOSE)
         is_close = signal.direction == "CLOSE"
+
+        # Macro calendar gate (only blocks new position opens, not CLOSE)
+        if (
+            not is_close
+            and settings.BLOCK_NEW_POSITIONS_ON_MACRO
+            and macro_events
+        ):
+            blocking = [e for e in macro_events if e.hours_until <= settings.MACRO_BLOCK_HOURS]
+            if blocking:
+                names = ", ".join(e.event for e in blocking[:3])
+                return False, f"Macro event block: {names} within {settings.MACRO_BLOCK_HOURS}h — no new positions"
+
+        # Earnings window gate (only blocks new position opens, not CLOSE)
         if (
             not is_close
             and settings.BLOCK_NEW_POSITIONS_ON_EARNINGS
@@ -51,7 +66,12 @@ class RiskManager:
                     f"{count} day(s) {direction} — no new positions allowed"
                 )
 
-        # Equity accounts on Trading212 do not support opening short positions.
+        # EXTREME_FEAR gate — block all new positions (multiplier=0.0)
+        if regime and regime.position_size_multiplier == 0.0 and not is_close:
+            return False, f"EXTREME_FEAR regime (VIX={regime.vix:.1f}) — no new positions allowed"
+
+        # Trading212's public API v0 only supports Invest/ISA accounts — short selling
+        # is not available through the official REST API regardless of account type.
         if signal.direction == "SHORT":
             return False, f"Short selling is not supported for {normalized_ticker}"
 
@@ -68,21 +88,25 @@ class RiskManager:
             if required > cash.free:
                 return False, f"Insufficient cash: need {required:.2f}, have {cash.free:.2f}"
 
-        # Position size limit
+        # Position size limit (regime multiplier applied here)
         if signal.suggested_quantity and signal.suggested_price:
             trade_value = abs(signal.suggested_quantity) * signal.suggested_price
-            max_allowed = cash.total * self.max_position_pct
+            multiplier = regime.position_size_multiplier if (regime and not is_close) else 1.0
+            max_allowed = cash.total * self.max_position_pct * multiplier
             if trade_value > max_allowed:
-                # Auto-scale down
                 signal.suggested_quantity = (max_allowed / signal.suggested_price) * (
                     1 if signal.suggested_quantity > 0 else -1
                 )
                 logger.info(
-                    "Scaled position size for %s to %.4f (max %.2f)",
+                    "Scaled position size for %s to %.4f (max %.2f, regime=%s)",
                     signal.ticker, signal.suggested_quantity, max_allowed,
+                    regime.regime if regime else "none",
                 )
 
-        # Don't double up same direction
+        # Don't double up same direction; also block SELL with no position
+        if signal.action == "SELL" and existing is None and not is_close:
+            return False, f"No open position to sell for {signal.ticker}"
+
         if existing and not is_close:
             if signal.direction == "LONG" and existing.is_long:
                 return False, f"Already long {signal.ticker}"

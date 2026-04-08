@@ -28,6 +28,13 @@ PROVIDER_DEFAULTS: dict[str, dict] = {
 
 SUPPORTED_PROVIDERS = list(PROVIDER_DEFAULTS.keys())
 
+# Providers whose model strings must carry a specific prefix for LiteLLM routing.
+_REQUIRED_PREFIXES: dict[str, str] = {
+    "ollama":   "ollama/",
+    "deepseek": "deepseek/",
+    "gemini":   "gemini/",
+}
+
 
 @dataclass
 class ProviderConfig:
@@ -39,6 +46,10 @@ class ProviderConfig:
     def __post_init__(self):
         if self.provider not in SUPPORTED_PROVIDERS:
             raise ValueError(f"provider must be one of {SUPPORTED_PROVIDERS}, got {self.provider!r}")
+        # Ensure the model string carries the provider prefix LiteLLM needs.
+        prefix = _REQUIRED_PREFIXES.get(self.provider)
+        if prefix and not self.model.startswith(prefix):
+            self.model = f"{prefix}{self.model}"
 
 
 def load_provider_config() -> ProviderConfig:

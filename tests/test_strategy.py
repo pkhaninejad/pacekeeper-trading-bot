@@ -319,3 +319,53 @@ class TestPerformanceSummaryInjection:
         ctx = _build_market_context([], make_cash(), ["AAPL"], [], outcome_log=outcomes)
         assert "5 wins" in ctx
         assert "0 losses" in ctx
+
+
+# ---------------------------------------------------------------------------
+# Market regime section injection
+# ---------------------------------------------------------------------------
+
+from src.api.models import RegimeResult
+
+
+def _make_regime(regime_name: str) -> RegimeResult:
+    labels = {
+        "BULL": (1.0, "bull market"),
+        "NEUTRAL": (0.75, "neutral"),
+        "BEAR": (0.50, "bear market"),
+        "EXTREME_FEAR": (0.0, "extreme fear"),
+    }
+    mult, desc = labels[regime_name]
+    return RegimeResult(
+        regime=regime_name,
+        spy_vs_200ema=3.0 if regime_name == "BULL" else -3.0,
+        vix=15.0 if regime_name == "BULL" else 32.0,
+        position_size_multiplier=mult,
+        description=desc,
+    )
+
+
+def test_regime_section_included_in_prompt():
+    regime = _make_regime("BEAR")
+    prompt = _build_market_context([], make_cash(), ["AAPL"], [], regime=regime)
+    assert "MARKET REGIME" in prompt
+    assert "BEAR" in prompt
+    assert "32.0" in prompt
+
+
+def test_no_regime_prompt_has_no_regime_section():
+    prompt = _build_market_context([], make_cash(), ["AAPL"], [])
+    assert "MARKET REGIME" not in prompt
+
+
+def test_extreme_fear_close_only_bias_in_prompt():
+    regime = _make_regime("EXTREME_FEAR")
+    prompt = _build_market_context([], make_cash(), ["AAPL"], [], regime=regime)
+    assert "CLOSE only" in prompt
+
+
+def test_bull_favour_long_bias_in_prompt():
+    regime = _make_regime("BULL")
+    prompt = _build_market_context([], make_cash(), ["AAPL"], [], regime=regime)
+    assert "BULL" in prompt
+    assert "Favour LONG" in prompt

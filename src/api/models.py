@@ -119,8 +119,11 @@ class BotStatus(BaseModel):
     open_positions: int = 0
     signals_generated: int = 0
     environment: str = "demo"
+    account_type: str = "invest"
     market_open: bool = False
     next_market_open: Optional[datetime] = None
+    regime: Optional[str] = None
+    vix: Optional[float] = None
 
 
 class TradeOutcome(BaseModel):
@@ -132,3 +135,11 @@ class TradeOutcome(BaseModel):
     pnl_pct: Optional[float] = None
     opened_at: datetime
     closed_at: Optional[datetime] = None
+
+
+class RegimeResult(BaseModel):
+    regime: Literal["BULL", "NEUTRAL", "BEAR", "EXTREME_FEAR"]
+    spy_vs_200ema: float        # % above/below 200-day EMA
+    vix: float                  # current VIX level
+    position_size_multiplier: float   # 1.0, 0.75, 0.50, or 0.0
+    description: str

@@ -15,3 +15,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  prediction-bot:
+    build:
+      context: .
+      dockerfile: prediction_bot/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "4001:4001"
+    env_file:
+      - .env
+    volumes:
+      - ./prediction_bot/data:/app/prediction_bot/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

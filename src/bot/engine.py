@@ -23,6 +23,7 @@ from src.data.earnings_calendar import EarningsCalendar
 from src.data.macro_calendar import MacroCalendar
 from src.data.market_regime import get_regime
 from src.data.news_feed import NewsFeed
+from src.data.prediction_markets import get_prediction_market_context
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -311,6 +312,9 @@ class TradingEngine:
             # Fetch macro economic calendar
             macro_events = self.macro.get_high_impact_events(hours_ahead=24)
 
+            # Fetch prediction market probabilities (cached 15 min; fails silently)
+            prediction_markets = get_prediction_market_context(settings.WATCHLIST)
+
             # 2. Generate new signals via Claude
             signals = self.strategy.generate_signals(
                 positions, cash, settings.WATCHLIST, instruments,
@@ -320,6 +324,7 @@ class TradingEngine:
                 macro_events=macro_events,
                 outcome_log=self.outcome_log,
                 regime=self._last_regime,
+                prediction_markets=prediction_markets,
             )
             self.status.signals_generated += len(signals)
             self._signals_history.extend(signals)

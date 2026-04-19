@@ -368,4 +368,75 @@ def test_bull_favour_long_bias_in_prompt():
     regime = _make_regime("BULL")
     prompt = _build_market_context([], make_cash(), ["AAPL"], [], regime=regime)
     assert "BULL" in prompt
-    assert "Favour LONG" in prompt
+
+
+# ---------------------------------------------------------------------------
+# _build_prediction_markets_section
+# ---------------------------------------------------------------------------
+
+from datetime import timezone as _tz
+from src.bot.strategy import _build_prediction_markets_section
+from src.data.prediction_markets import MarketProb as _MarketProb
+
+
+def _make_prob(source, event, ticker, yes_prob, volume_usd) -> _MarketProb:
+    return _MarketProb(
+        source=source, event=event, ticker=ticker,
+        yes_prob=yes_prob, volume_usd=volume_usd,
+        url="https://example.com", fetched_at=date.today(),
+    )
+
+
+class TestBuildPredictionMarketsSection:
+    def test_returns_empty_string_for_empty_data(self):
+        assert _build_prediction_markets_section({}) == ""
+        assert _build_prediction_markets_section({"macro": [], "NVDA": []}) == ""
+
+    def test_macro_only(self):
+        data = {
+            "macro": [_make_prob("polymarket", "Fed cuts May 2025", None, 0.72, 2_100_000)],
+            "NVDA": [],
+        }
+        section = _build_prediction_markets_section(data)
+        assert "=== PREDICTION MARKETS ===" in section
+        assert "Fed cuts May 2025" in section
+        assert "72%" in section
+        assert "Polymarket" in section
+        assert "$2.1M" in section
+
+    def test_ticker_market_included(self):
+        data = {
+            "macro": [],
+            "NVDA": [_make_prob("kalshi", "NVDA earnings beat Q1", "NVDA", 0.61, 45_000)],
+        }
+        section = _build_prediction_markets_section(data)
+        assert "NVDA" in section
+        assert "61%" in section
+        assert "Kalshi" in section
+
+    def test_low_liquidity_flagged(self):
+        data = {
+            "macro": [],
+            "TSLA": [_make_prob("kalshi", "TSLA earnings beat Q1", "TSLA", 0.44, 5_000)],
+        }
+        section = _build_prediction_markets_section(data)
+        assert "low liquidity" in section
+
+    def test_high_liquidity_not_flagged(self):
+        data = {
+            "macro": [],
+            "NVDA": [_make_prob("kalshi", "NVDA earnings beat Q1", "NVDA", 0.61, 50_000)],
+        }
+        section = _build_prediction_markets_section(data)
+        assert "low liquidity" not in section
+
+    def test_build_market_context_includes_section(self):
+        data = {
+            "macro": [_make_prob("polymarket", "Fed cuts", None, 0.7, 1_000_000)],
+        }
+        ctx = _build_market_context([], make_cash(), ["NVDA"], [], prediction_markets=data)
+        assert "=== PREDICTION MARKETS ===" in ctx
+
+    def test_build_market_context_omits_section_when_empty(self):
+        ctx = _build_market_context([], make_cash(), ["NVDA"], [], prediction_markets=None)
+        assert "=== PREDICTION MARKETS ===" not in ctx

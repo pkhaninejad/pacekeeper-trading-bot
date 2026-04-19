@@ -1,0 +1,73 @@
+# Prediction markets mapping config.
+# macro: Polymarket slugs and/or Kalshi series for macro events.
+# tickers: per-ticker Kalshi series + discovery keywords for auto-finding markets.
+# Kalshi series names follow the pattern used on kalshi.com/markets.
+# discovery_keywords are used when kalshi_series is null or not yet created.
+
+macro:
+  - label: "Fed cuts rates May 2025"
+    polymarket_slug: "will-the-fed-cut-rates-at-the-may-2025-fomc-meeting"
+    kalshi_series: "FED-25BPS-MAY25"
+  - label: "Fed cuts rates Jun 2025"
+    polymarket_slug: "will-the-fed-cut-rates-at-the-june-2025-fomc-meeting"
+    kalshi_series: "FED-25BPS-JUN25"
+  - label: "US CPI above 3% Apr 2025"
+    polymarket_slug: "us-cpi-above-3-april-2025"
+    kalshi_series: null
+  - label: "US recession in 2025"
+    polymarket_slug: "us-recession-in-2025"
+    kalshi_series: "USREC-25"
+
+tickers:
+  AAPL:
+    - label: "AAPL earnings beat Q2 2025"
+      kalshi_series: null
+      discovery_keywords: ["apple", "aapl", "earnings"]
+  TSLA:
+    - label: "TSLA earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["tesla", "tsla", "earnings"]
+  NVDA:
+    - label: "NVDA earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["nvidia", "nvda", "earnings"]
+  MSFT:
+    - label: "MSFT earnings beat Q3 2025"
+      kalshi_series: null
+      discovery_keywords: ["microsoft", "msft", "earnings"]
+  AMZN:
+    - label: "AMZN earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["amazon", "amzn", "earnings"]
+  GOOGL:
+    - label: "GOOGL earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["google", "googl", "earnings"]
+  META:
+    - label: "META earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["meta", "facebook", "earnings"]
+  NFLX:
+    - label: "NFLX earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["netflix", "nflx", "earnings"]
+  AMD:
+    - label: "AMD earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["amd", "advanced micro", "earnings"]
+  JPM:
+    - label: "JPM earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["jpmorgan", "jpm", "earnings"]
+  V:
+    - label: "V earnings beat Q2 2025"
+      kalshi_series: null
+      discovery_keywords: ["visa", "earnings"]
+  UBER:
+    - label: "UBER earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["uber", "earnings"]
+  PLTR:
+    - label: "PLTR earnings beat Q1 2025"
+      kalshi_series: null
+      discovery_keywords: ["palantir", "pltr", "earnings"]

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prediction Market Bot</title>
+<style>
+  body { font-family: monospace; background: #0d1117; color: #c9d1d9; margin: 0; padding: 20px; }
+  h1 { color: #58a6ff; font-size: 1.2em; }
+  .cards { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .card { background: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 6px; min-width: 150px; }
+  .card .label { font-size: 0.75em; color: #8b949e; }
+  .card .value { font-size: 1.5em; font-weight: bold; margin-top: 4px; }
+  .positive { color: #3fb950; }
+  .negative { color: #f85149; }
+  .neutral { color: #58a6ff; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #21262d; font-size: 0.85em; }
+  th { color: #8b949e; background: #161b22; }
+  .badge { padding: 2px 6px; border-radius: 3px; font-size: 0.75em; }
+  .badge-won { background: #1a4731; color: #3fb950; }
+  .badge-lost { background: #3d1f1f; color: #f85149; }
+  .badge-open { background: #1c2d3f; color: #58a6ff; }
+  .badge-expired { background: #2d2a1f; color: #d29922; }
+  .section { background: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 6px; margin-bottom: 16px; }
+  .section h2 { font-size: 0.9em; color: #8b949e; margin: 0 0 12px 0; text-transform: uppercase; }
+  .toggle-btn { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-family: monospace; margin-top: 6px; display: block; }
+  .toggle-btn:hover { background: #30363d; }
+</style>
+</head>
+<body>
+<h1>Prediction Market Bot</h1>
+
+<div class="cards">
+  <div class="card">
+    <div class="label">BANKROLL</div>
+    <div class="value neutral" id="bankroll">${{ "%.2f"|format(stats.bankroll) }}</div>
+  </div>
+  <div class="card">
+    <div class="label">TOTAL P&amp;L</div>
+    <div class="value {% if stats.total_pnl >= 0 %}positive{% else %}negative{% endif %}" id="pnl">
+      {% if stats.total_pnl >= 0 %}+{% endif %}${{ "%.2f"|format(stats.total_pnl) }}
+    </div>
+  </div>
+  <div class="card">
+    <div class="label">WIN RATE</div>
+    <div class="value" id="winrate">
+      {% if stats.win_rate is not none %}{{ "%.1f"|format(stats.win_rate * 100) }}%{% else %}&mdash;{% endif %}
+      <small style="font-size:0.5em;color:#8b949e">({{ stats.won }}W/{{ stats.lost }}L/{{ stats.expired }}E)</small>
+    </div>
+  </div>
+  <div class="card">
+    <div class="label">OPEN TRADES</div>
+    <div class="value neutral" id="open-trades">{{ stats.open_trades }}</div>
+  </div>
+  <div class="card">
+    <div class="label">STATUS</div>
+    <div class="value" id="bot-status">{{ "ON" if status.enabled else "OFF" }}</div>
+    <button class="toggle-btn" onclick="toggleBot()">Toggle</button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Recent Trades</h2>
+  <table id="trades-table">
+    <thead>
+      <tr>
+        <th>Time</th><th>Market</th><th>Platform</th><th>Side</th>
+        <th>Entry</th><th>Qty</th><th>Status</th><th>P&amp;L</th><th>Category</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in trades %}
+      <tr>
+        <td>{{ t.created_at.strftime('%m/%d %H:%M') }}</td>
+        <td title="{{ t.market_question }}">{{ t.market_question[:55] }}{% if t.market_question|length > 55 %}&hellip;{% endif %}</td>
+        <td>{{ t.platform }}</td>
+        <td>{{ t.side }}</td>
+        <td>${{ "%.2f"|format(t.entry_price) }}</td>
+        <td>{{ t.quantity|int }}</td>
+        <td><span class="badge badge-{{ t.status|lower }}">{{ t.status }}</span></td>
+        <td class="{% if t.pnl and t.pnl > 0 %}positive{% elif t.pnl and t.pnl < 0 %}negative{% endif %}">
+          {% if t.pnl is not none %}{% if t.pnl > 0 %}+{% endif %}${{ "%.2f"|format(t.pnl) }}{% else %}&mdash;{% endif %}
+        </td>
+        <td>{{ t.category }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" style="color:#8b949e;text-align:center">No trades yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Recent Scans</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Candidates</th><th>Edges</th><th>Trades</th></tr></thead>
+    <tbody>
+      {% for s in scan_history %}
+      <tr>
+        <td>{{ s.timestamp[:19].replace('T',' ') }}</td>
+        <td>{{ s.candidates_found }}</td>
+        <td>{{ s.edges_found }}</td>
+        <td>{{ s.trades_placed }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" style="color:#8b949e;text-align:center">No scans yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+const es = new EventSource('/api/stream');
+es.onmessage = (e) => {
+  const data = JSON.parse(e.data);
+  if (data.type === 'cycle_complete') {
+    const s = data.status;
+    document.getElementById('bankroll').textContent = '$' + s.bankroll.toFixed(2);
+    const pnlEl = document.getElementById('pnl');
+    pnlEl.textContent = (s.total_pnl >= 0 ? '+' : '') + '$' + s.total_pnl.toFixed(2);
+    pnlEl.className = 'value ' + (s.total_pnl >= 0 ? 'positive' : 'negative');
+    document.getElementById('open-trades').textContent = s.open_trades;
+    if (s.win_rate !== null) {
+      document.getElementById('winrate').firstChild.textContent = (s.win_rate * 100).toFixed(1) + '%';
+    }
+  }
+};
+
+async function toggleBot() {
+  const resp = await fetch('/api/bot/toggle', {method: 'POST'});
+  const data = await resp.json();
+  document.getElementById('bot-status').textContent = data.enabled ? 'ON' : 'OFF';
+}
+</script>
+</body>
+</html>

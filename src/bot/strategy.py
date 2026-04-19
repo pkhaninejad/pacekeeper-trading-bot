@@ -16,6 +16,7 @@ from src.bot.price_feed import get_price_summary
 from src.data.earnings_calendar import EarningsInfo
 from src.data.macro_calendar import MacroEvent
 from src.data.news_feed import NewsItem
+from src.data.prediction_markets import MarketProb
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +148,51 @@ def _build_macro_section(macro_events: list["MacroEvent"] | None, block_hours: i
 
 
 
+def _build_prediction_markets_section(data: dict[str, list["MarketProb"]]) -> str:
+    """Format the === PREDICTION MARKETS === prompt section."""
+    LOW_LIQUIDITY_THRESHOLD = 10_000
+
+    def _fmt_vol(v: int) -> str:
+        if v >= 1_000_000:
+            return f"${v / 1_000_000:.1f}M"
+        if v >= 1_000:
+            return f"${v // 1_000}K"
+        return f"${v}"
+
+    lines: list[str] = []
+
+    macro_probs = [p for p in data.get("macro", []) if p]
+    if macro_probs:
+        lines.append("MACRO:")
+        for p in macro_probs:
+            liq = " — low liquidity" if p.volume_usd < LOW_LIQUIDITY_THRESHOLD else ""
+            source_label = "Polymarket" if p.source == "polymarket" else "Kalshi"
+            lines.append(
+                f"  {p.event}: {p.yes_prob * 100:.0f}% yes"
+                f"  ({source_label}, {_fmt_vol(p.volume_usd)} vol{liq})"
+            )
+        lines.append("")
+
+    for ticker, probs in data.items():
+        if ticker == "macro" or not probs:
+            continue
+        lines.append(f"{ticker}:")
+        for p in probs:
+            liq = " — low liquidity" if p.volume_usd < LOW_LIQUIDITY_THRESHOLD else ""
+            source_label = "Polymarket" if p.source == "polymarket" else "Kalshi"
+            lines.append(
+                f"  {p.event}: {p.yes_prob * 100:.0f}% yes"
+                f"  ({source_label}, {_fmt_vol(p.volume_usd)} vol{liq})"
+            )
+        lines.append("")
+
+    if not lines:
+        return ""
+
+    body = "\n".join(lines).rstrip()
+    return f"\n=== PREDICTION MARKETS ===\n{body}\n"
+
+
 def _build_market_context(
     positions: list[Position],
     cash: CashInfo,
@@ -158,6 +204,7 @@ def _build_market_context(
     macro_events: list["MacroEvent"] | None = None,
     outcome_log: list | None = None,
     regime: "RegimeResult | None" = None,
+    prediction_markets: dict | None = None,
 ) -> str:
     """Build the user prompt with current portfolio state."""
     if price_data is None:
@@ -230,6 +277,10 @@ def _build_market_context(
 
     macro_section = _build_macro_section(macro_events, settings.MACRO_BLOCK_HOURS)
 
+    prediction_markets_section = ""
+    if prediction_markets:
+        prediction_markets_section = _build_prediction_markets_section(prediction_markets)
+
     perf_section = ""
     if outcome_log:
         summary = _build_performance_summary(outcome_log)
@@ -274,7 +325,7 @@ Open positions ({len(positions)}):
 
 === PRICE FEED (30-day) ===
 {chr(10).join(price_lines) if price_lines else '  (unavailable)'}
-{earnings_section}{macro_section}{news_section}{perf_section}{regime_section}
+{earnings_section}{macro_section}{prediction_markets_section}{news_section}{perf_section}{regime_section}
 === WATCHLIST ===
 {json.dumps({t: instrument_info.get(t, t) for t in watchlist}, indent=2)}
 
@@ -302,6 +353,7 @@ class AIStrategy:
         macro_events: list["MacroEvent"] | None = None,
         outcome_log: list | None = None,
         regime: "RegimeResult | None" = None,
+        prediction_markets: dict | None = None,
     ) -> list[TradeSignal]:
         """Call the configured LLM provider and parse trade signals."""
         if provider_config is None:
@@ -312,6 +364,7 @@ class AIStrategy:
             positions, cash, watchlist, instruments, price_data,
             earnings_info, news_data, macro_events, outcome_log,
             regime=regime,
+            prediction_markets=prediction_markets,
         )
 
         logger.info("Calling %s/%s for trading signals...", provider_config.provider, provider_config.model)

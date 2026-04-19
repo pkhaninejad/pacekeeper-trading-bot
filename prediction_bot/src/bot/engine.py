@@ -120,3 +120,11 @@ class PredictionEngine:
     def toggle(self) -> bool:
         self.status.enabled = not self.status.enabled
         return self.status.enabled
+
+    def set_interval(self, seconds: int) -> int:
+        self.settings.SCAN_INTERVAL_SECONDS = seconds
+        self.status.next_scan = (
+            datetime.now(UTC) + timedelta(seconds=seconds)
+            if self.status.last_scan else None
+        )
+        return seconds

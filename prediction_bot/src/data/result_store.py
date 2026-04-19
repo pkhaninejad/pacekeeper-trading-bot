@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS paper_trades (
     exit_price REAL,
     pnl REAL,
     created_at TEXT NOT NULL,
+    end_date TEXT,
     resolved_at TEXT,
     resolution_source TEXT
 );
@@ -50,6 +51,11 @@ class ResultStore:
     async def initialize(self):
         async with aiosqlite.connect(self.db_path) as db:
             await db.executescript(_SCHEMA)
+            # migrate: add end_date if missing from older DB
+            async with db.execute("PRAGMA table_info(paper_trades)") as cur:
+                cols = {row[1] async for row in cur}
+            if "end_date" not in cols:
+                await db.execute("ALTER TABLE paper_trades ADD COLUMN end_date TEXT")
             await db.commit()
 
     async def add_trade(self, trade: PaperTrade, initial_bankroll: float | None = None) -> int:
@@ -57,13 +63,14 @@ class ResultStore:
             cur = await db.execute(
                 """INSERT INTO paper_trades
                    (platform, market_id, market_question, category, side, entry_price,
-                    quantity, cost, confidence, reasoning, created_at)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    quantity, cost, confidence, reasoning, created_at, end_date)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     trade.platform, trade.market_id, trade.market_question,
                     trade.category, trade.side, trade.entry_price,
                     trade.quantity, trade.cost, trade.confidence,
                     trade.reasoning, trade.created_at.isoformat(),
+                    trade.end_date.isoformat() if trade.end_date else None,
                 ),
             )
             trade_id = cur.lastrowid
@@ -183,7 +190,7 @@ class ResultStore:
             async with db.execute(
                 f"""SELECT id, platform, market_id, market_question, category, side,
                            entry_price, quantity, cost, confidence, reasoning,
-                           status, exit_price, pnl, created_at, resolved_at, resolution_source
+                           status, exit_price, pnl, created_at, end_date, resolved_at, resolution_source
                     FROM paper_trades {where_clause}"""
             ) as cur:
                 rows = await cur.fetchall()
@@ -194,8 +201,9 @@ class ResultStore:
                 cost=r[8], confidence=r[9], reasoning=r[10], status=r[11],
                 exit_price=r[12], pnl=r[13],
                 created_at=datetime.fromisoformat(r[14]),
-                resolved_at=datetime.fromisoformat(r[15]) if r[15] else None,
-                resolution_source=r[16],
+                end_date=datetime.fromisoformat(r[15]) if r[15] else None,
+                resolved_at=datetime.fromisoformat(r[16]) if r[16] else None,
+                resolution_source=r[17],
             )
             for r in rows
         ]

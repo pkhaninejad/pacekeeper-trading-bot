@@ -77,6 +77,14 @@ async def trigger_cycle():
     return {"status": "cycle triggered"}
 
 
+@app.post("/api/interval")
+async def set_interval(seconds: int):
+    if seconds < 30:
+        return {"error": "minimum interval is 30 seconds"}, 400
+    engine.set_interval(seconds)
+    return {"interval_seconds": seconds}
+
+
 @app.get("/api/stream")
 async def stream(request: Request):
     q: asyncio.Queue = asyncio.Queue(maxsize=100)
@@ -111,5 +119,6 @@ async def dashboard(request: Request):
             "stats": stats,
             "trades": trades,
             "scan_history": list(reversed(engine.scan_history[:10])),
+            "interval_seconds": engine.settings.SCAN_INTERVAL_SECONDS,
         },
     )

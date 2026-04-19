@@ -58,6 +58,27 @@
     <div class="value" id="bot-status">{{ "ON" if status.enabled else "OFF" }}</div>
     <button class="toggle-btn" onclick="toggleBot()">Toggle</button>
   </div>
+  <div class="card">
+    <div class="label">NEXT SCAN IN</div>
+    <div class="value neutral" id="countdown">—</div>
+    <button class="toggle-btn" onclick="scanNow()">Scan Now</button>
+  </div>
+  <div class="card">
+    <div class="label">SCAN INTERVAL</div>
+    <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+      <input id="interval-input" type="number" min="30" value="{{ status.next_scan and (status.next_scan - status.last_scan).seconds or 120 }}"
+        style="width:70px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 6px;border-radius:4px;font-family:monospace;font-size:0.9em">
+      <span style="color:#8b949e;font-size:0.8em">sec</span>
+      <button class="toggle-btn" style="margin-top:0" onclick="setInterval_()">Set</button>
+    </div>
+  </div>
+  {% set total_if_win = namespace(value=0) %}
+  {% for t in trades %}{% if t.status == 'OPEN' %}{% set total_if_win.value = total_if_win.value + (1.0 - t.entry_price) * t.quantity %}{% endif %}{% endfor %}
+  <div class="card">
+    <div class="label">IF ALL WIN</div>
+    <div class="value positive" id="if-all-win">+${{ "%.2f"|format(total_if_win.value) }}</div>
+    <div style="font-size:0.7em;color:#8b949e;margin-top:4px">open trades only</div>
+  </div>
 </div>
 
 <div class="section">
@@ -66,7 +87,7 @@
     <thead>
       <tr>
         <th>Time</th><th>Market</th><th>Platform</th><th>Side</th>
-        <th>Entry</th><th>Qty</th><th>Status</th><th>P&amp;L</th><th>Category</th>
+        <th>Entry</th><th>Qty</th><th>Cost</th><th>If Win</th><th>Status</th><th>P&amp;L</th><th>Category</th>
       </tr>
     </thead>
     <tbody>
@@ -78,6 +99,9 @@
         <td>{{ t.side }}</td>
         <td>${{ "%.2f"|format(t.entry_price) }}</td>
         <td>{{ t.quantity|int }}</td>
+        <td>${{ "%.2f"|format(t.cost) }}</td>
+        {% set if_win = (1.0 - t.entry_price) * t.quantity %}
+        <td class="positive">+${{ "%.2f"|format(if_win) }}</td>
         <td><span class="badge badge-{{ t.status|lower }}">{{ t.status }}</span></td>
         <td class="{% if t.pnl and t.pnl > 0 %}positive{% elif t.pnl and t.pnl < 0 %}negative{% endif %}">
           {% if t.pnl is not none %}{% if t.pnl > 0 %}+{% endif %}${{ "%.2f"|format(t.pnl) }}{% else %}&mdash;{% endif %}
@@ -85,7 +109,7 @@
         <td>{{ t.category }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="9" style="color:#8b949e;text-align:center">No trades yet</td></tr>
+      <tr><td colspan="11" style="color:#8b949e;text-align:center">No trades yet</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -111,6 +135,8 @@
 </div>
 
 <script>
+let nextScanAt = null;
+
 const es = new EventSource('/api/stream');
 es.onmessage = (e) => {
   const data = JSON.parse(e.data);
@@ -124,13 +150,38 @@ es.onmessage = (e) => {
     if (s.win_rate !== null) {
       document.getElementById('winrate').firstChild.textContent = (s.win_rate * 100).toFixed(1) + '%';
     }
+    if (s.next_scan) nextScanAt = new Date(s.next_scan);
   }
 };
+
+// initialise countdown from server status
+fetch('/api/status').then(r => r.json()).then(s => {
+  if (s.next_scan) nextScanAt = new Date(s.next_scan);
+});
+
+setInterval(() => {
+  if (!nextScanAt) return;
+  const secs = Math.max(0, Math.round((nextScanAt - Date.now()) / 1000));
+  const m = Math.floor(secs / 60), s = secs % 60;
+  document.getElementById('countdown').textContent =
+    secs === 0 ? 'scanning…' : (m > 0 ? m + 'm ' : '') + s + 's';
+}, 1000);
 
 async function toggleBot() {
   const resp = await fetch('/api/bot/toggle', {method: 'POST'});
   const data = await resp.json();
   document.getElementById('bot-status').textContent = data.enabled ? 'ON' : 'OFF';
+}
+
+async function scanNow() {
+  await fetch('/api/cycle', {method: 'POST'});
+}
+
+async function setInterval_() {
+  const secs = parseInt(document.getElementById('interval-input').value);
+  if (isNaN(secs) || secs < 30) { alert('Minimum 30 seconds'); return; }
+  await fetch('/api/interval?seconds=' + secs, {method: 'POST'});
+  nextScanAt = new Date(Date.now() + secs * 1000);
 }
 </script>
 </body>

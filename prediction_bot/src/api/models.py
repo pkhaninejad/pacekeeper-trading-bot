@@ -44,6 +44,7 @@ class PaperTrade(BaseModel):
     exit_price: float | None = None
     pnl: float | None = None
     created_at: datetime
+    end_date: datetime | None = None
     resolved_at: datetime | None = None
     resolution_source: str | None = None
 

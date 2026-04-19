@@ -9,7 +9,7 @@ class PredictionBotSettings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     CLAUDE_MODEL: str = "claude-sonnet-4-6"
     SCAN_INTERVAL_SECONDS: int = 120
-    EXPIRY_WINDOW_HOURS: int = 48
+    EXPIRY_WINDOW_HOURS: int = 168
     HIGH_PROB_MIN: float = 0.80
     HIGH_PROB_MAX: float = 0.97
     MIN_LIQUIDITY: float = 1000.0

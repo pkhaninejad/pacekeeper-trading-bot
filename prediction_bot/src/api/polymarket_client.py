@@ -15,8 +15,19 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://gamma-api.polymarket.com"
 _REQUEST_DELAY = 0.5
 
-_CRYPTO_TAGS = {"crypto", "bitcoin", "ethereum", "defi", "token"}
-_POLITICS_TAGS = {"politics", "elections", "congress", "government", "president"}
+_CRYPTO_TAGS = {"crypto", "bitcoin", "ethereum", "defi", "token", "btc", "eth", "solana", "xrp"}
+_POLITICS_TAGS = {"politics", "elections", "congress", "government", "president", "senate", "election"}
+_SPORTS_TAGS = {
+    "nfl", "nba", "mlb", "nhl", "mls", "sports", "sport", "game", "match", "team",
+    "soccer", "football", "basketball", "baseball", "hockey", "tennis", "golf",
+    "championship", "league", "cup", "serie", "premier", "bundesliga", "ligue",
+    "ufc", "boxing", "formula", "racing", "olympics", "draft",
+}
+_SPORTS_QUESTION_SIGNALS = {
+    " vs ", " vs. ", " o/u ", " over/under ", "fc ", " fc", "will win", "advance",
+    " nfl ", " nba ", " mlb ", " nhl ", " ufc ", " mls ", "draft pick", "super bowl",
+    "world cup", "champions league", " playoff", "match ", "tournament",
+}
 
 
 def _parse_outcome_prices(raw: str | list) -> tuple[float, float]:
@@ -24,19 +35,27 @@ def _parse_outcome_prices(raw: str | list) -> tuple[float, float]:
     return float(prices[0]), float(prices[1])
 
 
-def _classify_tags(tags: list[dict]) -> str:
+def _classify(tags: list[dict], question: str) -> str:
+    q = question.lower()
+
+    # question-level signals (most reliable)
+    if any(s in q for s in _SPORTS_QUESTION_SIGNALS):
+        return "sports"
+    if any(k in q for k in ("bitcoin", "btc", "ethereum", "eth", "crypto", "solana", "xrp")):
+        return "crypto"
+
+    # tag-level signals
     for t in tags:
         label = t.get("label", "").lower()
         slug = t.get("slug", "").lower()
         for key in (label, slug):
             if any(k in key for k in _CRYPTO_TAGS):
                 return "crypto"
+            if any(k in key for k in _SPORTS_TAGS):
+                return "sports"
             if any(k in key for k in _POLITICS_TAGS):
                 return "politics"
-    for t in tags:
-        label = t.get("label", "").lower()
-        if any(k in label for k in ("nfl", "nba", "mlb", "sport", "game", "match", "team")):
-            return "sports"
+
     return "politics"
 
 
@@ -45,7 +64,8 @@ def _parse_market(raw: dict) -> PredictionMarket | None:
         yes_price, no_price = _parse_outcome_prices(raw.get("outcomePrices", '["0.5","0.5"]'))
         end_date = datetime.fromisoformat(raw["endDate"].replace("Z", "+00:00"))
         tags = raw.get("tags") or []
-        category = _classify_tags(tags)
+        question = raw.get("question", "")
+        category = _classify(tags, question)
         return PredictionMarket(
             id=raw["conditionId"],
             platform="polymarket",
@@ -121,13 +141,19 @@ class PolymarketClient:
         self,
         hours: int = 48,
         min_liquidity: float = 1000.0,
-        limit: int = 200,
+        limit: int = 500,
     ) -> list[PredictionMarket]:
-        markets = await self.get_active_markets(limit=limit)
-        cutoff = datetime.now(UTC) + timedelta(hours=hours)
-        return [
-            m for m in markets
-            if m.end_date <= cutoff
-            and m.end_date > datetime.now(UTC)
-            and m.liquidity >= min_liquidity
-        ]
+        now = datetime.now(UTC)
+        cutoff = now + timedelta(hours=hours)
+        params: dict = {
+            "active": "true",
+            "closed": "false",
+            "limit": limit,
+            "order": "end_date_asc",
+            "end_date_min": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "end_date_max": cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        data = await self._get("/markets", params)
+        markets_raw = data if isinstance(data, list) else data.get("markets", [])
+        markets = [m for raw in markets_raw if (m := _parse_market(raw))]
+        return [m for m in markets if m.liquidity >= min_liquidity]

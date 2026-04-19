@@ -69,6 +69,7 @@ class PaperTrader:
             confidence=candidate.llm_confidence or 0.5,
             reasoning=candidate.llm_reasoning,
             created_at=datetime.now(UTC),
+            end_date=candidate.market.end_date,
         )
         trade_id = await self.store.add_trade(trade, initial_bankroll=bankroll)
         logger.info(

@@ -66,7 +66,7 @@
   <div class="card">
     <div class="label">SCAN INTERVAL</div>
     <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
-      <input id="interval-input" type="number" min="30" value="{{ status.next_scan and (status.next_scan - status.last_scan).seconds or 120 }}"
+      <input id="interval-input" type="number" min="30" value="{{ interval_seconds }}"
         style="width:70px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 6px;border-radius:4px;font-family:monospace;font-size:0.9em">
       <span style="color:#8b949e;font-size:0.8em">sec</span>
       <button class="toggle-btn" style="margin-top:0" onclick="setInterval_()">Set</button>
@@ -168,20 +168,33 @@ setInterval(() => {
 }, 1000);
 
 async function toggleBot() {
-  const resp = await fetch('/api/bot/toggle', {method: 'POST'});
-  const data = await resp.json();
-  document.getElementById('bot-status').textContent = data.enabled ? 'ON' : 'OFF';
+  const btn = event.target;
+  btn.textContent = '...'; btn.disabled = true;
+  try {
+    const resp = await fetch('/api/bot/toggle', {method: 'POST'});
+    const data = await resp.json();
+    document.getElementById('bot-status').textContent = data.enabled ? 'ON' : 'OFF';
+  } finally { btn.textContent = 'Toggle'; btn.disabled = false; }
 }
 
 async function scanNow() {
-  await fetch('/api/cycle', {method: 'POST'});
+  const btn = event.target;
+  btn.textContent = 'Scanning…'; btn.disabled = true;
+  try {
+    await fetch('/api/cycle', {method: 'POST'});
+    nextScanAt = new Date(Date.now() + 3000);
+  } finally { setTimeout(() => { btn.textContent = 'Scan Now'; btn.disabled = false; }, 2000); }
 }
 
 async function setInterval_() {
   const secs = parseInt(document.getElementById('interval-input').value);
   if (isNaN(secs) || secs < 30) { alert('Minimum 30 seconds'); return; }
-  await fetch('/api/interval?seconds=' + secs, {method: 'POST'});
-  nextScanAt = new Date(Date.now() + secs * 1000);
+  const btn = event.target;
+  btn.textContent = '✓ Set'; btn.disabled = true;
+  try {
+    await fetch('/api/interval?seconds=' + secs, {method: 'POST'});
+    nextScanAt = new Date(Date.now() + secs * 1000);
+  } finally { setTimeout(() => { btn.textContent = 'Set'; btn.disabled = false; }, 1500); }
 }
 </script>
 </body>

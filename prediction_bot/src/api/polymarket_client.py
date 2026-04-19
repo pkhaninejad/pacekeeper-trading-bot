@@ -76,7 +76,7 @@ class PolymarketClient:
         if self._session:
             await self._session.aclose()
 
-    async def _get(self, path: str, params: dict | None = None) -> dict:
+    async def _get(self, path: str, params: dict | None = None) -> dict | list:
         await asyncio.sleep(_REQUEST_DELAY)
         for attempt in range(3):
             try:
@@ -101,13 +101,15 @@ class PolymarketClient:
         if tag_id:
             params["tag_id"] = tag_id
         data = await self._get("/markets", params)
-        markets = data.get("markets", data if isinstance(data, list) else [])
+        if isinstance(data, list):
+            markets = data
+        else:
+            markets = data.get("markets", [])
         return [m for raw in markets if (m := _parse_market(raw))]
 
     async def get_market_status(self, condition_id: str) -> dict:
-        data = await self._get(f"/markets/{condition_id}")
-        if isinstance(data, list):
-            data = data[0] if data else {}
+        raw = await self._get(f"/markets/{condition_id}")
+        data = raw[0] if isinstance(raw, list) and raw else (raw if isinstance(raw, dict) else {})
         closed = data.get("closed", False)
         if not closed:
             return {"resolved": False, "winner": None}

@@ -34,24 +34,23 @@
 <div class="cards">
   <div class="card">
     <div class="label">BANKROLL</div>
-    <div class="value neutral" id="bankroll">${{ "%.2f"|format(stats.bankroll) }}</div>
+    <div class="value neutral" id="bankroll">${{ "%.2f"|format(status.bankroll) }}</div>
   </div>
   <div class="card">
     <div class="label">TOTAL P&amp;L</div>
-    <div class="value {% if stats.total_pnl >= 0 %}positive{% else %}negative{% endif %}" id="pnl">
-      {% if stats.total_pnl >= 0 %}+{% endif %}${{ "%.2f"|format(stats.total_pnl) }}
+    <div class="value {% if status.total_pnl >= 0 %}positive{% else %}negative{% endif %}" id="pnl">
+      {% if status.total_pnl >= 0 %}+{% endif %}${{ "%.2f"|format(status.total_pnl) }}
     </div>
   </div>
   <div class="card">
     <div class="label">WIN RATE</div>
     <div class="value" id="winrate">
-      {% if stats.win_rate is not none %}{{ "%.1f"|format(stats.win_rate * 100) }}%{% else %}&mdash;{% endif %}
-      <small style="font-size:0.5em;color:#8b949e">({{ stats.won }}W/{{ stats.lost }}L/{{ stats.expired }}E)</small>
+      {% if status.win_rate is not none %}{{ "%.1f"|format(status.win_rate * 100) }}%{% else %}&mdash;{% endif %}
     </div>
   </div>
   <div class="card">
     <div class="label">OPEN TRADES</div>
-    <div class="value neutral" id="open-trades">{{ stats.open_trades }}</div>
+    <div class="value neutral" id="open-trades">{{ status.open_trades }}</div>
   </div>
   <div class="card">
     <div class="label">STATUS</div>
@@ -72,11 +71,9 @@
       <button class="toggle-btn" style="margin-top:0" onclick="setInterval_()">Set</button>
     </div>
   </div>
-  {% set total_if_win = namespace(value=0) %}
-  {% for t in trades %}{% if t.status == 'OPEN' %}{% set total_if_win.value = total_if_win.value + (1.0 - t.entry_price) * t.quantity %}{% endif %}{% endfor %}
   <div class="card">
     <div class="label">IF ALL WIN</div>
-    <div class="value positive" id="if-all-win">+${{ "%.2f"|format(total_if_win.value) }}</div>
+    <div class="value positive" id="if-all-win">—</div>
     <div style="font-size:0.7em;color:#8b949e;margin-top:4px">open trades only</div>
   </div>
 </div>
@@ -90,27 +87,8 @@
         <th>Entry</th><th>Qty</th><th>Cost</th><th>If Win</th><th>Status</th><th>P&amp;L</th><th>Category</th>
       </tr>
     </thead>
-    <tbody>
-      {% for t in trades %}
-      <tr>
-        <td>{{ t.created_at.strftime('%m/%d %H:%M') }}</td>
-        <td title="{{ t.market_question }}">{{ t.market_question[:55] }}{% if t.market_question|length > 55 %}&hellip;{% endif %}</td>
-        <td>{{ t.platform }}</td>
-        <td>{{ t.side }}</td>
-        <td>${{ "%.2f"|format(t.entry_price) }}</td>
-        <td>{{ t.quantity|int }}</td>
-        <td>${{ "%.2f"|format(t.cost) }}</td>
-        {% set if_win = (1.0 - t.entry_price) * t.quantity %}
-        <td class="positive">+${{ "%.2f"|format(if_win) }}</td>
-        <td><span class="badge badge-{{ t.status|lower }}">{{ t.status }}</span></td>
-        <td class="{% if t.pnl and t.pnl > 0 %}positive{% elif t.pnl and t.pnl < 0 %}negative{% endif %}">
-          {% if t.pnl is not none %}{% if t.pnl > 0 %}+{% endif %}${{ "%.2f"|format(t.pnl) }}{% else %}&mdash;{% endif %}
-        </td>
-        <td>{{ t.category }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="11" style="color:#8b949e;text-align:center">No trades yet</td></tr>
-      {% endfor %}
+    <tbody id="trades-tbody">
+      <tr><td colspan="11" style="color:#8b949e;text-align:center">Loading…</td></tr>
     </tbody>
   </table>
 </div>
@@ -137,35 +115,90 @@
 <script>
 let nextScanAt = null;
 
-const es = new EventSource('/api/stream');
-es.onmessage = (e) => {
-  const data = JSON.parse(e.data);
-  if (data.type === 'cycle_complete') {
-    const s = data.status;
-    document.getElementById('bankroll').textContent = '$' + s.bankroll.toFixed(2);
-    const pnlEl = document.getElementById('pnl');
-    pnlEl.textContent = (s.total_pnl >= 0 ? '+' : '') + '$' + s.total_pnl.toFixed(2);
-    pnlEl.className = 'value ' + (s.total_pnl >= 0 ? 'positive' : 'negative');
-    document.getElementById('open-trades').textContent = s.open_trades;
-    if (s.win_rate !== null) {
-      document.getElementById('winrate').firstChild.textContent = (s.win_rate * 100).toFixed(1) + '%';
+async function fetchTrades() {
+  try {
+    const resp = await fetch('/api/trades?limit=50');
+    const trades = await resp.json();
+    const tbody = document.getElementById('trades-tbody');
+    if (!trades.length) {
+      tbody.innerHTML = '<tr><td colspan="11" style="color:#8b949e;text-align:center">No trades yet</td></tr>';
+      return;
     }
-    if (s.next_scan) nextScanAt = new Date(s.next_scan);
+    tbody.innerHTML = trades.map(t => {
+      const ifWin = (1.0 - t.entry_price) * t.quantity;
+      const pnlStr = t.pnl != null
+        ? `<span class="${t.pnl > 0 ? 'positive' : t.pnl < 0 ? 'negative' : ''}">${t.pnl > 0 ? '+' : ''}$${t.pnl.toFixed(2)}</span>`
+        : '&mdash;';
+      const dt = new Date(t.created_at);
+      const dateStr = `${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      const q = t.market_question.length > 55 ? t.market_question.slice(0,55) + '\u2026' : t.market_question;
+      const statusClass = t.status.toLowerCase();
+      return `<tr>
+        <td>${dateStr}</td>
+        <td title="${t.market_question}">${q}</td>
+        <td>${t.platform}</td>
+        <td>${t.side}</td>
+        <td>$${t.entry_price.toFixed(2)}</td>
+        <td>${Math.round(t.quantity)}</td>
+        <td>$${t.cost.toFixed(2)}</td>
+        <td class="positive">+$${ifWin.toFixed(2)}</td>
+        <td><span class="badge badge-${statusClass}">${t.status}</span></td>
+        <td>${pnlStr}</td>
+        <td>${t.category}</td>
+      </tr>`;
+    }).join('');
+  } catch {
+    document.getElementById('trades-tbody').innerHTML =
+      '<tr><td colspan="11" style="color:#f85149;text-align:center">Error loading trades</td></tr>';
   }
-};
+}
 
-// initialise countdown from server status
-fetch('/api/status').then(r => r.json()).then(s => {
-  if (s.next_scan) nextScanAt = new Date(s.next_scan);
+async function fetchIfAllWin() {
+  try {
+    const resp = await fetch('/api/trades/open');
+    const trades = await resp.json();
+    const total = trades.reduce((sum, t) => sum + (1.0 - t.entry_price) * t.quantity, 0);
+    document.getElementById('if-all-win').textContent = '+$' + total.toFixed(2);
+  } catch {
+    // leave as —
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  fetchTrades();
+  fetchIfAllWin();
+
+  fetch('/api/status').then(r => r.json()).then(s => {
+    if (s.next_scan) nextScanAt = new Date(s.next_scan);
+  });
+
+  const es = new EventSource('/api/stream');
+  es.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'cycle_complete') {
+      const s = data.status;
+      document.getElementById('bankroll').textContent = '$' + s.bankroll.toFixed(2);
+      const pnlEl = document.getElementById('pnl');
+      pnlEl.textContent = (s.total_pnl >= 0 ? '+' : '') + '$' + s.total_pnl.toFixed(2);
+      pnlEl.className = 'value ' + (s.total_pnl >= 0 ? 'positive' : 'negative');
+      document.getElementById('open-trades').textContent = s.open_trades;
+      if (s.win_rate !== null) {
+        document.getElementById('winrate').textContent = (s.win_rate * 100).toFixed(1) + '%';
+      }
+      if (s.next_scan) nextScanAt = new Date(s.next_scan);
+      fetchTrades();
+      fetchIfAllWin();
+    }
+  };
+
+  setInterval(() => {
+    if (!nextScanAt) return;
+    const secs = Math.max(0, Math.round((nextScanAt - Date.now()) / 1000));
+    const m = Math.floor(secs / 60), s = secs % 60;
+    document.getElementById('countdown').textContent =
+      secs === 0 ? 'scanning…' : (m > 0 ? m + 'm ' : '') + s + 's';
+  }, 1000);
 });
-
-setInterval(() => {
-  if (!nextScanAt) return;
-  const secs = Math.max(0, Math.round((nextScanAt - Date.now()) / 1000));
-  const m = Math.floor(secs / 60), s = secs % 60;
-  document.getElementById('countdown').textContent =
-    secs === 0 ? 'scanning…' : (m > 0 ? m + 'm ' : '') + s + 's';
-}, 1000);
 
 async function toggleBot() {
   const btn = event.target;

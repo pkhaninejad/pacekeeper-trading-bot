@@ -153,35 +153,52 @@ async function fetchTrades() {
   }
 }
 
-const es = new EventSource('/api/stream');
-es.onmessage = (e) => {
-  const data = JSON.parse(e.data);
-  if (data.type === 'cycle_complete') {
-    const s = data.status;
-    document.getElementById('bankroll').textContent = '$' + s.bankroll.toFixed(2);
-    const pnlEl = document.getElementById('pnl');
-    pnlEl.textContent = (s.total_pnl >= 0 ? '+' : '') + '$' + s.total_pnl.toFixed(2);
-    pnlEl.className = 'value ' + (s.total_pnl >= 0 ? 'positive' : 'negative');
-    document.getElementById('open-trades').textContent = s.open_trades;
-    if (s.win_rate !== null) {
-      document.getElementById('winrate').firstChild.textContent = (s.win_rate * 100).toFixed(1) + '%';
-    }
-    if (s.next_scan) nextScanAt = new Date(s.next_scan);
+async function fetchIfAllWin() {
+  try {
+    const resp = await fetch('/api/trades/open');
+    const trades = await resp.json();
+    const total = trades.reduce((sum, t) => sum + (1.0 - t.entry_price) * t.quantity, 0);
+    document.getElementById('if-all-win').textContent = '+$' + total.toFixed(2);
+  } catch {
+    // leave as —
   }
-};
+}
 
-// initialise countdown from server status
-fetch('/api/status').then(r => r.json()).then(s => {
-  if (s.next_scan) nextScanAt = new Date(s.next_scan);
+document.addEventListener('DOMContentLoaded', () => {
+  fetchTrades();
+  fetchIfAllWin();
+
+  fetch('/api/status').then(r => r.json()).then(s => {
+    if (s.next_scan) nextScanAt = new Date(s.next_scan);
+  });
+
+  const es = new EventSource('/api/stream');
+  es.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'cycle_complete') {
+      const s = data.status;
+      document.getElementById('bankroll').textContent = '$' + s.bankroll.toFixed(2);
+      const pnlEl = document.getElementById('pnl');
+      pnlEl.textContent = (s.total_pnl >= 0 ? '+' : '') + '$' + s.total_pnl.toFixed(2);
+      pnlEl.className = 'value ' + (s.total_pnl >= 0 ? 'positive' : 'negative');
+      document.getElementById('open-trades').textContent = s.open_trades;
+      if (s.win_rate !== null) {
+        document.getElementById('winrate').textContent = (s.win_rate * 100).toFixed(1) + '%';
+      }
+      if (s.next_scan) nextScanAt = new Date(s.next_scan);
+      fetchTrades();
+      fetchIfAllWin();
+    }
+  };
+
+  setInterval(() => {
+    if (!nextScanAt) return;
+    const secs = Math.max(0, Math.round((nextScanAt - Date.now()) / 1000));
+    const m = Math.floor(secs / 60), s = secs % 60;
+    document.getElementById('countdown').textContent =
+      secs === 0 ? 'scanning…' : (m > 0 ? m + 'm ' : '') + s + 's';
+  }, 1000);
 });
-
-setInterval(() => {
-  if (!nextScanAt) return;
-  const secs = Math.max(0, Math.round((nextScanAt - Date.now()) / 1000));
-  const m = Math.floor(secs / 60), s = secs % 60;
-  document.getElementById('countdown').textContent =
-    secs === 0 ? 'scanning…' : (m > 0 ? m + 'm ' : '') + s + 's';
-}, 1000);
 
 async function toggleBot() {
   const btn = event.target;

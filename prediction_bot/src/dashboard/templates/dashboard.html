@@ -87,27 +87,8 @@
         <th>Entry</th><th>Qty</th><th>Cost</th><th>If Win</th><th>Status</th><th>P&amp;L</th><th>Category</th>
       </tr>
     </thead>
-    <tbody>
-      {% for t in trades %}
-      <tr>
-        <td>{{ t.created_at.strftime('%m/%d %H:%M') }}</td>
-        <td title="{{ t.market_question }}">{{ t.market_question[:55] }}{% if t.market_question|length > 55 %}&hellip;{% endif %}</td>
-        <td>{{ t.platform }}</td>
-        <td>{{ t.side }}</td>
-        <td>${{ "%.2f"|format(t.entry_price) }}</td>
-        <td>{{ t.quantity|int }}</td>
-        <td>${{ "%.2f"|format(t.cost) }}</td>
-        {% set if_win = (1.0 - t.entry_price) * t.quantity %}
-        <td class="positive">+${{ "%.2f"|format(if_win) }}</td>
-        <td><span class="badge badge-{{ t.status|lower }}">{{ t.status }}</span></td>
-        <td class="{% if t.pnl and t.pnl > 0 %}positive{% elif t.pnl and t.pnl < 0 %}negative{% endif %}">
-          {% if t.pnl is not none %}{% if t.pnl > 0 %}+{% endif %}${{ "%.2f"|format(t.pnl) }}{% else %}&mdash;{% endif %}
-        </td>
-        <td>{{ t.category }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="11" style="color:#8b949e;text-align:center">No trades yet</td></tr>
-      {% endfor %}
+    <tbody id="trades-tbody">
+      <tr><td colspan="11" style="color:#8b949e;text-align:center">Loading…</td></tr>
     </tbody>
   </table>
 </div>
@@ -133,6 +114,44 @@
 
 <script>
 let nextScanAt = null;
+
+async function fetchTrades() {
+  try {
+    const resp = await fetch('/api/trades?limit=50');
+    const trades = await resp.json();
+    const tbody = document.getElementById('trades-tbody');
+    if (!trades.length) {
+      tbody.innerHTML = '<tr><td colspan="11" style="color:#8b949e;text-align:center">No trades yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = trades.map(t => {
+      const ifWin = (1.0 - t.entry_price) * t.quantity;
+      const pnlStr = t.pnl != null
+        ? `<span class="${t.pnl > 0 ? 'positive' : t.pnl < 0 ? 'negative' : ''}">${t.pnl > 0 ? '+' : ''}$${t.pnl.toFixed(2)}</span>`
+        : '&mdash;';
+      const dt = new Date(t.created_at);
+      const dateStr = `${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      const q = t.market_question.length > 55 ? t.market_question.slice(0,55) + '\u2026' : t.market_question;
+      const statusClass = t.status.toLowerCase();
+      return `<tr>
+        <td>${dateStr}</td>
+        <td title="${t.market_question}">${q}</td>
+        <td>${t.platform}</td>
+        <td>${t.side}</td>
+        <td>$${t.entry_price.toFixed(2)}</td>
+        <td>${Math.round(t.quantity)}</td>
+        <td>$${t.cost.toFixed(2)}</td>
+        <td class="positive">+$${ifWin.toFixed(2)}</td>
+        <td><span class="badge badge-${statusClass}">${t.status}</span></td>
+        <td>${pnlStr}</td>
+        <td>${t.category}</td>
+      </tr>`;
+    }).join('');
+  } catch {
+    document.getElementById('trades-tbody').innerHTML =
+      '<tr><td colspan="11" style="color:#f85149;text-align:center">Error loading trades</td></tr>';
+  }
+}
 
 const es = new EventSource('/api/stream');
 es.onmessage = (e) => {

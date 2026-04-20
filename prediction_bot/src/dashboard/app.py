@@ -109,15 +109,11 @@ async def stream(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    stats = await engine.paper_trader.store.get_stats()
-    trades = await engine.paper_trader.store.get_recent_trades(limit=50)
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         {
             "status": engine.status,
-            "stats": stats,
-            "trades": trades,
             "scan_history": list(reversed(engine.scan_history[:10])),
             "interval_seconds": engine.settings.SCAN_INTERVAL_SECONDS,
         },

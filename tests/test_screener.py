@@ -94,3 +94,90 @@ def test_near_52w_high_detected():
     # gap_pct = (400 - 395) / 400 = 0.0125
     # score = 0.5 + (1 - 0.0125/0.02) * 0.5 = 0.5 + 0.375 * 0.5 = 0.6875
     assert abs(crwd.score - 0.6875) < 0.001
+
+
+def test_multi_criterion_score():
+    """Ticker matching volume_spike + rs_vs_spy should outscore single-criterion ticker."""
+    price_data = {
+        "PLTR": {  # volume spike only
+            "current_price": 100.0, "high_52w": 130.0,
+            "current_volume": 5_000_000, "avg_volume_30d": 1_000_000,
+            "return_5d": 0.01,
+        },
+        "META": {  # volume spike + rs_vs_spy
+            "current_price": 600.0, "high_52w": 700.0,
+            "current_volume": 5_000_000, "avg_volume_30d": 1_000_000,
+            "return_5d": 0.09,   # +9%, SPY +5% → RS = +4pp
+        },
+        "SPY": {"current_price": 500.0, "high_52w": 520.0,
+                "current_volume": 80_000_000, "avg_volume_30d": 70_000_000,
+                "return_5d": 0.05},
+    }
+    results = run_screener(["PLTR", "META"], price_data=price_data, max_results=5)
+    assert len(results) == 2
+    assert results[0].ticker == "META"
+    assert results[1].ticker == "PLTR"
+    assert results[0].score > results[1].score
+    assert "volume_spike" in results[0].trigger
+    assert "rs_vs_spy" in results[0].trigger
+
+
+def test_max_results_limit():
+    """Only top N candidates returned even if more qualify."""
+    price_data = {
+        "SPY": {"current_price": 500.0, "high_52w": 520.0,
+                "current_volume": 80_000_000, "avg_volume_30d": 70_000_000,
+                "return_5d": 0.01},
+    }
+    for sym in ["A", "B", "C", "D", "E"]:
+        price_data[sym] = {
+            "current_price": 100.0, "high_52w": 130.0,
+            "current_volume": 5_000_000, "avg_volume_30d": 1_000_000,
+            "return_5d": 0.01,
+        }
+    results = run_screener(["A", "B", "C", "D", "E"], price_data=price_data, max_results=2)
+    assert len(results) == 2
+
+
+def test_watchlist_tickers_excluded():
+    """Tickers in exclude list do not appear in results."""
+    price_data = {
+        "NVDA": {
+            "current_price": 900.0, "high_52w": 950.0,
+            "current_volume": 5_000_000, "avg_volume_30d": 1_000_000,
+            "return_5d": 0.10,
+        },
+        "AMZN": {
+            "current_price": 200.0, "high_52w": 220.0,
+            "current_volume": 5_000_000, "avg_volume_30d": 1_000_000,
+            "return_5d": 0.10,
+        },
+        "SPY": {"current_price": 500.0, "high_52w": 520.0,
+                "current_volume": 80_000_000, "avg_volume_30d": 70_000_000,
+                "return_5d": 0.05},
+    }
+    results = run_screener(
+        ["NVDA", "AMZN"],
+        price_data=price_data,
+        exclude=["NVDA"],
+        max_results=5,
+    )
+    tickers = [r.ticker for r in results]
+    assert "NVDA" not in tickers
+    assert "AMZN" in tickers
+
+
+def test_no_qualifying_tickers():
+    """Returns empty list when nothing meets any threshold."""
+    price_data = {
+        "XYZ": {
+            "current_price": 50.0, "high_52w": 100.0,
+            "current_volume": 100_000, "avg_volume_30d": 1_000_000,  # low vol
+            "return_5d": -0.05,   # negative return
+        },
+        "SPY": {"current_price": 500.0, "high_52w": 520.0,
+                "current_volume": 80_000_000, "avg_volume_30d": 70_000_000,
+                "return_5d": 0.01},
+    }
+    results = run_screener(["XYZ"], price_data=price_data, max_results=3)
+    assert results == []

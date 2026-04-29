@@ -66,3 +66,31 @@ def test_rs_vs_spy_detected():
     assert "pp vs SPY" in meta.details
     # score = 0.5 + (3.0 / 10) = 0.8
     assert abs(meta.score - 0.8) < 0.01
+
+
+def test_near_52w_high_detected():
+    price_data = {
+        "CRWD": {
+            "current_price": 395.0, "high_52w": 400.0,   # 1.25% from 52w high
+            "current_volume": 500_000, "avg_volume_30d": 1_000_000,
+            "return_5d": 0.01,   # no RS signal
+        },
+        "IBM": {
+            "current_price": 150.0, "high_52w": 200.0,   # 25% from 52w high — too far
+            "current_volume": 300_000, "avg_volume_30d": 1_000_000,
+            "return_5d": 0.00,
+        },
+        "SPY": {"current_price": 500.0, "high_52w": 520.0,
+                "current_volume": 80_000_000, "avg_volume_30d": 70_000_000,
+                "return_5d": 0.01},
+    }
+    results = run_screener(["CRWD", "IBM"], price_data=price_data, max_results=5)
+    tickers = [r.ticker for r in results]
+    assert "CRWD" in tickers
+    assert "IBM" not in tickers
+    crwd = next(r for r in results if r.ticker == "CRWD")
+    assert crwd.trigger == "near_52w_high"
+    assert "% from 52w high" in crwd.details
+    # gap_pct = (400 - 395) / 400 = 0.0125
+    # score = 0.5 + (1 - 0.0125/0.02) * 0.5 = 0.5 + 0.375 * 0.5 = 0.6875
+    assert abs(crwd.score - 0.6875) < 0.001

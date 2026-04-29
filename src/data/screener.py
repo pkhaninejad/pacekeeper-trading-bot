@@ -75,6 +75,23 @@ def _score_rs_vs_spy(td: dict, spy_data: dict) -> tuple[float, float] | None:
     return None
 
 
+def _score_near_52w_high(td: dict) -> tuple[float, float] | None:
+    """Returns (score, gap_pct) if price within 2% of 52w high, else None.
+
+    gap_pct = (high_52w - current) / high_52w
+    Score = 1.0 at 52w high, 0.5 at exactly 2% below.
+    """
+    current = td.get("current_price")
+    high_52w = td.get("high_52w")
+    if not current or not high_52w or high_52w <= 0:
+        return None
+    gap_pct = (high_52w - current) / high_52w
+    if gap_pct <= 0.02:
+        score = 0.5 + (1 - gap_pct / 0.02) * 0.5
+        return score, gap_pct
+    return None
+
+
 def _fetch_screener_data(universe: list[str]) -> dict:
     """Fetch 1-year OHLCV for universe tickers + SPY. Implemented in Task 7."""
     return {}
@@ -132,6 +149,13 @@ def run_screener(
             score += rs_score
             triggers.append("rs_vs_spy")
             details_parts.append(f"RS=+{rs_delta:.1f}pp vs SPY")
+
+        near_result = _score_near_52w_high(td)
+        if near_result is not None:
+            near_score, gap_pct = near_result
+            score += near_score
+            triggers.append("near_52w_high")
+            details_parts.append(f"{gap_pct * 100:.1f}% from 52w high")
 
         if not triggers:
             continue

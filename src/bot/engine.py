@@ -23,6 +23,7 @@ from src.data.earnings_calendar import EarningsCalendar
 from src.data.macro_calendar import MacroCalendar
 from src.data.market_regime import get_regime
 from src.data.news_feed import NewsFeed
+from src.data.screener import ScreenCandidate
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -311,6 +312,24 @@ class TradingEngine:
             # Fetch macro economic calendar
             macro_events = self.macro.get_high_impact_events(hours_ahead=24)
 
+            # Run dynamic screener (opt-in; no-op when ENABLE_SCREENER=False)
+            screen_candidates: list[ScreenCandidate] = []
+            if settings.ENABLE_SCREENER:
+                from src.data.screener import run_screener, SP500_TOP100
+                try:
+                    screen_candidates = run_screener(
+                        SP500_TOP100,
+                        exclude=settings.WATCHLIST,
+                        max_results=settings.MAX_SCREENER_ADDITIONS,
+                    )
+                    logger.info(
+                        "Screener found %d candidates: %s",
+                        len(screen_candidates),
+                        [c.ticker for c in screen_candidates],
+                    )
+                except Exception as e:
+                    logger.warning("Screener failed — proceeding without candidates: %s", e)
+
             # 2. Generate new signals via Claude
             signals = self.strategy.generate_signals(
                 positions, cash, settings.WATCHLIST, instruments,
@@ -320,6 +339,7 @@ class TradingEngine:
                 macro_events=macro_events,
                 outcome_log=self.outcome_log,
                 regime=self._last_regime,
+                screen_candidates=screen_candidates,
             )
             self.status.signals_generated += len(signals)
             self._signals_history.extend(signals)

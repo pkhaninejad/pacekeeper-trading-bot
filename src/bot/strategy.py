@@ -24,7 +24,7 @@ live brokerage (Trading212). Your job is to analyse market context and open posi
 then generate precise trading signals.
 
 Rules you must follow:
-- Only generate signals for tickers on the watchlist.
+- Only generate signals for tickers on the watchlist or listed under SCREENED CANDIDATES.
 - Never risk more than {max_position_pct}% of the portfolio on a single trade.
 - Apply stop-loss at {stop_loss_pct}% and take-profit at {take_profit_pct}%.
 - Prefer HOLD when confidence is below 0.6.
@@ -158,6 +158,7 @@ def _build_market_context(
     macro_events: list["MacroEvent"] | None = None,
     outcome_log: list | None = None,
     regime: "RegimeResult | None" = None,
+    screen_candidates: list | None = None,
 ) -> str:
     """Build the user prompt with current portfolio state."""
     if price_data is None:
@@ -261,6 +262,17 @@ def _build_market_context(
             f"Bias:          {bias}\n"
         )
 
+    screened_section = ""
+    if screen_candidates:
+        sc_lines = []
+        for c in screen_candidates:
+            sc_lines.append(f"  {c.ticker}: {c.details} — {c.trigger}")
+        screened_section = (
+            "\n=== SCREENED CANDIDATES (this cycle only) ===\n"
+            + "\n".join(sc_lines)
+            + "\n  (apply same signal discipline; these are not permanent watchlist members)\n"
+        )
+
     context = f"""Current datetime (UTC): {datetime.now(UTC).isoformat()}
 
 === PORTFOLIO ===
@@ -277,7 +289,7 @@ Open positions ({len(positions)}):
 {earnings_section}{macro_section}{news_section}{perf_section}{regime_section}
 === WATCHLIST ===
 {json.dumps({t: instrument_info.get(t, t) for t in watchlist}, indent=2)}
-
+{screened_section}
 === TASK ===
 Analyse the portfolio and market conditions using the price feed data.
 Generate trading signals for up to 5 tickers.
@@ -302,16 +314,19 @@ class AIStrategy:
         macro_events: list["MacroEvent"] | None = None,
         outcome_log: list | None = None,
         regime: "RegimeResult | None" = None,
+        screen_candidates: list | None = None,
     ) -> list[TradeSignal]:
         """Call the configured LLM provider and parse trade signals."""
         if provider_config is None:
             provider_config = load_provider_config()
 
-        price_data = get_price_summary(watchlist)
+        all_tickers = watchlist + [c.ticker for c in (screen_candidates or [])]
+        price_data = get_price_summary(all_tickers)
         user_prompt = _build_market_context(
             positions, cash, watchlist, instruments, price_data,
             earnings_info, news_data, macro_events, outcome_log,
             regime=regime,
+            screen_candidates=screen_candidates,
         )
 
         logger.info("Calling %s/%s for trading signals...", provider_config.provider, provider_config.model)

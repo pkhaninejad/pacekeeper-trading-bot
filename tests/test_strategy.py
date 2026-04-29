@@ -369,3 +369,38 @@ def test_bull_favour_long_bias_in_prompt():
     prompt = _build_market_context([], make_cash(), ["AAPL"], [], regime=regime)
     assert "BULL" in prompt
     assert "Favour LONG" in prompt
+
+
+# ---------------------------------------------------------------------------
+# Screened candidates prompt injection
+# ---------------------------------------------------------------------------
+
+from src.data.screener import ScreenCandidate
+
+
+def test_build_market_context_with_screen_candidates():
+    """Screened candidates appear in a labelled section in the prompt."""
+    candidates = [
+        ScreenCandidate(
+            ticker="PLTR",
+            trigger="volume_spike+rs_vs_spy",
+            score=1.8,
+            details="vol=4.2× avg, RS=+6.1pp vs SPY",
+        )
+    ]
+    result = _build_market_context(
+        [], make_cash(), ["AAPL", "TSLA"],
+        [make_instrument("AAPL_US_EQ", "Apple Inc.")],
+        screen_candidates=candidates,
+    )
+    assert "=== SCREENED CANDIDATES (this cycle only) ===" in result
+    assert "PLTR" in result
+    assert "vol=4.2× avg, RS=+6.1pp vs SPY" in result
+    assert "volume_spike+rs_vs_spy" in result
+    assert "not permanent watchlist members" in result
+
+
+def test_build_market_context_without_screen_candidates():
+    """No screened section rendered when screen_candidates is None."""
+    result = _build_market_context([], make_cash(), ["AAPL"], [])
+    assert "SCREENED CANDIDATES" not in result

@@ -34,6 +34,10 @@ class Settings(BaseSettings):
         "AMD", "JPM", "V", "UBER", "PLTR"
     ]
 
+    # Dynamic screener
+    ENABLE_SCREENER: bool = False
+    MAX_SCREENER_ADDITIONS: int = 3
+
     # Earnings calendar
     EARNINGS_DAYS_BEFORE: int = 2           # days before earnings to block new positions
     EARNINGS_DAYS_AFTER: int = 1            # days after earnings to stop blocking
@@ -58,6 +62,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
     @property
     def t212_base_url(self) -> str:

@@ -93,8 +93,65 @@ def _score_near_52w_high(td: dict) -> tuple[float, float] | None:
 
 
 def _fetch_screener_data(universe: list[str]) -> dict:
-    """Fetch 1-year OHLCV for universe tickers + SPY. Implemented in Task 7."""
-    return {}
+    """Batch-fetch 1-year OHLCV for universe tickers + SPY via yfinance.
+
+    Returns a dict keyed by ticker with the shape documented in this module's docstring.
+    Caches results for _CACHE_TTL seconds.
+    """
+    global _screener_cache
+
+    cached = _screener_cache.get("data")
+    fetched_at = _screener_cache.get("fetched_at")
+    if cached is not None and fetched_at is not None:
+        age = (datetime.utcnow() - fetched_at).total_seconds()
+        if age < _CACHE_TTL:
+            return cached
+
+    try:
+        import yfinance as yf
+    except ImportError:
+        logger.warning("Screener: yfinance not installed — returning empty data")
+        return {}
+
+    all_tickers = sorted(set(universe) | {"SPY"})
+    try:
+        raw = yf.download(
+            all_tickers,
+            period="1y",
+            group_by="ticker",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+    except Exception as e:
+        logger.warning("Screener: yf.download failed: %s", e)
+        return {}
+
+    result: dict = {}
+    for ticker in all_tickers:
+        try:
+            df = raw[ticker] if len(all_tickers) > 1 else raw
+            if df is None or df.empty or len(df) < 6:
+                continue
+            close = df["Close"].dropna()
+            volume = df["Volume"].dropna()
+            if close.empty or volume.empty:
+                continue
+            result[ticker] = {
+                "current_price": round(float(close.iloc[-1]), 4),
+                "high_52w": round(float(close.max()), 4),
+                "current_volume": int(volume.iloc[-1]),
+                "avg_volume_30d": int(volume.tail(30).mean()),
+                "return_5d": round(
+                    (float(close.iloc[-1]) - float(close.iloc[-6])) / float(close.iloc[-6]), 6
+                ),
+            }
+        except Exception as e:
+            logger.warning("Screener: failed to process %s: %s", ticker, e)
+
+    _screener_cache["data"] = result
+    _screener_cache["fetched_at"] = datetime.utcnow()
+    return result
 
 
 def run_screener(

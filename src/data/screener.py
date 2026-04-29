@@ -51,6 +51,17 @@ class ScreenCandidate:
     details: str   # injected verbatim into Claude prompt, e.g. "vol=4.2× avg"
 
 
+def _score_volume_spike(td: dict) -> float | None:
+    """Returns 1.0 if today's volume ≥ 2.5× 30d avg, else None."""
+    vol = td.get("current_volume", 0)
+    avg = td.get("avg_volume_30d", 0)
+    if avg <= 0:
+        return None
+    if vol / avg >= 2.5:
+        return 1.0
+    return None
+
+
 def _fetch_screener_data(universe: list[str]) -> dict:
     """Fetch 1-year OHLCV for universe tickers + SPY. Implemented in Task 7."""
     return {}
@@ -73,4 +84,44 @@ def run_screener(
     """
     if not universe:
         return []
-    return []  # stub — criteria implemented in subsequent tasks
+
+    if price_data is None:
+        price_data = _fetch_screener_data(universe)
+
+    if not price_data:
+        return []
+
+    spy_data = price_data.get("SPY", {})
+    excluded = set(exclude or [])
+    candidates: list[ScreenCandidate] = []
+
+    for ticker in universe:
+        if ticker in excluded:
+            continue
+        td = price_data.get(ticker)
+        if not td:
+            continue
+
+        score = 0.0
+        triggers: list[str] = []
+        details_parts: list[str] = []
+
+        vol_score = _score_volume_spike(td)
+        if vol_score is not None:
+            ratio = td["current_volume"] / td["avg_volume_30d"]
+            score += vol_score
+            triggers.append("volume_spike")
+            details_parts.append(f"vol={ratio:.1f}× avg")
+
+        if not triggers:
+            continue
+
+        candidates.append(ScreenCandidate(
+            ticker=ticker,
+            trigger="+".join(triggers),
+            score=round(score, 4),
+            details=", ".join(details_parts),
+        ))
+
+    candidates.sort(key=lambda c: c.score, reverse=True)
+    return candidates[:max_results]

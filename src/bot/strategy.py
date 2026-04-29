@@ -377,6 +377,8 @@ class AIStrategy:
                 ],
                 api_key=provider_config.api_key or None,
                 api_base=provider_config.base_url or None,
+                api_version=provider_config.api_version or None,
+                temperature=provider_config.temperature,
                 max_tokens=2048,
             )
             raw = response.choices[0].message.content.strip()

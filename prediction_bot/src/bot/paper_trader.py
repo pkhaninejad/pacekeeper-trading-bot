@@ -78,13 +78,33 @@ class PaperTrader:
         )
         return trade.model_copy(update={"id": trade_id})
 
-    async def settle_open_trades(self, polymarket, kalshi):
+    async def re_settle_expired_trades(self, clients: dict) -> int:
+        """Re-check EXPIRED trades against platform APIs and correct any that have since resolved."""
+        expired = await self.store._fetch_trades("WHERE status = 'EXPIRED'")
+        corrected = 0
+        for trade in expired:
+            client = clients.get(trade.platform)
+            if not client:
+                continue
+            try:
+                status = await client.get_market_status(trade.market_id)
+                if status["resolved"] and status["winner"]:
+                    won = status["winner"] == trade.side
+                    await self.store.re_settle_expired(trade.id, won=won)
+                    result = "WON" if won else "LOST"
+                    logger.info("RE-SETTLED %s: '%s' → %s", trade.market_id, trade.market_question[:50], result)
+                    corrected += 1
+            except Exception as e:
+                logger.warning("Re-settlement check failed for %s: %s", trade.market_id, e)
+        return corrected
+
+    async def settle_open_trades(self, clients: dict):
         open_trades = await self.store.get_open_trades()
         now = datetime.now(UTC)
 
         for trade in open_trades:
             try:
-                client = polymarket if trade.platform == "polymarket" else kalshi
+                client = clients.get(trade.platform)
                 if not client:
                     continue
 
@@ -95,7 +115,7 @@ class PaperTrader:
                     result = "WON" if won else "LOST"
                     logger.info("SETTLED %s: '%s' → %s", trade.market_id, trade.market_question[:50], result)
 
-                elif now > trade.created_at + timedelta(hours=72):
+                elif trade.end_date and now > trade.end_date + timedelta(hours=24):
                     await self.store.expire_trade(trade.id)
                     logger.info("EXPIRED %s: '%s'", trade.market_id, trade.market_question[:50])
 

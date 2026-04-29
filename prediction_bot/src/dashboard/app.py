@@ -77,6 +77,12 @@ async def trigger_cycle():
     return {"status": "cycle triggered"}
 
 
+@app.post("/api/re-settle")
+async def re_settle():
+    corrected = await engine.paper_trader.re_settle_expired_trades(engine._clients)
+    return {"corrected": corrected}
+
+
 @app.post("/api/interval")
 async def set_interval(seconds: int):
     if seconds < 30:

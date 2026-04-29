@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class PredictionBotSettings(BaseSettings):
     POLYMARKET_ENABLED: bool = True
-    KALSHI_ENABLED: bool = True
+    KALSHI_ENABLED: bool = False
     KALSHI_API_KEY: str = ""
     KALSHI_API_SECRET: str = ""
     ANTHROPIC_API_KEY: str = ""

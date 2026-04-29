@@ -8,11 +8,13 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from prediction_bot.src.api.base_client import PredictionMarketClient
 from prediction_bot.src.api.models import PredictionMarket
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://gamma-api.polymarket.com"
+CLOB_URL = "https://clob.polymarket.com"
 _REQUEST_DELAY = 0.5
 
 _CRYPTO_TAGS = {"crypto", "bitcoin", "ethereum", "defi", "token", "btc", "eth", "solana", "xrp"}
@@ -84,17 +86,23 @@ def _parse_market(raw: dict) -> PredictionMarket | None:
         return None
 
 
-class PolymarketClient:
+class PolymarketClient(PredictionMarketClient):
+    platform = "polymarket"
+
     def __init__(self):
         self._session: httpx.AsyncClient | None = None
+        self._clob: httpx.AsyncClient | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "PolymarketClient":
         self._session = httpx.AsyncClient(base_url=BASE_URL, timeout=15.0)
+        self._clob = httpx.AsyncClient(base_url=CLOB_URL, timeout=15.0)
         return self
 
-    async def __aexit__(self, *_):
+    async def __aexit__(self, *_) -> None:
         if self._session:
             await self._session.aclose()
+        if self._clob:
+            await self._clob.aclose()
 
     async def _get(self, path: str, params: dict | None = None) -> dict | list:
         await asyncio.sleep(_REQUEST_DELAY)
@@ -128,14 +136,28 @@ class PolymarketClient:
         return [m for raw in markets if (m := _parse_market(raw))]
 
     async def get_market_status(self, condition_id: str) -> dict:
-        raw = await self._get(f"/markets/{condition_id}")
-        data = raw[0] if isinstance(raw, list) and raw else (raw if isinstance(raw, dict) else {})
-        closed = data.get("closed", False)
-        if not closed:
+        await asyncio.sleep(_REQUEST_DELAY)
+        try:
+            resp = await self._clob.get(f"/markets/{condition_id}")
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            logger.debug("CLOB market lookup failed for %s: %s", condition_id, e)
             return {"resolved": False, "winner": None}
-        yes_price, no_price = _parse_outcome_prices(data.get("outcomePrices", '["0.5","0.5"]'))
-        winner = "YES" if yes_price > 0.9 else ("NO" if no_price > 0.9 else None)
-        return {"resolved": closed, "winner": winner}
+
+        if not data.get("closed", False):
+            return {"resolved": False, "winner": None}
+
+        tokens = {t["outcome"]: t["price"] for t in data.get("tokens", [])}
+        yes_price = float(tokens.get("Yes", 0.5))
+        no_price = float(tokens.get("No", 0.5))
+        if yes_price > 0.9:
+            winner = "YES"
+        elif no_price > 0.9:
+            winner = "NO"
+        else:
+            winner = None  # cancelled / not yet settled
+        return {"resolved": True, "winner": winner}
 
     async def get_near_expiry_markets(
         self,
@@ -150,10 +172,11 @@ class PolymarketClient:
             "closed": "false",
             "limit": limit,
             "order": "end_date_asc",
-            "end_date_min": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "end_date_max": cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
         data = await self._get("/markets", params)
         markets_raw = data if isinstance(data, list) else data.get("markets", [])
         markets = [m for raw in markets_raw if (m := _parse_market(raw))]
-        return [m for m in markets if m.liquidity >= min_liquidity]
+        return [
+            m for m in markets
+            if m.liquidity >= min_liquidity and now <= m.end_date <= cutoff
+        ]

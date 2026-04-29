@@ -100,6 +100,14 @@ class TestEdgeCalculation:
         assert edge == 0.0
 
 
+def _make_mock_provider(response_text: str) -> MagicMock:
+    provider = MagicMock()
+    provider.name = "test-provider"
+    provider.litellm_model = "test/model"
+    provider.complete.return_value = response_text
+    return provider
+
+
 class TestEvaluateCandidates:
     @pytest.mark.asyncio
     async def test_returns_only_candidates_with_edge(self, settings):
@@ -110,10 +118,7 @@ class TestEvaluateCandidates:
 
         llm_response = '[{"market_id":"m1","true_probability":0.97,"confidence":0.85,"reasoning":"Strong","recommended_side":"YES"},{"market_id":"m2","true_probability":0.96,"confidence":0.5,"reasoning":"Meh","recommended_side":"SKIP"}]'
 
-        with patch("prediction_bot.src.bot.evaluator.litellm.completion") as mock_llm:
-            mock_llm.return_value = MagicMock(
-                choices=[MagicMock(message=MagicMock(content=llm_response))]
-            )
+        with patch("prediction_bot.src.bot.evaluator.load_active_provider", return_value=_make_mock_provider(llm_response)):
             result = await evaluate_candidates([c1, c2], settings)
 
         assert len(result) == 1
@@ -127,10 +132,7 @@ class TestEvaluateCandidates:
 
         c1 = _candidate(id="m1")
 
-        with patch("prediction_bot.src.bot.evaluator.litellm.completion") as mock_llm:
-            mock_llm.return_value = MagicMock(
-                choices=[MagicMock(message=MagicMock(content="I cannot evaluate this."))]
-            )
+        with patch("prediction_bot.src.bot.evaluator.load_active_provider", return_value=_make_mock_provider("I cannot evaluate this.")):
             result = await evaluate_candidates([c1], settings)
 
         assert result == []

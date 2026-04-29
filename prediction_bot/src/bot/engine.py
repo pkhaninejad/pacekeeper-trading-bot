@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
 
 from prediction_bot.src.api.kalshi_client import KalshiClient
@@ -16,11 +16,6 @@ from prediction_bot.src.config.settings import pm_settings
 from prediction_bot.src.data.result_store import ResultStore
 
 logger = logging.getLogger(__name__)
-
-
-@asynccontextmanager
-async def _noop_ctx():
-    yield None
 
 
 class PredictionEngine:
@@ -39,26 +34,26 @@ class PredictionEngine:
         self._running = False
         self.scan_history: list[dict] = []
         self._sse_queues: list[asyncio.Queue] = []
-        self._poly_client = None
-        self._kalshi_client = None
+        self._clients: dict = {}
 
     async def start(self):
         await self.paper_trader.initialize()
 
-        poly_ctx = PolymarketClient().__aenter__ if self.settings.POLYMARKET_ENABLED else None
-        kalshi_ctx = KalshiClient().__aenter__ if self.settings.KALSHI_ENABLED else None
+        candidates = []
+        if self.settings.POLYMARKET_ENABLED:
+            candidates.append(PolymarketClient())
+        if self.settings.KALSHI_ENABLED:
+            candidates.append(KalshiClient())
 
-        poly_cm = PolymarketClient() if self.settings.POLYMARKET_ENABLED else _noop_ctx()
-        kalshi_cm = KalshiClient() if self.settings.KALSHI_ENABLED else _noop_ctx()
+        async with AsyncExitStack() as stack:
+            for client in candidates:
+                active = await stack.enter_async_context(client)
+                self._clients[client.platform] = active
 
-        async with poly_cm as poly, kalshi_cm as kalshi:
-            self._poly_client = poly
-            self._kalshi_client = kalshi
+            enabled = list(self._clients.keys())
+            logger.info("Prediction Market Bot started — platforms: %s", enabled)
+
             self._running = True
-            logger.info(
-                "Prediction Market Bot started — Polymarket=%s Kalshi=%s",
-                self.settings.POLYMARKET_ENABLED, self.settings.KALSHI_ENABLED,
-            )
             while self._running:
                 if self.status.enabled:
                     try:
@@ -70,9 +65,10 @@ class PredictionEngine:
     async def _cycle(self):
         logger.info("Starting scan cycle...")
 
-        await self.paper_trader.settle_open_trades(self._poly_client, self._kalshi_client)
+        await self.paper_trader.re_settle_expired_trades(self._clients)
+        await self.paper_trader.settle_open_trades(self._clients)
 
-        candidates = await scan_markets(self._poly_client, self._kalshi_client, self.settings)
+        candidates = await scan_markets(list(self._clients.values()), self.settings)
         logger.info("Scanner found %d candidates", len(candidates))
 
         evaluated = []

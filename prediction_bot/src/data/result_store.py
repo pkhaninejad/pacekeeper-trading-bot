@@ -116,6 +116,31 @@ class ResultStore:
             )
             await db.commit()
 
+    async def re_settle_expired(self, trade_id: int, won: bool):
+        """Correct an EXPIRED trade to WON/LOST and adjust bankroll by the delta."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                "SELECT entry_price, quantity, cost FROM paper_trades WHERE id=? AND status='EXPIRED'",
+                (trade_id,),
+            ) as cur:
+                row = await cur.fetchone()
+            if not row:
+                return
+            entry_price, quantity, cost = row
+            pnl = (1.0 - entry_price) * quantity if won else (-entry_price * quantity)
+            status = "WON" if won else "LOST"
+            await db.execute(
+                "UPDATE paper_trades SET status=?, exit_price=?, pnl=?, resolved_at=?, resolution_source=? WHERE id=?",
+                (status, 1.0 if won else 0.0, pnl, datetime.now(UTC).isoformat(), "re_settled", trade_id),
+            )
+            # expire_trade already refunded cost into bankroll; now apply only the pnl delta
+            current = await self._get_bankroll_tx(db, None)
+            await db.execute(
+                "INSERT INTO bankroll_snapshots (balance, trade_id) VALUES (?, ?)",
+                (current + pnl, trade_id),
+            )
+            await db.commit()
+
     async def expire_trade(self, trade_id: int):
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(

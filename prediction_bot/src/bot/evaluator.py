@@ -5,10 +5,9 @@ import json
 import logging
 import re
 
-import litellm
-
 from prediction_bot.src.api.models import MarketCandidate
 from prediction_bot.src.bot.evaluator_prompt import SYSTEM_PROMPT, build_user_prompt
+from prediction_bot.src.config.llm_config import load_active_provider
 from prediction_bot.src.config.settings import PredictionBotSettings
 from prediction_bot.src.data.market_data import get_crypto_context, get_sports_scores
 
@@ -60,6 +59,9 @@ async def evaluate_candidates(
     settings: PredictionBotSettings,
 ) -> list[MarketCandidate]:
     """Enrich candidates, call LLM in batches of 10, return those with edge > MIN_EDGE_PCT."""
+    provider = load_active_provider()
+    logger.info("Using LLM provider: %s (%s)", provider.name, provider.litellm_model)
+
     enriched = []
     for c in candidates:
         enriched.append(await _enrich(c))
@@ -70,16 +72,11 @@ async def evaluate_candidates(
         batch = enriched[i : i + batch_size]
         user_prompt = build_user_prompt(batch)
         try:
-            resp = litellm.completion(
-                model=settings.CLAUDE_MODEL,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                max_tokens=2048,
-                temperature=0.3,
-            )
-            raw = resp.choices[0].message.content
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ]
+            raw = provider.complete(messages)
         except Exception as e:
             logger.warning("LLM evaluation failed for batch %d: %s", i // batch_size, e)
             continue

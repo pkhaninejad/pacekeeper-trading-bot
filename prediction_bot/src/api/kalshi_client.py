@@ -7,12 +7,13 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from prediction_bot.src.api.base_client import PredictionMarketClient
 from prediction_bot.src.api.models import PredictionMarket
 from prediction_bot.src.config.settings import PredictionBotSettings, pm_settings
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://api.elections.kalshi.com/trade-api/v2"
+BASE_URL = "https://trading-api.kalshi.com/trade-api/v2"
 _REQUEST_DELAY = 0.2
 
 _SERIES_CATEGORY: dict[str, str] = {
@@ -52,17 +53,19 @@ def _parse_kalshi_market(raw: dict) -> PredictionMarket | None:
         return None
 
 
-class KalshiClient:
+class KalshiClient(PredictionMarketClient):
+    platform = "kalshi"
+
     def __init__(self, settings: PredictionBotSettings = pm_settings):
         self._settings = settings
         self._session: httpx.AsyncClient | None = None
         self._token: str | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "KalshiClient":
         self._session = httpx.AsyncClient(base_url=BASE_URL, timeout=15.0)
         return self
 
-    async def __aexit__(self, *_):
+    async def __aexit__(self, *_) -> None:
         if self._session:
             await self._session.aclose()
 
@@ -122,7 +125,7 @@ class KalshiClient:
     async def get_near_expiry_markets(
         self,
         hours: int = 48,
-        min_volume: float = 1000.0,
+        min_liquidity: float = 1000.0,
         limit: int = 200,
     ) -> list[PredictionMarket]:
         if not self._settings.KALSHI_ENABLED:
@@ -130,11 +133,11 @@ class KalshiClient:
         if not self._token:
             await self._login()
         raw_markets, _ = await self._get_markets_raw(limit=limit)
-        cutoff = datetime.now(UTC) + timedelta(hours=hours)
         now = datetime.now(UTC)
-        results = []
-        for raw in raw_markets:
-            m = _parse_kalshi_market(raw)
-            if m and m.end_date <= cutoff and m.end_date > now and m.liquidity >= min_volume:
-                results.append(m)
-        return results
+        cutoff = now + timedelta(hours=hours)
+        return [
+            m for raw in raw_markets
+            if (m := _parse_kalshi_market(raw))
+            and now < m.end_date <= cutoff
+            and m.liquidity >= min_liquidity
+        ]

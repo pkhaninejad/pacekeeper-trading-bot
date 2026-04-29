@@ -1,4 +1,4 @@
-"""Market scanner — filters and ranks MarketCandidate list from both platforms."""
+"""Market scanner — filters and ranks MarketCandidate list from all platforms."""
 from __future__ import annotations
 
 import logging
@@ -11,34 +11,23 @@ logger = logging.getLogger(__name__)
 
 
 async def scan_markets(
-    polymarket,
-    kalshi,
+    clients: list,
     settings: PredictionBotSettings,
 ) -> list[MarketCandidate]:
-    """Scan both platforms and return ranked MarketCandidate list (best first, max 50)."""
+    """Scan all platform clients and return ranked MarketCandidate list (best first, max 50)."""
     raw: list[PredictionMarket] = []
 
-    if polymarket:
+    for client in clients:
+        name = getattr(client, "platform", type(client).__name__)
         try:
-            poly_markets = await polymarket.get_near_expiry_markets(
+            markets = await client.get_near_expiry_markets(
                 hours=settings.EXPIRY_WINDOW_HOURS,
                 min_liquidity=settings.MIN_LIQUIDITY,
             )
-            raw.extend(poly_markets)
-            logger.info("Polymarket: %d near-expiry markets fetched", len(poly_markets))
+            raw.extend(markets)
+            logger.info("%s: %d near-expiry markets fetched", name, len(markets))
         except Exception as e:
-            logger.warning("Polymarket scan error: %s", e)
-
-    if kalshi:
-        try:
-            kalshi_markets = await kalshi.get_near_expiry_markets(
-                hours=settings.EXPIRY_WINDOW_HOURS,
-                min_volume=settings.MIN_LIQUIDITY,
-            )
-            raw.extend(kalshi_markets)
-            logger.info("Kalshi: %d near-expiry markets fetched", len(kalshi_markets))
-        except Exception as e:
-            logger.warning("Kalshi scan error: %s", e)
+            logger.warning("%s scan error: %s", name, e)
 
     candidates: list[MarketCandidate] = []
     for market in raw:

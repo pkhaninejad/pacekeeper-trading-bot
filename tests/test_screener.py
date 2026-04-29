@@ -38,3 +38,31 @@ def test_volume_spike_detected():
     assert pltr.score == 1.0
     assert "vol=" in pltr.details
     assert "× avg" in pltr.details
+
+
+def test_rs_vs_spy_detected():
+    price_data = {
+        "META": {
+            "current_price": 600.0, "high_52w": 700.0,
+            "current_volume": 500_000, "avg_volume_30d": 1_000_000,  # no vol spike
+            "return_5d": 0.08,   # +8% 5-day
+        },
+        "GILD": {
+            "current_price": 90.0, "high_52w": 110.0,
+            "current_volume": 400_000, "avg_volume_30d": 1_000_000,
+            "return_5d": 0.02,   # +2%, only 1pp above SPY — below threshold
+        },
+        "SPY": {"current_price": 500.0, "high_52w": 520.0,
+                "current_volume": 80_000_000, "avg_volume_30d": 70_000_000,
+                "return_5d": 0.05},   # SPY +5%
+    }
+    results = run_screener(["META", "GILD"], price_data=price_data, max_results=5)
+    tickers = [r.ticker for r in results]
+    assert "META" in tickers    # +8% vs SPY +5% = +3pp, exactly at threshold
+    assert "GILD" not in tickers
+    meta = next(r for r in results if r.ticker == "META")
+    assert meta.trigger == "rs_vs_spy"
+    assert "RS=+" in meta.details
+    assert "pp vs SPY" in meta.details
+    # score = 0.5 + (3.0 / 10) = 0.8
+    assert abs(meta.score - 0.8) < 0.01

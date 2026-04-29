@@ -62,6 +62,19 @@ def _score_volume_spike(td: dict) -> float | None:
     return None
 
 
+def _score_rs_vs_spy(td: dict, spy_data: dict) -> tuple[float, float] | None:
+    """Returns (score, rs_delta_pp) if 5-day RS ≥ SPY + 3pp, else None."""
+    ticker_5d = td.get("return_5d")
+    spy_5d = spy_data.get("return_5d")
+    if ticker_5d is None or spy_5d is None:
+        return None
+    rs_delta_pp = (ticker_5d - spy_5d) * 100
+    if rs_delta_pp >= 3.0:
+        score = min(1.0, 0.5 + rs_delta_pp / 10)
+        return score, rs_delta_pp
+    return None
+
+
 def _fetch_screener_data(universe: list[str]) -> dict:
     """Fetch 1-year OHLCV for universe tickers + SPY. Implemented in Task 7."""
     return {}
@@ -112,6 +125,13 @@ def run_screener(
             score += vol_score
             triggers.append("volume_spike")
             details_parts.append(f"vol={ratio:.1f}× avg")
+
+        rs_result = _score_rs_vs_spy(td, spy_data)
+        if rs_result is not None:
+            rs_score, rs_delta = rs_result
+            score += rs_score
+            triggers.append("rs_vs_spy")
+            details_parts.append(f"RS=+{rs_delta:.1f}pp vs SPY")
 
         if not triggers:
             continue

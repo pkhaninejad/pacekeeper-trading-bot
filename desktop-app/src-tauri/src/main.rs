@@ -4,6 +4,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
+use tauri::Listener;
 
 #[derive(Clone)]
 struct AppState {

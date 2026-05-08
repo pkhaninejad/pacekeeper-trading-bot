@@ -6,7 +6,7 @@ if (-not (Get-Command rustc -ErrorAction SilentlyContinue)) {
   Write-Error "Rust is required. Install rustup from https://rustup.rs/"
 }
 
-npm install
-npx tauri build
+pnpm install
+pnpm tauri:build
 
 Write-Host "Built Tauri bundle(s) under desktop-app/src-tauri/target/release/bundle"

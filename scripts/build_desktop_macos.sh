@@ -9,7 +9,7 @@ if ! command -v rustc >/dev/null 2>&1; then
   exit 1
 fi
 
-npm install
-npx tauri build
+pnpm install
+pnpm tauri:build
 
 echo "Built Tauri bundle(s) under: desktop-app/src-tauri/target/release/bundle"

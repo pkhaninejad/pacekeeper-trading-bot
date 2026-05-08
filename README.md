@@ -113,8 +113,8 @@ Run desktop app in dev mode:
 
 ```bash
 cd desktop-app
-npm install
-npm run tauri:dev
+pnpm install
+pnpm tauri:dev
 ```
 
 Prerequisite: install Rust toolchain once via [rustup](https://rustup.rs/).

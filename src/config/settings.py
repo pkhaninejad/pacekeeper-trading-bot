@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     # Additional LLM provider keys (used as fallback if credentials.json absent)
     OPENAI_API_KEY: str = ""
+    AZURE_AI_KEY: str = ""
     GEMINI_API_KEY: str = ""
     DEEPSEEK_API_KEY: str = ""
     QWEN_API_KEY: str = ""

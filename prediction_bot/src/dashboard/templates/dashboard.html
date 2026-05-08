@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prediction Market Bot</title>
+<style>
+  body { font-family: monospace; background: #0d1117; color: #c9d1d9; margin: 0; padding: 20px; }
+  h1 { color: #58a6ff; font-size: 1.2em; }
+  .cards { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .card { background: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 6px; min-width: 150px; }
+  .card .label { font-size: 0.75em; color: #8b949e; }
+  .card .value { font-size: 1.5em; font-weight: bold; margin-top: 4px; }
+  .positive { color: #3fb950; }
+  .negative { color: #f85149; }
+  .neutral { color: #58a6ff; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #21262d; font-size: 0.85em; }
+  th { color: #8b949e; background: #161b22; }
+  .badge { padding: 2px 6px; border-radius: 3px; font-size: 0.75em; }
+  .badge-won { background: #1a4731; color: #3fb950; }
+  .badge-lost { background: #3d1f1f; color: #f85149; }
+  .badge-open { background: #1c2d3f; color: #58a6ff; }
+  .badge-expired { background: #2d2a1f; color: #d29922; }
+  .section { background: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 6px; margin-bottom: 16px; }
+  .section h2 { font-size: 0.9em; color: #8b949e; margin: 0 0 12px 0; text-transform: uppercase; }
+  .toggle-btn { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-family: monospace; margin-top: 6px; display: block; }
+  .toggle-btn:hover { background: #30363d; }
+</style>
+</head>
+<body>
+<h1>Prediction Market Bot</h1>
+
+<div class="cards">
+  <div class="card">
+    <div class="label">BANKROLL</div>
+    <div class="value neutral" id="bankroll">${{ "%.2f"|format(status.bankroll) }}</div>
+  </div>
+  <div class="card">
+    <div class="label">TOTAL P&amp;L</div>
+    <div class="value {% if status.total_pnl >= 0 %}positive{% else %}negative{% endif %}" id="pnl">
+      {% if status.total_pnl >= 0 %}+{% endif %}${{ "%.2f"|format(status.total_pnl) }}
+    </div>
+  </div>
+  <div class="card">
+    <div class="label">WIN RATE</div>
+    <div class="value" id="winrate">
+      {% if status.win_rate is not none %}{{ "%.1f"|format(status.win_rate * 100) }}%{% else %}&mdash;{% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="label">OPEN TRADES</div>
+    <div class="value neutral" id="open-trades">{{ status.open_trades }}</div>
+  </div>
+  <div class="card">
+    <div class="label">STATUS</div>
+    <div class="value" id="bot-status">{{ "ON" if status.enabled else "OFF" }}</div>
+    <button class="toggle-btn" onclick="toggleBot()">Toggle</button>
+  </div>
+  <div class="card">
+    <div class="label">NEXT SCAN IN</div>
+    <div class="value neutral" id="countdown">—</div>
+    <button class="toggle-btn" onclick="scanNow()">Scan Now</button>
+  </div>
+  <div class="card">
+    <div class="label">SCAN INTERVAL</div>
+    <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+      <input id="interval-input" type="number" min="30" value="{{ interval_seconds }}"
+        style="width:70px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:4px 6px;border-radius:4px;font-family:monospace;font-size:0.9em">
+      <span style="color:#8b949e;font-size:0.8em">sec</span>
+      <button class="toggle-btn" style="margin-top:0" onclick="setInterval_()">Set</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="label">IF ALL WIN</div>
+    <div class="value positive" id="if-all-win">—</div>
+    <div style="font-size:0.7em;color:#8b949e;margin-top:4px">open trades only</div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Recent Trades</h2>
+  <table id="trades-table">
+    <thead>
+      <tr>
+        <th>Time</th><th>Market</th><th>Platform</th><th>Side</th>
+        <th>Entry</th><th>Qty</th><th>Cost</th><th>If Win</th><th>Status</th><th>P&amp;L</th><th>Category</th>
+      </tr>
+    </thead>
+    <tbody id="trades-tbody">
+      <tr><td colspan="11" style="color:#8b949e;text-align:center">Loading…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Recent Scans</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Candidates</th><th>Edges</th><th>Trades</th></tr></thead>
+    <tbody>
+      {% for s in scan_history %}
+      <tr>
+        <td>{{ s.timestamp[:19].replace('T',' ') }}</td>
+        <td>{{ s.candidates_found }}</td>
+        <td>{{ s.edges_found }}</td>
+        <td>{{ s.trades_placed }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" style="color:#8b949e;text-align:center">No scans yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+let nextScanAt = null;
+
+async function fetchTrades() {
+  try {
+    const resp = await fetch('/api/trades?limit=50');
+    const trades = await resp.json();
+    const tbody = document.getElementById('trades-tbody');
+    if (!trades.length) {
+      tbody.innerHTML = '<tr><td colspan="11" style="color:#8b949e;text-align:center">No trades yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = trades.map(t => {
+      const ifWin = (1.0 - t.entry_price) * t.quantity;
+      const pnlStr = t.pnl != null
+        ? `<span class="${t.pnl > 0 ? 'positive' : t.pnl < 0 ? 'negative' : ''}">${t.pnl > 0 ? '+' : ''}$${t.pnl.toFixed(2)}</span>`
+        : '&mdash;';
+      const dt = new Date(t.created_at);
+      const dateStr = `${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      const q = t.market_question.length > 55 ? t.market_question.slice(0,55) + '\u2026' : t.market_question;
+      const statusClass = t.status.toLowerCase();
+      return `<tr>
+        <td>${dateStr}</td>
+        <td title="${t.market_question}">${q}</td>
+        <td>${t.platform}</td>
+        <td>${t.side}</td>
+        <td>$${t.entry_price.toFixed(2)}</td>
+        <td>${Math.round(t.quantity)}</td>
+        <td>$${t.cost.toFixed(2)}</td>
+        <td class="positive">+$${ifWin.toFixed(2)}</td>
+        <td><span class="badge badge-${statusClass}">${t.status}</span></td>
+        <td>${pnlStr}</td>
+        <td>${t.category}</td>
+      </tr>`;
+    }).join('');
+  } catch {
+    document.getElementById('trades-tbody').innerHTML =
+      '<tr><td colspan="11" style="color:#f85149;text-align:center">Error loading trades</td></tr>';
+  }
+}
+
+async function fetchIfAllWin() {
+  try {
+    const resp = await fetch('/api/trades/open');
+    const trades = await resp.json();
+    const total = trades.reduce((sum, t) => sum + (1.0 - t.entry_price) * t.quantity, 0);
+    document.getElementById('if-all-win').textContent = '+$' + total.toFixed(2);
+  } catch {
+    // leave as —
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  fetchTrades();
+  fetchIfAllWin();
+
+  fetch('/api/status').then(r => r.json()).then(s => {
+    if (s.next_scan) nextScanAt = new Date(s.next_scan);
+  });
+
+  const es = new EventSource('/api/stream');
+  es.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'cycle_complete') {
+      const s = data.status;
+      document.getElementById('bankroll').textContent = '$' + s.bankroll.toFixed(2);
+      const pnlEl = document.getElementById('pnl');
+      pnlEl.textContent = (s.total_pnl >= 0 ? '+' : '') + '$' + s.total_pnl.toFixed(2);
+      pnlEl.className = 'value ' + (s.total_pnl >= 0 ? 'positive' : 'negative');
+      document.getElementById('open-trades').textContent = s.open_trades;
+      if (s.win_rate !== null) {
+        document.getElementById('winrate').textContent = (s.win_rate * 100).toFixed(1) + '%';
+      }
+      if (s.next_scan) nextScanAt = new Date(s.next_scan);
+      fetchTrades();
+      fetchIfAllWin();
+    }
+  };
+
+  setInterval(() => {
+    if (!nextScanAt) return;
+    const secs = Math.max(0, Math.round((nextScanAt - Date.now()) / 1000));
+    const m = Math.floor(secs / 60), s = secs % 60;
+    document.getElementById('countdown').textContent =
+      secs === 0 ? 'scanning…' : (m > 0 ? m + 'm ' : '') + s + 's';
+  }, 1000);
+});
+
+async function toggleBot() {
+  const btn = event.target;
+  btn.textContent = '...'; btn.disabled = true;
+  try {
+    const resp = await fetch('/api/bot/toggle', {method: 'POST'});
+    const data = await resp.json();
+    document.getElementById('bot-status').textContent = data.enabled ? 'ON' : 'OFF';
+  } finally { btn.textContent = 'Toggle'; btn.disabled = false; }
+}
+
+async function scanNow() {
+  const btn = event.target;
+  btn.textContent = 'Scanning…'; btn.disabled = true;
+  try {
+    await fetch('/api/cycle', {method: 'POST'});
+    nextScanAt = new Date(Date.now() + 3000);
+  } finally { setTimeout(() => { btn.textContent = 'Scan Now'; btn.disabled = false; }, 2000); }
+}
+
+async function setInterval_() {
+  const secs = parseInt(document.getElementById('interval-input').value);
+  if (isNaN(secs) || secs < 30) { alert('Minimum 30 seconds'); return; }
+  const btn = event.target;
+  btn.textContent = '✓ Set'; btn.disabled = true;
+  try {
+    await fetch('/api/interval?seconds=' + secs, {method: 'POST'});
+    nextScanAt = new Date(Date.now() + secs * 1000);
+  } finally { setTimeout(() => { btn.textContent = 'Set'; btn.disabled = false; }, 1500); }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "active": "azure-model-router",
+  "providers": {
+    "claude-sonnet": {
+      "description": "Anthropic Claude Sonnet via direct API",
+      "litellm_model": "claude-sonnet-4-6",
+      "api_key": "$ANTHROPIC_API_KEY",
+      "temperature": 0.3,
+      "max_tokens": 2048
+    },
+    "azure-model-router": {
+      "description": "Azure OpenAI — model-router deployment (cognitiveservices endpoint, uses AzureOpenAI SDK)",
+      "provider_type": "azure_openai",
+      "litellm_model": "azure/model-router",
+      "api_base": "https://<resource>.cognitiveservices.azure.com/",
+      "api_key": "$AZURE_OPENAI_API_KEY",
+      "api_version": "2024-12-01-preview",
+      "temperature": 0.7,
+      "max_tokens": 2048
+    },
+    "azure-gpt5-nano": {
+      "description": "Azure AI Foundry — gpt-5-nano (uses OpenAI-compatible endpoint; no api_version needed)",
+      "litellm_model": "openai/gpt-5-nano",
+      "api_base": "https://<resource>.services.ai.azure.com/api/projects/<project>",
+      "api_key": "$AZURE_AI_KEY",
+      "temperature": 1,
+      "max_tokens": 2048
+    },
+    "azure-openai-gpt4o": {
+      "description": "Classic Azure OpenAI — gpt-4o (uses AzureOpenAI SDK)",
+      "provider_type": "azure_openai",
+      "litellm_model": "azure/gpt-4o",
+      "api_base": "https://<resource>.openai.azure.com/",
+      "api_key": "$AZURE_OPENAI_API_KEY",
+      "api_version": "2024-12-01-preview",
+      "temperature": 0.3,
+      "max_tokens": 2048
+    }
+  }
+}

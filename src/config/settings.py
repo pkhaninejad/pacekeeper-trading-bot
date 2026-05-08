@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     NEWS_MAX_HEADLINES_PER_TICKER: int = 5  # cap per ticker per cycle
     NEWS_CACHE_TTL_SECONDS: int = 900       # 15-minute default
 
+    # Prediction markets
+    KALSHI_API_KEY: str = ""               # required for Kalshi fetches; skip silently if absent
+    PREDICTION_MARKETS_CACHE_TTL: int = 900  # seconds; shared for Polymarket + Kalshi
+
     # Dashboard
     DASHBOARD_HOST: str = "0.0.0.0"
     DASHBOARD_PORT: int = 4000

@@ -1,116 +1,116 @@
 # Claude Trade Bot
 
-An AI-powered trading bot that uses Claude to generate trading signals and executes them via the Trading212 API. Includes a real-time web dashboard for monitoring.
+AI-powered prediction + execution bot for Trading212, with a FastAPI dashboard.
 
-## Features
+## What this "prediction bot" is
 
-- Claude Sonnet-powered signal generation with portfolio context
-- Automated risk management (position sizing, stop-loss, take-profit)
-- Real-time dashboard with live updates via Server-Sent Events
-- Paper trading support via Trading212 demo environment
-- Docker-ready deployment
+In this repo, the prediction bot is the background trading engine started by `main.py`.
 
-## Running Locally
+- It runs every `TRADE_INTERVAL_SECONDS` (default 300s)
+- It builds market context, generates signals with an LLM, validates risk, and can place orders
+- It starts automatically when you start the dashboard server
 
-### Prerequisites
+## Quick Start (Local)
 
-- Python 3.9+
-- [Trading212](https://www.trading212.com/) account with API access enabled
-- [Anthropic API key](https://console.anthropic.com/)
-
-### Step 1 — Create a virtual environment
+### 1. Create the virtual environment
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
 ```
 
-### Step 2 — Install dependencies
+### 2. Install dependencies (important)
+
+Always use the project venv binaries:
 
 ```bash
-pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt
 ```
 
-### Step 3 — Configure environment variables
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and fill in the required values:
+Set these required values in `.env`:
 
-| Key | Where to get it |
-|---|---|
-| `T212_API_KEY` | Trading212 app → Settings → API Key |
-| `T212_API_SECRET` | Trading212 app → Settings → API Key |
-| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
+- `T212_API_KEY`
+- `T212_API_SECRET`
+- `ANTHROPIC_API_KEY`
 
-Leave `T212_ENV=demo` to use paper trading (no real money).
+Recommended while testing:
 
-### Step 4 — Start the bot
+- `T212_ENV=demo` (paper trading)
+- `BOT_ENABLED=false` (start in safe/manual mode)
+
+### 4. Start the app
 
 ```bash
-python main.py
+.venv/bin/python main.py
 ```
 
-### Step 5 — Open the dashboard
+### 5. Open the dashboard
 
-Navigate to **http://localhost:8888**
+- [http://localhost:4000](http://localhost:4000)
 
-You'll see the live dashboard with account info, positions, signals, and trade log. Use the toggle button to enable/disable trading.
+## Verify the bot is running
 
----
-
-## Running with Docker
+Check status directly:
 
 ```bash
-cp .env.example .env   # fill in your keys first
+curl http://localhost:4000/api/status
+```
+
+If running correctly, you should get JSON with bot status fields.
+
+You can manually trigger one prediction/trading cycle from the dashboard or:
+
+```bash
+curl -X POST http://localhost:4000/api/cycle
+```
+
+## Safety-first test flow
+
+1. Keep `T212_ENV=demo`
+2. Keep `BOT_ENABLED=false`
+3. Start app and confirm dashboard loads
+4. Trigger one manual cycle (`POST /api/cycle`)
+5. Review signals/trades in dashboard
+6. Only then set `BOT_ENABLED=true` if behavior looks correct
+
+## Run With Docker
+
+```bash
+cp .env.example .env
+# edit .env first
 docker-compose up --build
 ```
 
-Dashboard available at `http://localhost:8888`
+Dashboard: [http://localhost:4000](http://localhost:4000)
 
-## Configuration
+## Common Issues
 
-| Variable | Default | Description |
-|---|---|---|
-| `T212_API_KEY` | — | Trading212 API key |
-| `T212_API_SECRET` | — | Trading212 API secret |
-| `T212_ENV` | `demo` | `demo` (paper) or `live` (real money) |
-| `ANTHROPIC_API_KEY` | — | Anthropic API key |
-| `CLAUDE_MODEL` | `claude-sonnet-4-6` | Claude model to use |
-| `BOT_ENABLED` | `true` | Enable/disable trading |
-| `TRADE_INTERVAL_SECONDS` | `300` | Cycle frequency (5 min) |
-| `MAX_POSITION_SIZE_PCT` | `0.05` | Max 5% of portfolio per trade |
-| `MAX_OPEN_POSITIONS` | `10` | Maximum concurrent positions |
-| `STOP_LOSS_PCT` | `0.02` | Auto-close at 2% loss |
-| `TAKE_PROFIT_PCT` | `0.04` | Auto-close at 4% gain |
+- `ModuleNotFoundError` or missing packages:
+  - You likely used system Python. Re-run with `.venv/bin/python` and `.venv/bin/pip`.
+- Dashboard not reachable:
+  - Confirm server is running and check `DASHBOARD_PORT` in `.env` (default `4000`).
+- No trades/signals appear:
+  - Ensure API keys are valid and market/account constraints allow orders.
+  - Try manual cycle endpoint and inspect logs.
 
-Default watchlist: `AAPL, TSLA, NVDA, MSFT, AMZN, GOOGL, META, NFLX`
+## Key Environment Variables
 
-## Architecture
-
-```
-FastAPI Dashboard (port 8888)
-        │
-  TradingEngine (async loop)
-        │
-   ┌────┼────┐
-   ▼    ▼    ▼
-Claude  Risk  Trading212
-Strategy Mgr  API Client
-```
-
-Each cycle: fetch account state → generate signals (Claude) → validate (risk manager) → execute orders → manage exits.
-
-## Dashboard
-
-The web UI provides:
-- Bot status and toggle (enable/disable)
-- Account balance and open positions
-- Recent trading signals with confidence scores
-- Trade history and pending orders
+- `T212_API_KEY`, `T212_API_SECRET`
+- `T212_ENV` (`demo` or `live`)
+- `ANTHROPIC_API_KEY`
+- `BOT_ENABLED`
+- `TRADE_INTERVAL_SECONDS`
+- `MAX_OPEN_POSITIONS`
+- `MAX_POSITION_SIZE_PCT`
+- `STOP_LOSS_PCT`, `TAKE_PROFIT_PCT`
+- `WATCHLIST`
+- `DASHBOARD_PORT`
 
 ## Warning
 
-Set `T212_ENV=live` only when you intend to trade with real money. Use `demo` for testing.
+Use `T212_ENV=live` only when you intentionally want real-money trading.

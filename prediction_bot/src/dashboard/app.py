@@ -49,6 +49,16 @@ async def get_status():
 @app.post("/api/bot/toggle")
 async def toggle_bot():
     enabled = engine.toggle()
+    state = "enabled" if enabled else "paused"
+    await engine._broadcast(
+        {
+            "type": "activity",
+            "activity": {
+                "timestamp": engine.activity_history[-1]["timestamp"] if engine.activity_history else None,
+                "message": f"Bot {state} by user.",
+            },
+        }
+    )
     return {"enabled": enabled}
 
 
@@ -78,6 +88,15 @@ async def get_bankroll_history():
 @app.get("/api/scans")
 async def get_scans():
     return list(reversed(engine.scan_history))
+
+
+@app.get("/api/activity")
+async def get_activity(limit: int = 20):
+    if limit < 1:
+        limit = 1
+    if limit > 100:
+        limit = 100
+    return list(reversed(engine.activity_history[-limit:]))
 
 
 @app.post("/api/cycle")

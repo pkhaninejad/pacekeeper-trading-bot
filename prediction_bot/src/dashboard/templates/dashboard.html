@@ -30,6 +30,17 @@
   .settings-grid label { display: block; font-size: 0.75em; color: #8b949e; margin-bottom: 4px; }
   .settings-grid input { width: 100%; box-sizing: border-box; background:#0d1117; border:1px solid #30363d; color:#c9d1d9; padding:6px 8px; border-radius:4px; font-family:monospace; }
   .hint { display:inline-block; margin-left:6px; color:#58a6ff; cursor:help; border:1px solid #30363d; border-radius:50%; width:14px; height:14px; text-align:center; line-height:14px; font-size:10px; }
+  .activity-list {
+    list-style:none;
+    padding:0;
+    margin:0;
+    max-height: 240px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 6px;
+  }
+  .activity-list li { border-bottom:1px solid #21262d; padding:8px 0; font-size:0.9em; }
+  .activity-time { color:#8b949e; margin-right:8px; font-size:0.8em; }
 </style>
 </head>
 <body>
@@ -110,6 +121,13 @@
 </div>
 
 <div class="section">
+  <h2>Live Activity</h2>
+  <ul id="activity-list" class="activity-list">
+    <li style="color:#8b949e">Waiting for updates…</li>
+  </ul>
+</div>
+
+<div class="section">
   <h2>Recent Trades</h2>
   <table id="trades-table">
     <thead>
@@ -145,6 +163,21 @@
 
 <script>
 let nextScanAt = null;
+
+function formatActivityTime(ts) {
+  if (!ts) return '';
+  const dt = new Date(ts);
+  return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}:${String(dt.getSeconds()).padStart(2, '0')}`;
+}
+
+function prependActivity(message, ts) {
+  const ul = document.getElementById('activity-list');
+  const li = document.createElement('li');
+  const time = formatActivityTime(ts);
+  li.innerHTML = `<span class="activity-time">${time}</span>${message}`;
+  ul.prepend(li);
+  while (ul.children.length > 20) ul.removeChild(ul.lastChild);
+}
 
 async function fetchTrades() {
   try {
@@ -209,10 +242,28 @@ async function loadSettings() {
   }
 }
 
+async function loadActivity() {
+  try {
+    const resp = await fetch('/api/activity?limit=20');
+    const items = await resp.json();
+    const ul = document.getElementById('activity-list');
+    if (!items.length) {
+      ul.innerHTML = '<li style="color:#8b949e">No activity yet</li>';
+      return;
+    }
+    ul.innerHTML = items.map(a =>
+      `<li><span class="activity-time">${formatActivityTime(a.timestamp)}</span>${a.message}</li>`
+    ).join('');
+  } catch {
+    // keep placeholder
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   fetchTrades();
   fetchIfAllWin();
   loadSettings();
+  loadActivity();
 
   fetch('/api/status').then(r => r.json()).then(s => {
     if (s.next_scan) nextScanAt = new Date(s.next_scan);
@@ -221,6 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const es = new EventSource('/api/stream');
   es.onmessage = (e) => {
     const data = JSON.parse(e.data);
+    if (data.type === 'activity' && data.activity) {
+      prependActivity(data.activity.message, data.activity.timestamp);
+    }
     if (data.type === 'cycle_complete') {
       const s = data.status;
       document.getElementById('bankroll').textContent = '$' + s.bankroll.toFixed(2);
@@ -234,6 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (s.next_scan) nextScanAt = new Date(s.next_scan);
       fetchTrades();
       fetchIfAllWin();
+    }
+    if (data.type === 'trade_placed' && data.trade) {
+      prependActivity(`Placed paper trade on "${data.trade.market_question}".`, data.trade.created_at);
     }
   };
 

@@ -99,19 +99,25 @@ Prefer `-m prediction_bot.main` as the default form; it is the most reliable imp
 
 Prediction bot dashboard: [http://localhost:4001](http://localhost:4001)
 
-## Desktop Launcher (Issue #80)
+## Desktop App (Tauri + TypeScript) (Issue #80)
 
-This repo now includes a simple desktop launcher so non-technical users can start bots without terminal commands.
+This repo includes a Tauri desktop app so non-technical users can start bots without terminal commands.
 
-- Launcher source: `desktop/launcher.py`
+- Desktop source: `desktop-app/`
+- UI stack: React + TypeScript
+- Native bridge: Rust (Tauri commands)
 - Stock bot URL: `http://localhost:4000`
 - Prediction bot URL: `http://localhost:4001`
 
-Run launcher from source:
+Run desktop app in dev mode:
 
 ```bash
-.venv/bin/python desktop/launcher.py
+cd desktop-app
+npm install
+npm run tauri:dev
 ```
+
+Prerequisite: install Rust toolchain once via [rustup](https://rustup.rs/).
 
 ### Build macOS binary
 
@@ -125,7 +131,7 @@ Run launcher from source:
 ./scripts/build_desktop_windows.ps1
 ```
 
-CI also builds desktop artifacts on GitHub Actions via `.github/workflows/desktop-build.yml`.
+CI builds Tauri desktop artifacts on GitHub Actions via `.github/workflows/desktop-build.yml`.
 
 ## Common Issues
 

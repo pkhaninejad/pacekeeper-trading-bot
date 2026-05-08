@@ -35,3 +35,8 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
+
+# Desktop app (Tauri + Vite)
+desktop-app/node_modules/
+desktop-app/dist/
+desktop-app/src-tauri/target/

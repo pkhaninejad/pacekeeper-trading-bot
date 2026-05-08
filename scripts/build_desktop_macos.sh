@@ -2,16 +2,14 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT_DIR"
+cd "$ROOT_DIR/desktop-app"
 
-.venv/bin/pip install pyinstaller
+if ! command -v rustc >/dev/null 2>&1; then
+  echo "Rust is required. Install with: curl https://sh.rustup.rs -sSf | sh"
+  exit 1
+fi
 
-.venv/bin/pyinstaller \
-  --noconfirm \
-  --windowed \
-  --name "ClaudeTradeBot" \
-  --add-data "src:src" \
-  --add-data "prediction_bot:prediction_bot" \
-  desktop/launcher.py
+npm install
+npx tauri build
 
-echo "Built app at: dist/ClaudeTradeBot.app"
+echo "Built Tauri bundle(s) under: desktop-app/src-tauri/target/release/bundle"

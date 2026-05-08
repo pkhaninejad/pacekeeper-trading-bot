@@ -14,7 +14,9 @@ Ship a one-click desktop binary that starts both bot dashboards and basic bot co
 
 ## Scope (v1)
 
-- Add a desktop launcher app (`desktop/launcher.py`) with:
+- Add a Tauri desktop app (`desktop-app/`) with:
+  - React + TypeScript UI
+  - Rust command bridge for process management
   - Start/stop stock bot
   - Start/stop prediction bot
   - Open each dashboard in browser
@@ -37,12 +39,13 @@ Ship a one-click desktop binary that starts both bot dashboards and basic bot co
 
 ## Architecture
 
-- Launcher is a Tkinter GUI (stdlib, no extra heavy UI runtime)
-- Launcher starts backend processes via subprocess:
+- Desktop shell: Tauri (Rust) + React (TypeScript)
+- UI calls Tauri commands via `@tauri-apps/api/core`
+- Rust backend starts backend processes via subprocess:
   - Stock bot: `python stock_bot.py` on port `4000`
   - Prediction bot: `python -m prediction_bot.main` on port `4001`
-- Launcher monitors process state and provides one-click controls
-- Process logs are suppressed in launcher mode to keep UX clean
+- Tauri backend monitors process state and provides one-click controls
+- Process logs are suppressed in desktop mode to keep UX clean
 
 ## Acceptance Criteria
 
@@ -63,7 +66,7 @@ Ship a one-click desktop binary that starts both bot dashboards and basic bot co
 ## Validation Plan
 
 - Manual:
-  - Launch desktop app
+  - Launch Tauri desktop app
   - Start stock bot -> open dashboard
   - Start prediction bot -> open dashboard
   - Stop both cleanly

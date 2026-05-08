@@ -1,15 +1,12 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-Set-Location $root
+Set-Location (Join-Path $root "desktop-app")
 
-.venv\Scripts\pip install pyinstaller
+if (-not (Get-Command rustc -ErrorAction SilentlyContinue)) {
+  Write-Error "Rust is required. Install rustup from https://rustup.rs/"
+}
 
-.venv\Scripts\pyinstaller.exe `
-  --noconfirm `
-  --windowed `
-  --name "ClaudeTradeBot" `
-  --add-data "src;src" `
-  --add-data "prediction_bot;prediction_bot" `
-  desktop/launcher.py
+npm install
+npx tauri build
 
-Write-Host "Built app at: dist/ClaudeTradeBot"
+Write-Host "Built Tauri bundle(s) under desktop-app/src-tauri/target/release/bundle"

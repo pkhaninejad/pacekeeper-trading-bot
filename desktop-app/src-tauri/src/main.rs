@@ -170,10 +170,12 @@ fn main() {
                     let state = app.state::<AppState>();
                     state.processes.clone()
                 };
-                if let Ok(mut map) = processes.lock() {
-                    for (_, mut child) in map.drain() {
-                        let _ = child.kill();
-                    }
+                let mut map = match processes.lock() {
+                    Ok(guard) => guard,
+                    Err(_) => return,
+                };
+                for (_, mut child) in map.drain() {
+                    let _ = child.kill();
                 }
             }
         });

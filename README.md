@@ -119,6 +119,8 @@ pnpm tauri:dev
 
 Prerequisite: install Rust toolchain once via [rustup](https://rustup.rs/).
 
+Note: `pnpm dev` runs browser preview only. Process controls (start/stop bots) require Tauri runtime via `pnpm tauri:dev`.
+
 ### Build macOS binary
 
 ```bash

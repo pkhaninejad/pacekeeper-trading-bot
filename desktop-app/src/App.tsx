@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 
 type BotKey = "stock" | "prediction";
 type BotState = "running" | "stopped";
@@ -15,6 +15,7 @@ export default function App() {
   const [status, setStatus] = useState<StatusMap>({ stock: "stopped", prediction: "stopped" });
   const [message, setMessage] = useState("Ready. Start a bot to continue.");
   const [busy, setBusy] = useState(false);
+  const tauriMode = isTauri();
 
   const runningCount = useMemo(
     () => Object.values(status).filter((s) => s === "running").length,
@@ -22,6 +23,10 @@ export default function App() {
   );
 
   async function refreshStatus() {
+    if (!tauriMode) {
+      setMessage("Desktop controls are available only in the Tauri app. Start with: pnpm tauri:dev");
+      return;
+    }
     try {
       const next = await invoke<StatusMap>("get_status");
       setStatus(next);
@@ -31,6 +36,7 @@ export default function App() {
   }
 
   async function startBot(bot: BotKey) {
+    if (!tauriMode) return;
     setBusy(true);
     try {
       await invoke("start_bot", { bot });
@@ -44,6 +50,7 @@ export default function App() {
   }
 
   async function stopBot(bot: BotKey) {
+    if (!tauriMode) return;
     setBusy(true);
     try {
       await invoke("stop_bot", { bot });
@@ -57,6 +64,10 @@ export default function App() {
   }
 
   async function openDashboard(bot: BotKey) {
+    if (!tauriMode) {
+      window.open(DASHBOARD_URLS[bot], "_blank");
+      return;
+    }
     try {
       await invoke("open_dashboard", { bot });
       setMessage(`Opened ${bot} dashboard in your browser.`);
@@ -131,6 +142,11 @@ export default function App() {
       </section>
 
       <footer className="status">{message}<br/>Stock: {DASHBOARD_URLS.stock} | Prediction: {DASHBOARD_URLS.prediction}</footer>
+      {!tauriMode && (
+        <footer className="status">
+          You are in web preview mode. Backend start/stop requires Tauri runtime.
+        </footer>
+      )}
     </main>
   );
 }

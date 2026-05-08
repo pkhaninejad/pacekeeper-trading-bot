@@ -99,6 +99,34 @@ Prefer `-m prediction_bot.main` as the default form; it is the most reliable imp
 
 Prediction bot dashboard: [http://localhost:4001](http://localhost:4001)
 
+## Desktop Launcher (Issue #80)
+
+This repo now includes a simple desktop launcher so non-technical users can start bots without terminal commands.
+
+- Launcher source: `desktop/launcher.py`
+- Stock bot URL: `http://localhost:4000`
+- Prediction bot URL: `http://localhost:4001`
+
+Run launcher from source:
+
+```bash
+.venv/bin/python desktop/launcher.py
+```
+
+### Build macOS binary
+
+```bash
+./scripts/build_desktop_macos.sh
+```
+
+### Build Windows binary
+
+```powershell
+./scripts/build_desktop_windows.ps1
+```
+
+CI also builds desktop artifacts on GitHub Actions via `.github/workflows/desktop-build.yml`.
+
 ## Common Issues
 
 - `ModuleNotFoundError` or missing packages:

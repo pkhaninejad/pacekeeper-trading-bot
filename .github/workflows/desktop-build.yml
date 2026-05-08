@@ -1,0 +1,54 @@
+name: Desktop Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feat/desktop-productization-issue-80
+    paths:
+      - 'desktop/**'
+      - 'scripts/build_desktop_*'
+      - '.github/workflows/desktop-build.yml'
+      - 'requirements.txt'
+      - 'stock_bot.py'
+      - 'prediction_bot/**'
+      - 'src/**'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build macOS app
+        if: runner.os == 'macOS'
+        run: |
+          pyinstaller --noconfirm --windowed --name ClaudeTradeBot --add-data "src:src" --add-data "prediction_bot:prediction_bot" desktop/launcher.py
+
+      - name: Build Windows app
+        if: runner.os == 'Windows'
+        run: |
+          pyinstaller --noconfirm --windowed --name ClaudeTradeBot --add-data "src;src" --add-data "prediction_bot;prediction_bot" desktop/launcher.py
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-trade-bot-${{ runner.os }}
+          path: |
+            dist/**

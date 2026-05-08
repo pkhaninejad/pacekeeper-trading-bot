@@ -4,7 +4,6 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
-use tauri::Listener;
 
 #[derive(Clone)]
 struct AppState {
@@ -162,18 +161,15 @@ fn main() {
     tauri::Builder::default()
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![start_bot, stop_bot, get_status, open_dashboard])
-        .setup(|app| {
-            let handle = app.handle();
-            let state = handle.state::<AppState>();
-            app.listen("tauri://close-requested", move |_| {
+        .run(tauri::generate_context!(), |app, event| {
+            if matches!(event, tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit) {
+                let state = app.state::<AppState>();
                 if let Ok(mut map) = state.processes.lock() {
                     for (_, mut child) in map.drain() {
                         let _ = child.kill();
                     }
                 }
-            });
-            Ok(())
+            }
         })
-        .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

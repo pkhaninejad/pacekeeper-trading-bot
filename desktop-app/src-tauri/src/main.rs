@@ -158,10 +158,13 @@ fn open_dashboard(bot: String) -> Result<(), String> {
 }
 
 fn main() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![start_bot, stop_bot, get_status, open_dashboard])
-        .run(tauri::generate_context!(), |app, event| {
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit) {
                 let state = app.state::<AppState>();
                 if let Ok(mut map) = state.processes.lock() {
@@ -170,6 +173,5 @@ fn main() {
                     }
                 }
             }
-        })
-        .expect("error while running tauri application");
+        });
 }

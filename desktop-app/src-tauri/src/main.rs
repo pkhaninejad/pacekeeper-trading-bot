@@ -166,8 +166,11 @@ fn main() {
 
     app.run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit) {
-                let state = app.state::<AppState>();
-                if let Ok(mut map) = state.processes.lock() {
+                let processes = {
+                    let state = app.state::<AppState>();
+                    state.processes.clone()
+                };
+                if let Ok(mut map) = processes.lock() {
                     for (_, mut child) in map.drain() {
                         let _ = child.kill();
                     }

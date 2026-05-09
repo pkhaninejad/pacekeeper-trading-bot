@@ -46,10 +46,10 @@ export default function App() {
   }, [tauriMode]);
 
   function handleWizardComplete() {
-    invoke<Config | null>("load_config").then(cfg => {
-      if (cfg) setConfig(cfg);
-      setView("launcher");
-    });
+    invoke<Config | null>("load_config")
+      .then(cfg => { if (cfg) setConfig(cfg); })
+      .catch(() => {})
+      .finally(() => setView("launcher"));
   }
 
   function handleSettingsSave(updated: Config) {

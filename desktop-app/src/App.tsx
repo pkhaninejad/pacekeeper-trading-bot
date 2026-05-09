@@ -75,8 +75,10 @@ export default function App() {
     setBusy(true);
     try {
       await invoke("start_bot", { bot });
-      setMessage(`Started ${bot} bot.`);
+      setMessage(`Started ${bot} bot — opening dashboard…`);
       await refreshStatus();
+      // Give the Python server ~3 s to bind its port before opening the browser
+      setTimeout(() => openDashboard(bot), 3000);
     } catch (err) {
       setMessage(`Could not start ${bot} bot: ${String(err)}`);
     } finally {
@@ -177,10 +179,7 @@ export default function App() {
         </div>
       </section>
 
-      <footer className="status">
-        {message}<br />
-        Stock: {DASHBOARD_URLS.stock} | Prediction: {DASHBOARD_URLS.prediction}
-      </footer>
+      <footer className="status">{message}</footer>
       {!tauriMode && (
         <footer className="status">
           Web preview mode — backend controls require the Tauri runtime.

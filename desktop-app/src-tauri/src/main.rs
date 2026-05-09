@@ -60,6 +60,29 @@ fn bot_command(bot: &str, root: &PathBuf) -> Result<(PathBuf, Vec<String>), Stri
     }
 }
 
+fn bot_port(bot: &str) -> u16 {
+    match bot {
+        "stock" => 4000,
+        "prediction" => 4001,
+        _ => 0,
+    }
+}
+
+// Kill any process holding the given port so we can spawn fresh.
+fn kill_port(port: u16) {
+    if port == 0 { return; }
+    #[cfg(unix)]
+    let _ = Command::new("sh")
+        .args(["-c", &format!("lsof -ti:{port} | xargs kill -9 2>/dev/null; true")])
+        .status();
+    #[cfg(windows)]
+    let _ = Command::new("cmd")
+        .args(["/C", &format!(
+            "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr \":{port} \"') do @taskkill /f /pid %a >nul 2>&1"
+        )])
+        .status();
+}
+
 #[tauri::command]
 fn load_config(app: tauri::AppHandle) -> Result<Option<config::Config>, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -95,16 +118,16 @@ fn start_bot(bot: String, state: tauri::State<AppState>, app: tauri::AppHandle) 
         }
     }
 
+    // Kill anything holding the port (handles stale processes from prior sessions)
+    kill_port(bot_port(&bot));
+
     let mut map = state
         .processes
         .lock()
         .map_err(|_| "process state poisoned".to_string())?;
 
-    if let Some(existing) = map.get_mut(&bot) {
-        if existing.try_wait().map_err(|e| e.to_string())?.is_none() {
-            return Ok(());
-        }
-    }
+    // Drop any tracked handle — port is already freed above
+    map.remove(&bot);
 
     let (program, args) = bot_command(&bot, &root)?;
     let child = Command::new(program)

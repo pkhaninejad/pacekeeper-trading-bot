@@ -82,3 +82,363 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 740px) {
   .summary { grid-template-columns: 1fr; }
 }
+
+/* ── Wizard ─────────────────────────────────────────────────── */
+
+.wizard {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.wizard-progress {
+  margin-bottom: 28px;
+}
+
+.wizard-progress-label {
+  font-size: 0.8rem;
+  color: #9fb2c7;
+  margin-bottom: 6px;
+}
+
+.wizard-progress-bar {
+  height: 4px;
+  background: #2b3a50;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.wizard-progress-fill {
+  height: 100%;
+  background: #1E5BFF;
+  border-radius: 2px;
+  transition: width 220ms cubic-bezier(.2,.8,.2,1);
+}
+
+.wizard-step {
+  animation: fadeIn 220ms cubic-bezier(.2,.8,.2,1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.wizard-step h2 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.wizard-step .subtitle {
+  color: #9fb2c7;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #c9d7e8;
+  margin-bottom: 6px;
+}
+
+.field input[type="text"],
+.field input[type="password"],
+.field input[type="number"],
+.field select {
+  width: 100%;
+  background: #111b28;
+  border: 1px solid #2b3a50;
+  border-radius: 8px;
+  color: #e6edf3;
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 120ms;
+  box-sizing: border-box;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: #1E5BFF;
+}
+
+.field .hint {
+  font-size: 0.78rem;
+  color: #9fb2c7;
+  margin-top: 4px;
+}
+
+.toggle-group {
+  display: flex;
+  gap: 8px;
+}
+
+.toggle-group button {
+  flex: 1;
+  background: #111b28;
+  border: 1px solid #2b3a50;
+  color: #9fb2c7;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 500;
+  transition: all 120ms;
+}
+
+.toggle-group button.active {
+  background: #1E5BFF;
+  border-color: #1E5BFF;
+  color: #fff;
+  font-weight: 700;
+}
+
+.toggle-group button.amber {
+  border-color: #B8730E;
+  color: #f0a050;
+}
+
+.toggle-group button.amber.active {
+  background: #7a4a0a;
+  border-color: #B8730E;
+  color: #f0a050;
+}
+
+.test-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.test-row button {
+  flex-shrink: 0;
+  background: #1E5BFF;
+  padding: 9px 18px;
+}
+
+.test-result {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.test-result.ok    { color: #42d392; }
+.test-result.error { color: #ff7373; }
+.test-result.busy  { color: #9fb2c7; }
+
+.slider-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  accent-color: #1E5BFF;
+}
+
+.slider-row input[type="number"] {
+  width: 72px;
+  background: #111b28;
+  border: 1px solid #2b3a50;
+  border-radius: 8px;
+  color: #e6edf3;
+  font-size: 0.9rem;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.stepper-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.stepper-row button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.stepper-value {
+  min-width: 40px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.watchlist-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ticker-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #111b28;
+  border: 1px solid #2b3a50;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: all 120ms;
+  color: #9fb2c7;
+}
+
+.ticker-chip.selected {
+  border-color: #1E5BFF;
+  color: #e6edf3;
+  background: rgba(30,91,255,0.12);
+}
+
+.ticker-chip .remove {
+  font-size: 0.9rem;
+  opacity: 0.6;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  line-height: 1;
+}
+
+.wizard-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 28px;
+  gap: 10px;
+}
+
+.btn-primary {
+  background: #1E5BFF;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 11px 28px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 120ms;
+}
+
+.btn-primary:hover:not(:disabled) { filter: brightness(1.12); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-secondary {
+  background: transparent;
+  color: #9fb2c7;
+  border: 1px solid #2b3a50;
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: border-color 120ms;
+}
+
+.btn-secondary:hover { border-color: #1E5BFF; color: #e6edf3; }
+
+.done-screen {
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.done-screen .check {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.done-screen h2 {
+  margin: 0 0 8px;
+  font-size: 1.6rem;
+}
+
+.done-screen p {
+  color: #9fb2c7;
+}
+
+/* ── Settings Panel ──────────────────────────────────────────── */
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 120ms;
+}
+
+.settings-modal {
+  background: #131c28;
+  border: 1px solid #2b3a50;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 520px;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 28px;
+}
+
+.settings-modal h2 {
+  margin: 0 0 20px;
+  font-size: 1.25rem;
+}
+
+.settings-section {
+  border-top: 1px solid #2b3a50;
+  margin-top: 20px;
+  padding-top: 20px;
+}
+
+.settings-section h3 {
+  margin: 0 0 14px;
+  font-size: 0.95rem;
+  color: #9fb2c7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  border-top: 1px solid #2b3a50;
+  padding-top: 18px;
+}
+
+/* ── Gear icon in launcher ───────────────────────────────────── */
+
+.launcher-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gear-btn {
+  background: transparent;
+  border: 1px solid #2b3a50;
+  border-radius: 8px;
+  color: #9fb2c7;
+  padding: 6px 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: border-color 120ms;
+}
+
+.gear-btn:hover { border-color: #1E5BFF; color: #e6edf3; }

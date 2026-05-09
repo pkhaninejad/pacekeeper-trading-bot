@@ -1,8 +1,8 @@
 [package]
-name = "claude-trade-bot-desktop"
+name = "pacekeeper"
 version = "0.1.0"
-description = "Desktop launcher for Claude Trade Bot"
-authors = ["Claude Trade Bot"]
+description = "Pacekeeper desktop launcher by wallstrdev"
+authors = ["wallstrdev"]
 license = "MIT"
 edition = "2021"
 

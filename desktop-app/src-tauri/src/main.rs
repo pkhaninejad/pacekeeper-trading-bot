@@ -180,36 +180,27 @@ fn get_status(state: tauri::State<AppState>) -> Result<HashMap<String, String>, 
 }
 
 #[tauri::command]
-fn open_dashboard(bot: String) -> Result<(), String> {
-    let url = match bot.as_str() {
-        "stock" => "http://localhost:4000",
-        "prediction" => "http://localhost:4001",
+fn open_dashboard(bot: String, app: tauri::AppHandle) -> Result<(), String> {
+    let (url_str, label, title) = match bot.as_str() {
+        "stock"      => ("http://localhost:4000", "stock-dashboard",      "Pacekeeper — Stock Bot"),
+        "prediction" => ("http://localhost:4001", "prediction-dashboard", "Pacekeeper — Prediction Bot"),
         _ => return Err(format!("unsupported bot: {bot}")),
     };
 
-    #[cfg(target_os = "macos")]
-    {
-        Command::new("open")
-            .arg(url)
-            .spawn()
-            .map_err(|e| format!("failed to open dashboard: {e}"))?;
+    // If the window is already open, bring it to front
+    if let Some(win) = app.get_webview_window(label) {
+        win.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("cmd")
-            .args(["/C", "start", "", url])
-            .spawn()
-            .map_err(|e| format!("failed to open dashboard: {e}"))?;
-    }
+    let url: url::Url = url_str.parse().map_err(|e: url::ParseError| e.to_string())?;
 
-    #[cfg(target_os = "linux")]
-    {
-        Command::new("xdg-open")
-            .arg(url)
-            .spawn()
-            .map_err(|e| format!("failed to open dashboard: {e}"))?;
-    }
+    tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::External(url))
+        .title(title)
+        .inner_size(1440.0, 900.0)
+        .min_inner_size(900.0, 600.0)
+        .build()
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }

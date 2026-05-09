@@ -61,8 +61,40 @@ fn bot_command(bot: &str, root: &PathBuf) -> Result<(PathBuf, Vec<String>), Stri
 }
 
 #[tauri::command]
-fn start_bot(bot: String, state: tauri::State<AppState>) -> Result<(), String> {
+fn load_config(app: tauri::AppHandle) -> Result<Option<config::Config>, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    config::load_from_path(&config::config_path(&data_dir))
+}
+
+#[tauri::command]
+fn save_config(app: tauri::AppHandle, config: config::Config) -> Result<(), String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    config::save_to_path(&config::config_path(&data_dir), &config)
+}
+
+#[tauri::command]
+async fn test_t212_connection(key: String, secret: String, env: String) -> Result<String, String> {
+    config::check_t212_connection(&key, &secret, &env).await
+}
+
+#[tauri::command]
+async fn test_ai_connection(provider: String, key: String) -> Result<String, String> {
+    config::check_ai_connection(&provider, &key).await
+}
+
+#[tauri::command]
+fn start_bot(bot: String, state: tauri::State<AppState>, app: tauri::AppHandle) -> Result<(), String> {
     let root = project_root()?;
+
+    // Write .env from wizard config before spawning Python
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cfg_path = config::config_path(&data_dir);
+    if let Some(cfg) = config::load_from_path(&cfg_path)? {
+        if cfg.setup_complete {
+            config::write_env_to_path(&root.join(".env"), &cfg)?;
+        }
+    }
+
     let mut map = state
         .processes
         .lock()
@@ -162,7 +194,10 @@ fn open_dashboard(bot: String) -> Result<(), String> {
 fn main() {
     let app = tauri::Builder::default()
         .manage(AppState::new())
-        .invoke_handler(tauri::generate_handler![start_bot, stop_bot, get_status, open_dashboard])
+        .invoke_handler(tauri::generate_handler![
+            start_bot, stop_bot, get_status, open_dashboard,
+            load_config, save_config, test_t212_connection, test_ai_connection
+        ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 

@@ -1,0 +1,1628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pacekeeper — Design Specification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="pacekeeper-tokens.css">
+<link rel="stylesheet" href="pacekeeper-doc.css">
+</head>
+<body data-theme="light" data-mode="demo" data-density="standard">
+
+<!-- ====================================================== -->
+<!-- TWEAKS                                                  -->
+<!-- ====================================================== -->
+<aside id="tweaks" aria-label="Tweaks panel">
+  <div class="tweaks-head">
+    <span class="dot"></span>
+    <span>Tweaks</span>
+    <button class="x" aria-label="Close" onclick="document.getElementById('tweaks').classList.remove('open')">×</button>
+  </div>
+  <div class="tweaks-body">
+    <div class="tweaks-row">
+      <span class="lab">Theme</span>
+      <div class="seg" role="tablist">
+        <button class="on" data-tweak="theme" data-val="light">Light</button>
+        <button data-tweak="theme" data-val="dark">Dark</button>
+      </div>
+    </div>
+    <div class="tweaks-row">
+      <span class="lab">Mode</span>
+      <div class="seg" role="tablist">
+        <button class="on" data-tweak="mode" data-val="demo">Demo</button>
+        <button data-tweak="mode" data-val="live">Live</button>
+      </div>
+    </div>
+    <div class="tweaks-row">
+      <span class="lab">Density</span>
+      <div class="seg" role="tablist">
+        <button data-tweak="density" data-val="cozy">Cozy</button>
+        <button class="on" data-tweak="density" data-val="standard">Std</button>
+        <button data-tweak="density" data-val="compact">Tight</button>
+      </div>
+    </div>
+  </div>
+</aside>
+<style>
+  #tweaks {
+    position: fixed; right: 24px; bottom: 24px; z-index: 50;
+    width: 280px;
+    background: var(--paper);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-2);
+    box-shadow: var(--elev-3);
+    font: var(--t-body-sm);
+  }
+  #tweaks.collapsed .tweaks-body { display: none; }
+  .tweaks-head {
+    display: grid; grid-template-columns: auto 1fr auto;
+    align-items: center; gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+    font: var(--t-eyebrow); letter-spacing: 0.08em; color: var(--ink-2);
+  }
+  .tweaks-head .dot { width: 6px; height: 6px; background: var(--amber); border-radius: 50%; }
+  .tweaks-head .x { background: 0; border: 0; color: var(--ink-3); cursor: pointer; font-size: 18px; line-height: 1; }
+  .tweaks-body { padding: 12px 14px; display: grid; gap: 10px; }
+  .tweaks-row { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 12px; }
+  .tweaks-row .lab { font: var(--t-label); color: var(--ink-3); }
+</style>
+<script>
+  document.querySelectorAll('#tweaks [data-tweak]').forEach(b => {
+    b.addEventListener('click', () => {
+      const k = b.dataset.tweak, v = b.dataset.val;
+      document.body.dataset[k] = v;
+      b.parentElement.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+    });
+  });
+</script>
+
+<main class="doc">
+
+<!-- ====================================================== -->
+<!-- COVER                                                   -->
+<!-- ====================================================== -->
+<header class="ribbon">
+  <div>§00</div>
+  <div><b>Design Specification</b> · Pacekeeper · Desktop Trading Companion</div>
+  <div class="ribbon-marks"><span>v1.0</span><span>2026·05·08</span><span>Confidential</span></div>
+</header>
+
+<section class="cover-mark">
+  <div class="glyph">P</div>
+  <h1>Pacekeeper</h1>
+  <div class="tagline">A calm, careful operator for autonomous trading. <br>Designed for people who would rather sleep at night.</div>
+</section>
+
+<dl class="cover-meta">
+  <div><dt>Document</dt><dd>PK-DS-001</dd></div>
+  <div><dt>Direction</dt><dd>Trading Desk</dd></div>
+  <div><dt>Platform</dt><dd>macOS + Windows</dd></div>
+  <div><dt>Audience</dt><dd>Hobbyist · Casual · Prosumer</dd></div>
+</dl>
+
+<nav class="toc" aria-label="Contents">
+  <a href="#s01"><span class="num">§01</span><span>Brand & visual direction</span><span class="pg">·</span></a>
+  <a href="#s02"><span class="num">§02</span><span>Color system</span><span class="pg">·</span></a>
+  <a href="#s03"><span class="num">§03</span><span>Typography</span><span class="pg">·</span></a>
+  <a href="#s04"><span class="num">§04</span><span>Spacing, radii, shadows</span><span class="pg">·</span></a>
+  <a href="#s05"><span class="num">§05</span><span>Iconography & motion</span><span class="pg">·</span></a>
+  <a href="#s06"><span class="num">§06</span><span>Data visualisation</span><span class="pg">·</span></a>
+  <a href="#s07"><span class="num">§07</span><span>Component inventory</span><span class="pg">·</span></a>
+  <a href="#s08"><span class="num">§08</span><span>Sitemap & IA</span><span class="pg">·</span></a>
+  <a href="#s09"><span class="num">§09</span><span>User journeys</span><span class="pg">·</span></a>
+  <a href="#s10"><span class="num">§10</span><span>Beginner ↔ Advanced</span><span class="pg">·</span></a>
+  <a href="#s11"><span class="num">§11</span><span>Installer & first run</span><span class="pg">·</span></a>
+  <a href="#s12"><span class="num">§12</span><span>Onboarding wizard</span><span class="pg">·</span></a>
+  <a href="#s13"><span class="num">§13</span><span>License activation</span><span class="pg">·</span></a>
+  <a href="#s14"><span class="num">§14</span><span>Connect a market</span><span class="pg">·</span></a>
+  <a href="#s15"><span class="num">§15</span><span>Beginner dashboard</span><span class="pg">·</span></a>
+  <a href="#s16"><span class="num">§16</span><span>Advanced dashboard</span><span class="pg">·</span></a>
+  <a href="#s17"><span class="num">§17</span><span>Activity feed</span><span class="pg">·</span></a>
+  <a href="#s18"><span class="num">§18</span><span>Scanner & rules</span><span class="pg">·</span></a>
+  <a href="#s19"><span class="num">§19</span><span>Safety controls</span><span class="pg">·</span></a>
+  <a href="#s20"><span class="num">§20</span><span>Update flow</span><span class="pg">·</span></a>
+  <a href="#s21"><span class="num">§21</span><span>Help & troubleshooting</span><span class="pg">·</span></a>
+  <a href="#s22"><span class="num">§22</span><span>Account & subscription</span><span class="pg">·</span></a>
+  <a href="#s23"><span class="num">§23</span><span>Empty / loading / error / offline</span><span class="pg">·</span></a>
+  <a href="#s24"><span class="num">§24</span><span>Demo ↔ Live</span><span class="pg">·</span></a>
+  <a href="#s25"><span class="num">§25</span><span>Trust markers</span><span class="pg">·</span></a>
+  <a href="#s26"><span class="num">§26</span><span>Pricing</span><span class="pg">·</span></a>
+  <a href="#s27"><span class="num">§27</span><span>Copy deck</span><span class="pg">·</span></a>
+  <a href="#s28"><span class="num">§28</span><span>Accessibility</span><span class="pg">·</span></a>
+  <a href="#s29"><span class="num">§29</span><span>Handoff & MVP</span><span class="pg">·</span></a>
+</nav>
+
+<!-- ====================================================== -->
+<!-- §01 BRAND & VISUAL DIRECTION                            -->
+<!-- ====================================================== -->
+<section id="s01" class="section">
+  <header class="section-head">
+    <div class="section-num">§01 — BRAND</div>
+    <h2 class="section-title">Trading Desk</h2>
+    <p class="section-lede">A professional, market-standard aesthetic: dark canvas, electric-blue conviction, and the green/red P&amp;L language every trader already reads at a glance. Built to feel like a tool a serious user would trust with real capital.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="eyebrow">Personality</div>
+      <p class="prose">Pacekeeper is a <b>steady-handed operator</b>, not a trading guru. It doesn't promise wins; it promises discipline. It shows its work in plain language, never asks the user to read a log file, and confirms anything that touches real money.</p>
+      <p class="prose">If it had a voice, it would be a librarian who used to be a risk officer.</p>
+    </div>
+    <div class="card">
+      <div class="eyebrow">Pillars</div>
+      <ol style="margin:0; padding-left:18px; line-height:1.9; color: var(--ink);">
+        <li><b>Composure</b> — calm typography, tabular numerals, generous air.</li>
+        <li><b>Legibility</b> — plain language first, jargon hidden behind disclosure.</li>
+        <li><b>Reversibility</b> — every dangerous action is two clicks and a name.</li>
+        <li><b>Provenance</b> — every number is footnoted with where it came from.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="grid-3" style="margin-top:24px">
+    <div class="card tight"><div class="eyebrow">We are</div><div class="prose" style="margin-top:8px">Patient · Documentary · Disciplined · Quiet · Warm</div></div>
+    <div class="card tight"><div class="eyebrow">We are not</div><div class="prose" style="margin-top:8px">Hype · Neon · Gambling · "Crushing it" · Loud</div></div>
+    <div class="card tight"><div class="eyebrow">Reference</div><div class="prose" style="margin-top:8px">A Coutts statement · Muji notebook · Bloomberg in 1989 · Working Copy · Linear's restraint</div></div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §02 COLOR                                               -->
+<!-- ====================================================== -->
+<section id="s02" class="section">
+  <header class="section-head">
+    <div class="section-num">§02 — COLOR</div>
+    <h2 class="section-title">Market-standard palette</h2>
+    <p class="section-lede">A dark trading canvas, electric blue for primary actions, and the universally-read green/red for P&amp;L. Amber is reserved for live-mode chrome and caution states. Greens and reds appear only on financial outcomes — never as decoration.</p>
+  </header>
+
+  <div class="eyebrow" style="margin-bottom:12px">Surfaces</div>
+  <div class="swatches">
+    <div class="swatch"><div class="chip" style="background:var(--paper); border:1px solid var(--rule)"></div><div class="name">paper</div><div class="val">#F4F6FB</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--paper-2)"></div><div class="name">paper/2</div><div class="val">#ECEFF7</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--paper-3)"></div><div class="name">paper/3</div><div class="val">#E2E7F1</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--paper-4)"></div><div class="name">paper/4</div><div class="val">oklch(.885 .018 76)</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--rule)"></div><div class="name">rule</div><div class="val">oklch(.86 .012 70)</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--rule-2)"></div><div class="name">rule/2</div><div class="val">oklch(.77 .014 68)</div></div>
+  </div>
+
+  <div class="eyebrow" style="margin:32px 0 12px">Ink (text)</div>
+  <div class="swatches">
+    <div class="swatch"><div class="chip" style="background:var(--ink)"></div><div class="name">ink</div><div class="val">#0B0E13 · 18.6:1</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--ink-2)"></div><div class="name">ink/2</div><div class="val">#3D4654 · 9.2:1</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--ink-3)"></div><div class="name">ink/3</div><div class="val">#6D7689 · 4.7:1</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--ink-4)"></div><div class="name">ink/4</div><div class="val">placeholder · 3.0:1</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--accent)"></div><div class="name">accent</div><div class="val">links · 7.4:1</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--accent-2)"></div><div class="name">accent/2</div><div class="val">pressed</div></div>
+  </div>
+
+  <div class="eyebrow" style="margin:32px 0 12px">Conviction</div>
+  <div class="swatches">
+    <div class="swatch"><div class="chip" style="background:var(--amber)"></div><div class="name">amber</div><div class="val">live · caution</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--amber-soft)"></div><div class="name">amber/soft</div><div class="val">live tint</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--sage)"></div><div class="name">sage</div><div class="val">gain · success</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--sage-soft)"></div><div class="name">sage/soft</div><div class="val"></div></div>
+    <div class="swatch"><div class="chip" style="background:var(--crimson)"></div><div class="name">crimson</div><div class="val">loss · danger</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--crimson-soft)"></div><div class="name">crimson/soft</div><div class="val"></div></div>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px">
+    <div class="card"><div class="eyebrow">Semantic roles</div><table class="tbl" style="margin-top:8px">
+      <tr><td class="mono">surface/page</td><td>paper</td></tr>
+      <tr><td class="mono">surface/raised</td><td>paper/2 → /3</td></tr>
+      <tr><td class="mono">text/primary</td><td>ink</td></tr>
+      <tr><td class="mono">text/quiet</td><td>ink/3</td></tr>
+      <tr><td class="mono">action/primary</td><td>ink (filled)</td></tr>
+      <tr><td class="mono">action/link</td><td>accent</td></tr>
+      <tr><td class="mono">state/danger</td><td>crimson</td></tr>
+      <tr><td class="mono">state/success</td><td>sage</td></tr>
+      <tr><td class="mono">mode/live</td><td>amber chrome bar</td></tr>
+    </table></div>
+    <div class="card"><div class="eyebrow">Contrast targets</div><div class="prose"><p>All text passes WCAG <b>AA</b> (4.5:1 body, 3:1 large). Critical confirmations and money figures pass <b>AAA</b> (7:1). Colour never carries meaning alone — every up/down state pairs colour with sign, weight, or icon.</p></div></div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §03 TYPOGRAPHY                                          -->
+<!-- ====================================================== -->
+<section id="s03" class="section">
+  <header class="section-head">
+    <div class="section-num">§03 — TYPE</div>
+    <h2 class="section-title">Inter for the interface, JetBrains Mono for the numbers</h2>
+    <p class="section-lede">A single, modern sans for everything UI — matching the Wallstr Dev brand. JetBrains Mono is reserved for numerals so every dollar, percent, and timestamp aligns to a monospaced grid.</p>
+  </header>
+
+  <div class="specimen">
+    <div class="meta"><b>Inter</b><br>Sans · Display 52</div>
+    <div class="demo" style="font: 800 52px/1.05 var(--sans); letter-spacing:-0.035em">A bot that sleeps when you do.</div>
+  </div>
+  <div class="specimen">
+    <div class="meta"><b>Inter</b><br>Sans · Lede 20</div>
+    <div class="demo" style="font: 400 20px/1.45 var(--sans); color:var(--ink-2)">Pacekeeper pauses on earnings, runs only in market hours, and walks away from anything noisier than its rules allow.</div>
+  </div>
+  <div class="specimen">
+    <div class="meta"><b>Geist</b><br>Sans · Body 15</div>
+    <div class="demo" style="font: var(--t-body)">Connect your account, choose a starting balance, and Pacekeeper will run a paper-only round before any real money moves. You can switch on Live trading whenever you're ready — and switch it off in one click.</div>
+  </div>
+  <div class="specimen">
+    <div class="meta"><b>Geist</b><br>Sans · Label 12</div>
+    <div class="demo label">DAILY LOSS LIMIT · MAX OPEN POSITIONS · COOLDOWN</div>
+  </div>
+  <div class="specimen">
+    <div class="meta"><b>JetBrains Mono</b><br>Mono · Numerals</div>
+    <div class="demo" style="font: 500 24px/1 var(--mono); font-variant-numeric:tabular-nums">+$1,284.32 &nbsp; −0.42% &nbsp; 14:32:08 &nbsp; AAPL_US_EQ</div>
+  </div>
+
+  <div class="card" style="margin-top:24px">
+    <div class="eyebrow" style="margin-bottom:12px">Scale</div>
+    <table class="tbl">
+      <thead><tr><th>Token</th><th>Family</th><th>Weight</th><th>Size / line</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">t/display</td><td>Inter</td><td>800</td><td class="mono">52 / 1.05</td><td>Cover headlines</td></tr>
+        <tr><td class="mono">t/h1</td><td>Inter</td><td>700</td><td class="mono">34 / 1.15</td><td>Section titles</td></tr>
+        <tr><td class="mono">t/h2</td><td>Inter</td><td>700</td><td class="mono">24 / 1.25</td><td>Subsections</td></tr>
+        <tr><td class="mono">t/h3</td><td>Geist</td><td>600</td><td class="mono">18 / 1.30</td><td>Card titles</td></tr>
+        <tr><td class="mono">t/body</td><td>Geist</td><td>400</td><td class="mono">15 / 1.55</td><td>Prose, UI</td></tr>
+        <tr><td class="mono">t/label</td><td>Geist</td><td>500</td><td class="mono">12 / 1.40</td><td>Form labels</td></tr>
+        <tr><td class="mono">t/eyebrow</td><td>JetBrains Mono</td><td>600</td><td class="mono">11 / 1.00</td><td>Section tags</td></tr>
+        <tr><td class="mono">t/mono‑lg</td><td>JetBrains Mono</td><td>500</td><td class="mono">18 / 1.20</td><td>KPI numerals</td></tr>
+        <tr><td class="mono">t/mono</td><td>JetBrains Mono</td><td>500</td><td class="mono">14 / 1.30</td><td>Tables, money</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §04 SPACING / RADII / SHADOWS                           -->
+<!-- ====================================================== -->
+<section id="s04" class="section">
+  <header class="section-head">
+    <div class="section-num">§04 — METRICS</div>
+    <h2 class="section-title">A 4-point grid on near-square corners</h2>
+    <p class="section-lede">Spacing on a 4-point step. Corners stay close to square — 2 to 6 pixels — to keep the document feel. Elevation is hairlines and paper edges, never the floating glassmorphic kind.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">Spacing</div>
+      <table class="tbl">
+        <tr><td class="mono">s‑1</td><td class="mono">4</td><td>Inline gap</td></tr>
+        <tr><td class="mono">s‑2</td><td class="mono">8</td><td>Tight rows</td></tr>
+        <tr><td class="mono">s‑3</td><td class="mono">12</td><td>Form rows</td></tr>
+        <tr><td class="mono">s‑4</td><td class="mono">16</td><td>Card padding</td></tr>
+        <tr><td class="mono">s‑6</td><td class="mono">24</td><td>Section gap</td></tr>
+        <tr><td class="mono">s‑7</td><td class="mono">32</td><td>Group gap</td></tr>
+        <tr><td class="mono">s‑9</td><td class="mono">48</td><td>Page gutters</td></tr>
+        <tr><td class="mono">s‑11</td><td class="mono">80</td><td>Section breaks</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">Radii</div>
+      <div class="row" style="gap:16px; margin-bottom:24px">
+        <div style="width:64px; height:64px; background:var(--paper-3); border:1px solid var(--rule-2); border-radius:var(--r-0)"></div>
+        <div style="width:64px; height:64px; background:var(--paper-3); border:1px solid var(--rule-2); border-radius:var(--r-1)"></div>
+        <div style="width:64px; height:64px; background:var(--paper-3); border:1px solid var(--rule-2); border-radius:var(--r-2)"></div>
+        <div style="width:64px; height:64px; background:var(--paper-3); border:1px solid var(--rule-2); border-radius:var(--r-3)"></div>
+        <div style="width:64px; height:64px; background:var(--paper-3); border:1px solid var(--rule-2); border-radius:var(--r-4)"></div>
+      </div>
+      <div class="eyebrow" style="margin-bottom:12px">Elevation</div>
+      <div class="row" style="gap:16px">
+        <div style="width:80px; height:64px; background:var(--paper); box-shadow:var(--elev-1); border-radius:var(--r-2)"></div>
+        <div style="width:80px; height:64px; background:var(--paper); box-shadow:var(--elev-2); border-radius:var(--r-2)"></div>
+        <div style="width:80px; height:64px; background:var(--paper); box-shadow:var(--elev-3); border-radius:var(--r-2)"></div>
+        <div style="width:80px; height:64px; background:var(--paper); box-shadow:var(--elev-4); border-radius:var(--r-2)"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §05 ICONOGRAPHY & MOTION                                -->
+<!-- ====================================================== -->
+<section id="s05" class="section">
+  <header class="section-head">
+    <div class="section-num">§05 — ICONOGRAPHY · MOTION</div>
+    <h2 class="section-title">Hairline icons, archival pace</h2>
+    <p class="section-lede">Stroke icons drawn at 1.25px on a 16-grid; never filled, never multicolour. Motion is paper-fast — short eases for state, longer eases for context.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:16px">Icon set (excerpt)</div>
+      <div class="grid-6" style="gap:12px">
+        <!-- 16x16 hairline icons -->
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M2 12L6 7l3 3 5-7"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M8 2l6 3v4c0 3-3 5-6 5s-6-2-6-5V5z"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M2 8h12M8 2v12"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M3 4h10M3 8h10M3 12h6"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M2 13l4-4 3 2 5-6"/><circle cx="13" cy="5" r="0.5" fill="currentColor"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><circle cx="8" cy="8" r="6"/><path d="M8 4v4M8 11v.01"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><rect x="3" y="3" width="10" height="10" rx="1"/><path d="M6 6h4v4H6z"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M2 8a6 6 0 0112 0M14 5v3h-3"/></svg>
+        <svg viewBox="0 0 16 16" width="32" height="32" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M3 11l5-7 5 7M5 11h6"/></svg>
+      </div>
+    </div>
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">Motion principles</div>
+      <table class="tbl">
+        <tr><td class="mono">t-fast</td><td class="mono">120ms</td><td>State change (hover, press)</td></tr>
+        <tr><td class="mono">t-base</td><td class="mono">220ms</td><td>Drawer, panel, modal in</td></tr>
+        <tr><td class="mono">t-slow</td><td class="mono">420ms</td><td>Paper turn (route change)</td></tr>
+        <tr><td class="mono">ease-out</td><td colspan="2">cubic-bezier(.2,.8,.2,1)</td></tr>
+      </table>
+      <div class="prose" style="margin-top:16px"><p><b>Don't: </b>parallax, springs, confetti, particle effects.<br><b>Do: </b>opacity, 4–8px y-translate, ledger-style row reveals on scroll.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §06 DATA VISUALISATION                                  -->
+<!-- ====================================================== -->
+<section id="s06" class="section">
+  <header class="section-head">
+    <div class="section-num">§06 — DATA-VIZ</div>
+    <h2 class="section-title">Chart-as-citation</h2>
+    <p class="section-lede">Numbers come first, sentences second, charts third. Charts are small multiples and inline sparks — sized to fit a paragraph, drawn in ink with a single accent for the variable in focus.</p>
+  </header>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-head"><h4>Equity sparkline</h4><span class="meta tnum">+1.84%</span></div>
+      <svg viewBox="0 0 200 60" width="100%" height="60" preserveAspectRatio="none">
+        <polyline points="0,40 15,38 30,42 45,30 60,32 75,28 90,30 105,22 120,24 135,18 150,20 165,14 180,18 195,10" fill="none" stroke="var(--ink)" stroke-width="1.25"/>
+        <line x1="0" y1="56" x2="200" y2="56" stroke="var(--rule)" stroke-width="1"/>
+      </svg>
+      <div class="row between" style="font: var(--t-mono-sm); color:var(--ink-3); margin-top:8px">
+        <span>30D</span><span>$10,000 → $10,184</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h4>Exposure bars</h4><span class="meta tnum">62% deployed</span></div>
+      <div class="bars" style="height:60px; gap:4px">
+        <i style="height:30%"></i><i style="height:55%"></i><i style="height:40%"></i><i style="height:80%"></i>
+        <i style="height:62%"></i><i style="height:48%"></i><i style="height:90%; background:var(--amber)"></i>
+        <i style="height:30%"></i><i style="height:25%"></i><i style="height:55%"></i><i style="height:42%"></i><i style="height:60%"></i>
+      </div>
+      <div class="row between" style="font: var(--t-mono-sm); color:var(--ink-3); margin-top:8px">
+        <span>Per holding</span><span>NVDA = 14% (cap 10%)</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h4>Risk gauge</h4><span class="meta">Steady</span></div>
+      <svg viewBox="0 0 200 80" width="100%" height="80">
+        <path d="M10 70 A 90 90 0 0 1 190 70" fill="none" stroke="var(--rule)" stroke-width="6" stroke-linecap="round"/>
+        <path d="M10 70 A 90 90 0 0 1 110 12" fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+        <line x1="100" y1="70" x2="148" y2="22" stroke="var(--amber)" stroke-width="2"/>
+        <circle cx="100" cy="70" r="4" fill="var(--ink)"/>
+      </svg>
+      <div class="row between" style="font: var(--t-mono-sm); color:var(--ink-3); margin-top:4px">
+        <span>0</span><span>Calm</span><span>Hot</span><span>10</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:24px">
+    <div class="eyebrow" style="margin-bottom:12px">Rules</div>
+    <div class="grid-2">
+      <ul style="margin:0; padding-left:18px; line-height:1.8;">
+        <li>Numerals always tabular, mono, weight 500.</li>
+        <li>Y-axis starts at zero only when context demands it; otherwise zoom but annotate.</li>
+        <li>One conviction colour per chart — green/red on PnL only.</li>
+        <li>No 3D, no rounded bars, no drop shadows, no animated reveals.</li>
+      </ul>
+      <ul style="margin:0; padding-left:18px; line-height:1.8;">
+        <li>Annotate, don't decorate: every spike gets a date or event.</li>
+        <li>Sparkline ≤ 32px tall in cards, ≤ 16px inline.</li>
+        <li>Risk gauges read 0–10 in plain language: <i>Calm · Steady · Warm · Hot</i>.</li>
+        <li>Always include the source and timestamp in caption.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §07 COMPONENTS                                          -->
+<!-- ====================================================== -->
+<section id="s07" class="section">
+  <header class="section-head">
+    <div class="section-num">§07 — COMPONENTS</div>
+    <h2 class="section-title">A small kit, well behaved</h2>
+    <p class="section-lede">Twelve component families cover the entire app. Each ships with default, hover, active, focus, disabled, error, loading, and success states.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">Buttons</div>
+      <div class="row" style="flex-wrap:wrap; gap:12px">
+        <button class="btn">Save changes</button>
+        <button class="btn secondary">Cancel</button>
+        <button class="btn ghost">Skip</button>
+        <button class="btn danger">Stop trading</button>
+        <button class="btn" disabled>Disabled</button>
+      </div>
+      <div class="row" style="flex-wrap:wrap; gap:12px; margin-top:12px">
+        <button class="btn lg">Continue</button>
+        <button class="btn">Default</button>
+        <button class="btn sm">Small</button>
+      </div>
+      <p class="muted" style="font:var(--t-body-sm); margin-top:12px">Filled = primary commit · Outline = secondary · Ghost = inline · Danger reserved for irreversible.</p>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">Inputs</div>
+      <div class="col" style="gap:14px">
+        <div class="field"><label>API key</label><input class="input mono" value="t212_pk_••••••••3829" /></div>
+        <div class="field"><label>Daily loss limit</label><input class="input" type="text" value="$50.00" /><span class="help">Pacekeeper stops new trades when reached. Open positions stay open.</span></div>
+        <div class="field"><label>Watchlist</label><input class="input err" value="N/A/X" /><span class="err">"N/A/X" isn't a recognised ticker. Try AAPL, MSFT, NVDA…</span></div>
+        <div class="field"><label>Notes</label><textarea class="textarea" rows="2" placeholder="Optional"></textarea></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">Toggles</div>
+      <div class="col" style="gap:14px">
+        <div class="row between"><span>Auto-update Pacekeeper</span><span class="switch on"></span></div>
+        <div class="row between"><span>Pause on earnings dates</span><span class="switch on"></span></div>
+        <div class="row between"><span>Trade outside market hours</span><span class="switch"></span></div>
+        <div class="row between"><span>Send anonymous diagnostics</span><span class="switch"></span></div>
+        <div class="row" style="gap:12px; margin-top:8px">
+          <span class="seg">
+            <button class="on">Beginner</button><button>Advanced</button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">Status badges</div>
+      <div class="row" style="flex-wrap:wrap; gap:8px">
+        <span class="badge demo"><span class="dot"></span>Demo</span>
+        <span class="badge live"><span class="dot"></span>Live</span>
+        <span class="badge up">+ 2.4%</span>
+        <span class="badge down">− 0.8%</span>
+        <span class="badge info">Scanning</span>
+        <span class="badge"><span class="dot"></span>Idle</span>
+      </div>
+      <hr class="hr">
+      <div class="eyebrow" style="margin-bottom:12px">Notices</div>
+      <div class="col" style="gap:8px">
+        <div class="notice info"><svg class="ico" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.25"><circle cx="8" cy="8" r="6"/><path d="M8 6v4M8 4v.01"/></svg><div class="body"><b>Heads up.</b> Earnings are tomorrow for NVDA — Pacekeeper will skip it.</div><div></div></div>
+        <div class="notice warn"><svg class="ico" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M8 2l6 11H2z"/><path d="M8 6v4M8 12v.01"/></svg><div class="body"><b>Daily loss approaching.</b> $42 of $50 limit used. Trading will pause at $50.</div><div></div></div>
+        <div class="notice err"><svg class="ico" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.25"><circle cx="8" cy="8" r="6"/><path d="M5 5l6 6M11 5l-6 6"/></svg><div class="body"><b>Couldn't reach the broker.</b> Pacekeeper paused. We'll retry every 30s.</div><div></div></div>
+        <div class="notice ok"><svg class="ico" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M3 8l3 3 7-7"/></svg><div class="body"><b>Connected.</b> Trading212 demo account · $10,000 paper balance.</div><div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:24px">
+    <div class="eyebrow" style="margin-bottom:12px">Data table</div>
+    <table class="tbl">
+      <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th class="mono">Avg</th><th class="mono">Last</th><th class="mono">P&L</th><th>Stop</th><th></th></tr></thead>
+      <tbody>
+        <tr class="row-up"><td class="mono">AAPL</td><td>Long</td><td class="num">8</td><td class="num">189.20</td><td class="num">192.41</td><td class="num"><span class="pl">+25.68</span></td><td class="num">185.41</td><td><button class="btn sm secondary">Close</button></td></tr>
+        <tr class="row-up"><td class="mono">MSFT</td><td>Long</td><td class="num">5</td><td class="num">412.10</td><td class="num">418.32</td><td class="num"><span class="pl">+31.10</span></td><td class="num">404.05</td><td><button class="btn sm secondary">Close</button></td></tr>
+        <tr class="row-down"><td class="mono">NVDA</td><td>Long</td><td class="num">4</td><td class="num">920.55</td><td class="num">912.00</td><td class="num"><span class="pl">−34.20</span></td><td class="num">902.14</td><td><button class="btn sm secondary">Close</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px">
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">Stepper</div>
+      <div class="stepper">
+        <div class="step done"><span class="dot">✓</span><span>Welcome</span></div>
+        <span class="bar"></span>
+        <div class="step done"><span class="dot">✓</span><span>License</span></div>
+        <span class="bar"></span>
+        <div class="step on"><span class="dot">3</span><span>Connect</span></div>
+        <span class="bar"></span>
+        <div class="step"><span class="dot">4</span><span>Safety</span></div>
+        <span class="bar"></span>
+        <div class="step"><span class="dot">5</span><span>Demo run</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:12px">Activity timeline</div>
+      <div class="timeline">
+        <div class="t-row up"><span class="when">14:32:08</span><span class="what"><b>Bought 4 MSFT</b> at $418.32. Stop set $14 below.</span><span class="meta">+$0.00</span></div>
+        <div class="t-row"><span class="when">14:14:02</span><span class="what">Considered <b>NVDA</b> — too close to earnings (1d). Skipped.</span><span class="meta">—</span></div>
+        <div class="t-row down"><span class="when">13:48:21</span><span class="what"><b>Closed AMZN</b> at stop. Daily loss $42 / $50.</span><span class="meta">−$18.40</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §08 SITEMAP                                             -->
+<!-- ====================================================== -->
+<section id="s08" class="section">
+  <header class="section-head">
+    <div class="section-num">§08 — SITEMAP</div>
+    <h2 class="section-title">Five places, no maze</h2>
+    <p class="section-lede">A flat top-level nav. Everything important is one click from anywhere. Advanced surfaces live behind disclosure, not behind menus.</p>
+  </header>
+
+  <div class="card">
+<pre style="font: var(--t-mono); color:var(--ink); margin:0; line-height:1.6; white-space:pre-wrap;">
+PACEKEEPER ─┬─ <b>Today</b>            Big-picture status · today's activity · pause switch
+            │
+            ├─ <b>Activity</b>         Plain-language feed · trades · skipped opportunities
+            │     ├── Trades
+            │     └── Decisions
+            │
+            ├─ <b>Markets</b>          Connected accounts · per-market dashboard
+            │     ├── Stocks (Trading212, IBKR…)
+            │     └── Prediction (Polymarket, Kalshi…)
+            │
+            ├─ <b>Rules</b>            Strategy + safety · Beginner / Advanced toggle
+            │     ├── Watchlist & scanner
+            │     ├── Sizing & risk
+            │     └── Schedule (hours · earnings · cooldown)
+            │
+            └─ <b>Settings</b>         Account · subscription · updates · help
+                  ├── Subscription
+                  ├── Updates & changelog
+                  ├── Notifications
+                  ├── Privacy & diagnostics
+                  └── Help & troubleshooting
+
+GLOBAL CHROME
+  • Mode bar     Demo / Live banner across full width, always visible
+  • Pause switch ⌘. anywhere — pauses new trades, leaves positions open
+  • Help drawer  ⌘? anywhere — search docs, copy a diagnostic bundle
+</pre>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §09 USER JOURNEYS                                       -->
+<!-- ====================================================== -->
+<section id="s09" class="section">
+  <header class="section-head">
+    <div class="section-num">§09 — JOURNEYS</div>
+    <h2 class="section-title">Eight flows, mapped</h2>
+    <p class="section-lede">Each journey is short, guided, and reversible. Anything that touches real money requires a typed confirmation; anything that costs money requires a second screen.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="card"><div class="eyebrow">A · First launch</div><ol style="line-height:1.8">
+      <li>Installer opens a single welcome window.</li>
+      <li>License key entered or "Start trial" — 14 days, no card.</li>
+      <li>Pick what to trade: Stocks · Prediction · Both.</li>
+      <li>Connect an account — keys are validated live.</li>
+      <li>Set safety dials: daily loss · max positions · cooldown.</li>
+      <li><b>Demo run</b> — paper trade for 24h before Live unlocks.</li>
+    </ol></div>
+    <div class="card"><div class="eyebrow">B · Activation</div><ol style="line-height:1.8">
+      <li>Paste license key (or sign in to recover).</li>
+      <li>Online check + offline fallback (signed token).</li>
+      <li>Bound to this machine name; show 2 of 2 seats used.</li>
+      <li>"Trial → paid" upgrades in place; no reinstall.</li>
+    </ol></div>
+    <div class="card"><div class="eyebrow">C · Connect a market</div><ol style="line-height:1.8">
+      <li>Pick the market provider.</li>
+      <li>Step-by-step: open broker site → API panel → copy key.</li>
+      <li>Paste; we test connection live (green check or plain error).</li>
+      <li>Choose <b>Demo</b> or <b>Live</b>; default Demo.</li>
+    </ol></div>
+    <div class="card"><div class="eyebrow">D · Demo → Live</div><ol style="line-height:1.8">
+      <li>Live tab is locked until 24h Demo completes.</li>
+      <li>Show Demo report: trades, win-rate, max drawdown.</li>
+      <li>"Switch to Live" requires typing the word LIVE.</li>
+      <li>Mode bar turns amber; subtle screen tint shifts.</li>
+      <li>"Switch back to Demo" is one click, anytime.</li>
+    </ol></div>
+    <div class="card"><div class="eyebrow">E · Daily use</div><ol style="line-height:1.8">
+      <li>Open Pacekeeper → Today screen.</li>
+      <li>Read three numbers: P&L · positions · headroom.</li>
+      <li>Skim the activity feed in plain English.</li>
+      <li>Pause at any time with ⌘. — resumes on next session.</li>
+    </ol></div>
+    <div class="card"><div class="eyebrow">F · Update</div><ol style="line-height:1.8">
+      <li>Background check on launch; never blocks trading.</li>
+      <li>Notice in top right: "Update available · what's new".</li>
+      <li>One-click install during a Pause window.</li>
+      <li>Failed update rolls back automatically; banner explains why.</li>
+    </ol></div>
+    <div class="card"><div class="eyebrow">G · Error recovery</div><ol style="line-height:1.8">
+      <li>Broker unreachable → auto-pause, retry every 30s.</li>
+      <li>Plain-language banner with last-success timestamp.</li>
+      <li>"Copy diagnostic bundle" instead of asking for logs.</li>
+      <li>Resume requires no action once link is restored.</li>
+    </ol></div>
+    <div class="card"><div class="eyebrow">H · Emergency stop</div><ol style="line-height:1.8">
+      <li>Big <b>Pause</b> in the title bar pauses new trades.</li>
+      <li><b>Stop everything</b> in safety panel closes all positions at market, with confirmation.</li>
+      <li>Logged with reason and timestamp; stays visible for 24h.</li>
+    </ol></div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §10 BEGINNER ↔ ADVANCED                                 -->
+<!-- ====================================================== -->
+<section id="s10" class="section">
+  <header class="section-head">
+    <div class="section-num">§10 — MODES</div>
+    <h2 class="section-title">One app, two postures</h2>
+    <p class="section-lede">Beginner mode is the default. It hides everything that isn't a decision the user cares about. Advanced exposes the same data with more density, more knobs, and live numerals.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="card"><div class="eyebrow">Beginner</div><ul style="line-height:1.8; padding-left:18px"><li>Three KPIs only: P&L today · positions · headroom.</li><li>Activity in sentences, not rows.</li><li>Sliders for safety, not number inputs.</li><li>Confirm dialogs name the consequence: "This sells 8 shares of AAPL at market".</li><li>Tooltips written for someone who has never opened a brokerage account.</li></ul></div>
+    <div class="card"><div class="eyebrow">Advanced</div><ul style="line-height:1.8; padding-left:18px"><li>Six-up KPI strip with sparklines.</li><li>Tabular activity with column controls.</li><li>Number inputs with units; ⌘-K command palette.</li><li>Strategy JSON viewer; raw signal log.</li><li>Per-market overrides; multi-account exposure view.</li></ul></div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §11 INSTALLER & FIRST RUN                               -->
+<!-- ====================================================== -->
+<section id="s11" class="section">
+  <header class="section-head">
+    <div class="section-num">§11 — INSTALLER</div>
+    <h2 class="section-title">A two-step installer that respects the user</h2>
+    <p class="section-lede">No upsells, no toolbars, no "do you really want to quit". A signed binary, a one-page installer, and a friendly first-run welcome.</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <div class="title">PACEKEEPER · INSTALLER · v1.0.0</div>
+      <div class="muted">Signed · Apple Notarised</div>
+    </div>
+    <div style="padding:48px 64px; display:grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;">
+      <div>
+        <div class="eyebrow">Pacekeeper for macOS</div>
+        <h3 style="font: var(--t-h1); margin: 12px 0 16px;">Install Pacekeeper</h3>
+        <p class="prose" style="color: var(--ink-2)">Pacekeeper installs into <span class="mono">/Applications</span>. It does not auto-launch, does not run in the background until you sign in, and does not phone home on install.</p>
+        <div class="row" style="gap:8px; margin-top:24px"><button class="btn lg">Install · 28 MB</button><button class="btn secondary lg">Move installer to Trash when done</button></div>
+        <div class="muted" style="font: var(--t-body-sm); margin-top:16px">By installing you accept the <a href="#">EULA</a> and <a href="#">privacy notice</a>. Pacekeeper does not collect trading data.</div>
+      </div>
+      <div class="card" style="background:var(--paper); border:1px solid var(--rule)">
+        <div class="eyebrow" style="margin-bottom:12px">What gets installed</div>
+        <table class="tbl">
+          <tr><td class="mono">/Applications/Pacekeeper.app</td><td class="num mono">24 MB</td></tr>
+          <tr><td class="mono">~/Library/Application Support/Pacekeeper</td><td class="num mono">on first run</td></tr>
+          <tr><td class="mono">~/Library/Preferences/io.pacekeeper.plist</td><td class="num mono">on first run</td></tr>
+        </table>
+        <div class="muted" style="font: var(--t-body-sm); margin-top:12px">No login items. No services. No kernel extensions.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §12 ONBOARDING                                          -->
+<!-- ====================================================== -->
+<section id="s12" class="section">
+  <header class="section-head">
+    <div class="section-num">§12 — ONBOARDING</div>
+    <h2 class="section-title">Five rooms, walked through</h2>
+    <p class="section-lede">A wizard with one question per screen. Skipping is allowed; finishing in Demo mode is the default outcome.</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · WELCOME</div><div class="muted">Step 3 of 5</div></div>
+    <div style="padding:48px 64px; display:grid; grid-template-columns: 280px 1fr; gap: 48px; min-height:520px;">
+      <aside style="border-right:1px solid var(--rule); padding-right:24px;">
+        <div class="eyebrow" style="margin-bottom:24px">YOUR FIRST 10 MINUTES</div>
+        <ol style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:14px;">
+          <li class="row" style="gap:12px"><span class="status-dot ok"></span><span class="muted">Welcome</span></li>
+          <li class="row" style="gap:12px"><span class="status-dot ok"></span><span class="muted">Activate license</span></li>
+          <li class="row" style="gap:12px"><span class="status-dot warn"></span><span><b>Connect a market</b></span></li>
+          <li class="row" style="gap:12px"><span class="status-dot" style="background:var(--rule-2)"></span><span class="muted">Set your safety dials</span></li>
+          <li class="row" style="gap:12px"><span class="status-dot" style="background:var(--rule-2)"></span><span class="muted">Run a 24-hour demo</span></li>
+        </ol>
+        <hr class="hr">
+        <div class="muted" style="font:var(--t-body-sm)">You can change any of this later in Settings. Nothing here moves real money.</div>
+      </aside>
+      <div>
+        <div class="eyebrow">STEP 3 · CONNECT A MARKET</div>
+        <h3 style="font: var(--t-h2); margin:12px 0 8px">Where would you like Pacekeeper to trade?</h3>
+        <p class="prose" style="color:var(--ink-2)">You can connect more later. Pick one to start. We'll walk you through getting an API key.</p>
+        <div class="grid-2" style="margin-top:24px;">
+          <label class="card" style="display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; cursor:pointer; border-color: var(--ink); background: var(--paper)">
+            <span class="status-dot" style="width:14px; height:14px; background:var(--ink); box-shadow: 0 0 0 3px var(--paper-3)"></span>
+            <div><b>Stocks &amp; ETFs</b><div class="muted" style="font:var(--t-body-sm)">Long-only or CFD via your broker</div></div>
+            <span class="badge">Recommended</span>
+          </label>
+          <label class="card" style="display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center; cursor:pointer">
+            <span class="status-dot" style="width:14px; height:14px; background:var(--paper-3); border:1px solid var(--rule-2)"></span>
+            <div><b>Prediction markets</b><div class="muted" style="font:var(--t-body-sm)">Event contracts · sports, politics, crypto</div></div>
+          </label>
+          <label class="card" style="display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center; cursor:pointer">
+            <span class="status-dot" style="width:14px; height:14px; background:var(--paper-3); border:1px solid var(--rule-2)"></span>
+            <div><b>Both</b><div class="muted" style="font:var(--t-body-sm)">Pacekeeper splits your daily budget across both</div></div>
+          </label>
+          <label class="card" style="display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center; cursor:pointer">
+            <span class="status-dot" style="width:14px; height:14px; background:var(--paper-3); border:1px solid var(--rule-2)"></span>
+            <div><b>Just look around</b><div class="muted" style="font:var(--t-body-sm)">Skip — connect a market later</div></div>
+          </label>
+        </div>
+        <div class="row between" style="margin-top:32px"><button class="btn ghost">← Back</button><button class="btn">Continue →</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §13 LICENSE ACTIVATION                                  -->
+<!-- ====================================================== -->
+<section id="s13" class="section">
+  <header class="section-head">
+    <div class="section-num">§13 — LICENSE</div>
+    <h2 class="section-title">Activation that doesn't feel like DRM</h2>
+    <p class="section-lede">Trial is one click. Activation is one paste. Recovery is an email link. Offline grace period of 14 days.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="frame">
+      <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">ACTIVATE PACEKEEPER</div><div></div></div>
+      <div style="padding:40px 48px;">
+        <h3 style="font: var(--t-h2); margin: 0 0 8px">Activate Pacekeeper</h3>
+        <p class="prose" style="color:var(--ink-2)">Already paid? Paste your key. Don't have one yet? Start a 14-day trial — no card needed.</p>
+        <div class="field" style="margin-top:24px"><label>License key</label><input class="input mono" value="PK-YEAR-A1B2-C3D4-E5F6-G7H8" /></div>
+        <div class="row between" style="margin-top:24px">
+          <button class="btn ghost">Start 14-day trial</button>
+          <button class="btn">Activate</button>
+        </div>
+        <hr class="hr">
+        <div class="muted" style="font:var(--t-body-sm)">Lost your key? <a href="#">Email a recovery link</a>. Pacekeeper validates online once a week and works offline for 14 days.</div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">LICENSE · SETTINGS</div><div></div></div>
+      <div style="padding:32px 36px;">
+        <div class="row between" style="align-items: flex-start;">
+          <div>
+            <div class="eyebrow">PLAN</div>
+            <h3 style="font:var(--t-h2); margin:6px 0 4px">Pacekeeper · Year</h3>
+            <div class="muted">Renews 2027-05-08 · $199.00</div>
+          </div>
+          <span class="badge demo"><span class="dot"></span>Active</span>
+        </div>
+        <hr class="hr">
+        <div class="grid-2" style="gap:16px">
+          <div><div class="label">SEATS</div><div class="mono" style="font-size:18px; margin-top:4px">2 of 2 used</div></div>
+          <div><div class="label">THIS MACHINE</div><div class="mono" style="font-size:18px; margin-top:4px">Mac mini · Studio</div></div>
+          <div><div class="label">LAST CHECK</div><div class="mono" style="font-size:18px; margin-top:4px">2 hours ago</div></div>
+          <div><div class="label">OFFLINE GRACE</div><div class="mono" style="font-size:18px; margin-top:4px">14 days</div></div>
+        </div>
+        <div class="row" style="gap:8px; margin-top:24px">
+          <button class="btn secondary">Move license</button>
+          <button class="btn ghost">Deactivate this machine</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §14 CONNECT A MARKET                                    -->
+<!-- ====================================================== -->
+<section id="s14" class="section">
+  <header class="section-head">
+    <div class="section-num">§14 — CONNECT</div>
+    <h2 class="section-title">Connecting a market in 60 seconds</h2>
+    <p class="section-lede">A two-pane screen: instructions on the left, the form on the right. Each broker has its own walkthrough; we never ask the user to read a docs site.</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">CONNECT · STOCKS</div><div></div></div>
+    <div style="display:grid; grid-template-columns: 360px 1fr;">
+      <aside style="background: var(--paper-2); padding: 32px; border-right: 1px solid var(--rule);">
+        <div class="eyebrow">HOW TO GET A KEY</div>
+        <h3 style="font:var(--t-h2); margin:8px 0 16px">Trading212</h3>
+        <ol style="line-height: 1.8; padding-left: 18px; color:var(--ink-2)">
+          <li>Open the Trading212 app on your phone.</li>
+          <li>Tap <b>Settings → API (Beta)</b>.</li>
+          <li>Tap <b>Generate key</b>.</li>
+          <li>Copy the key and the secret.</li>
+          <li>Paste both on the right.</li>
+        </ol>
+        <div class="notice info" style="margin-top:24px"><svg class="ico" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M8 2l6 3v4c0 3-3 5-6 5s-6-2-6-5V5z"/><path d="M6 8l1.5 1.5L11 6"/></svg><div class="body">Your key never leaves this machine. Pacekeeper stores it encrypted in your OS keychain.</div><div></div></div>
+      </aside>
+      <div style="padding: 40px 48px;">
+        <div class="row between" style="margin-bottom:24px">
+          <div>
+            <div class="eyebrow">YOUR KEY</div>
+            <h3 style="font:var(--t-h2); margin: 6px 0 0">Paste credentials</h3>
+          </div>
+          <div class="seg">
+            <button class="on">Demo</button><button>Live</button>
+          </div>
+        </div>
+        <div class="col" style="gap:14px">
+          <div class="field"><label>API key</label><input class="input mono" value="t212_pk_4f8a2c1e9b3d7f02" /></div>
+          <div class="field"><label>API secret</label><input class="input mono" value="••••••••••••••••" type="password" /></div>
+          <div class="field"><label>Account type</label>
+            <div class="seg" style="align-self:flex-start"><button class="on">Invest / ISA</button><button>CFD</button></div>
+            <div class="help">Invest is long-only. CFD lets Pacekeeper short — only enable if you understand it.</div>
+          </div>
+        </div>
+        <hr class="hr">
+        <div class="notice ok"><svg class="ico" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M3 8l3 3 7-7"/></svg><div class="body"><b>Connected.</b> Trading212 demo · paper balance $10,000.00 · 14 instruments allowed.</div><div></div></div>
+        <div class="row between" style="margin-top:32px">
+          <button class="btn ghost">← Back</button>
+          <div class="row" style="gap:8px"><button class="btn secondary">Test connection</button><button class="btn">Save &amp; continue</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §15 BEGINNER DASHBOARD                                  -->
+<!-- ====================================================== -->
+<section id="s15" class="section">
+  <header class="section-head">
+    <div class="section-num">§15 — TODAY · BEGINNER</div>
+    <h2 class="section-title">Three numbers, one paragraph, a switch</h2>
+    <p class="section-lede">If a user only ever sees this screen, they should know if Pacekeeper is OK, what it did today, and how much rope is left. The rest is folded away.</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · TODAY</div><div></div></div>
+    <div class="mode-bar"><span>· DEMO MODE — paper funds, no real money is moving ·</span><span class="lozenge"><span class="dot" style="width:6px;height:6px;background:var(--paper);border-radius:50%"></span>Demo</span></div>
+
+    <div class="app">
+      <aside class="app-side">
+        <div class="app-brand"><span class="glyph">P</span>Pacekeeper</div>
+        <nav class="app-nav">
+          <a class="on" href="#"><span class="label"><span class="ico">●</span>Today</span></a>
+          <a href="#"><span class="label"><span class="ico">›</span>Activity</span><span class="muted mono" style="font-size:10px">28</span></a>
+          <a href="#"><span class="label"><span class="ico">›</span>Markets</span></a>
+          <a href="#"><span class="label"><span class="ico">›</span>Rules</span></a>
+          <div class="group">SETTINGS</div>
+          <a href="#"><span class="label"><span class="ico">›</span>Subscription</span></a>
+          <a href="#"><span class="label"><span class="ico">›</span>Help &amp; updates</span></a>
+        </nav>
+        <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
+          <div class="muted" style="font:var(--t-mono-sm)">v1.0.0 · up to date</div>
+          <div class="row" style="gap:8px"><span class="status-dot ok"></span><span style="font:var(--t-body-sm)">Connected</span></div>
+        </div>
+      </aside>
+
+      <div class="app-main">
+        <div class="app-top">
+          <div class="crumbs">Today · <b>Tuesday, May 8</b></div>
+          <div class="actions">
+            <span class="badge"><span class="dot"></span>Idle · next scan 2:14</span>
+            <button class="btn secondary">⌘. Pause</button>
+            <button class="btn danger">Stop everything</button>
+          </div>
+        </div>
+        <div class="app-body">
+          <div class="grid-3">
+            <div class="stat">
+              <span class="label">P&amp;L TODAY</span>
+              <span class="value up">+$24.18</span>
+              <span class="delta up tnum">+0.24% · 3 wins, 1 loss</span>
+              <svg class="spark" viewBox="0 0 200 28" preserveAspectRatio="none"><polyline points="0,18 30,16 60,12 90,14 120,10 150,12 180,8 200,6" fill="none" stroke="var(--sage)" stroke-width="1.5"/></svg>
+            </div>
+            <div class="stat">
+              <span class="label">OPEN POSITIONS</span>
+              <span class="value">3 of 10</span>
+              <span class="delta tnum muted">$8,450 deployed · $1,550 cash</span>
+              <div class="bars" style="height:28px; gap:3px; margin-top:8px">
+                <i style="height:80%"></i><i style="height:60%"></i><i style="height:30%"></i>
+                <i style="height:0; background:var(--rule-2)"></i><i style="height:0; background:var(--rule-2)"></i>
+                <i style="height:0; background:var(--rule-2)"></i><i style="height:0; background:var(--rule-2)"></i>
+                <i style="height:0; background:var(--rule-2)"></i><i style="height:0; background:var(--rule-2)"></i>
+                <i style="height:0; background:var(--rule-2)"></i>
+              </div>
+            </div>
+            <div class="stat">
+              <span class="label">DAILY LOSS HEADROOM</span>
+              <span class="value">$50</span>
+              <span class="delta muted tnum">$0 used today · resets at midnight</span>
+              <div style="height:6px; background:var(--paper-4); border-radius:99px; margin-top:14px; overflow:hidden">
+                <div style="width:0%; height:100%; background:var(--ink)"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h4>Here's what Pacekeeper has been up to</h4><span class="meta">Plain English · ⌘L for full log</span></div>
+            <div class="prose" style="font: 400 16px/1.65 var(--sans); color:var(--ink); max-width: 70ch;">
+              The market opened quietly. Pacekeeper bought <b>4 MSFT</b> just after 09:35 because volume was building under the 10-day average and the trend was favourable. It later closed <b>AMZN</b> at its stop after the price dropped 2% — a small loss, well within today's limit. It looked at <b>NVDA</b> twice, but earnings are tomorrow, so it stayed away.
+            </div>
+            <div class="row" style="gap:8px; margin-top:16px"><button class="btn secondary sm">Read today's full activity →</button><button class="btn ghost sm">Why these decisions?</button></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h4>Open positions</h4><span class="meta">3 holdings · auto-refreshing</span></div>
+            <table class="tbl">
+              <thead><tr><th>Symbol</th><th>Qty</th><th class="mono">Avg</th><th class="mono">Last</th><th class="mono">Today</th><th>Stop</th><th></th></tr></thead>
+              <tbody>
+                <tr class="row-up"><td class="mono">AAPL</td><td class="num">8</td><td class="num">189.20</td><td class="num">192.41</td><td class="num"><span class="pl">+$25.68</span></td><td class="num">185.41</td><td><button class="btn sm secondary">Close</button></td></tr>
+                <tr class="row-up"><td class="mono">MSFT</td><td class="num">5</td><td class="num">412.10</td><td class="num">418.32</td><td class="num"><span class="pl">+$31.10</span></td><td class="num">404.05</td><td><button class="btn sm secondary">Close</button></td></tr>
+                <tr class="row-down"><td class="mono">META</td><td class="num">3</td><td class="num">488.55</td><td class="num">478.30</td><td class="num"><span class="pl">−$30.75</span></td><td class="num">468.20</td><td><button class="btn sm secondary">Close</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §16 ADVANCED DASHBOARD                                  -->
+<!-- ====================================================== -->
+<section id="s16" class="section">
+  <header class="section-head">
+    <div class="section-num">§16 — TODAY · ADVANCED</div>
+    <h2 class="section-title">Same data, more knobs</h2>
+    <p class="section-lede">A six-up KPI strip, a 30-day equity curve, the live decision log on the right. Same pause, same stop. The user can return to Beginner with one toggle.</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · TODAY · ADVANCED</div><div></div></div>
+    <div class="mode-bar"><span>· DEMO MODE — paper funds, no real money is moving ·</span><span class="lozenge">Demo</span></div>
+    <div class="app">
+      <aside class="app-side">
+        <div class="app-brand"><span class="glyph">P</span>Pacekeeper</div>
+        <nav class="app-nav">
+          <a class="on"><span class="label"><span class="ico">●</span>Today</span></a>
+          <a><span class="label"><span class="ico">›</span>Activity</span></a>
+          <a><span class="label"><span class="ico">›</span>Markets</span></a>
+          <a><span class="label"><span class="ico">›</span>Rules</span></a>
+          <div class="group">VIEW</div>
+          <a><span class="label"><span class="ico">›</span>Strategy JSON</span></a>
+          <a><span class="label"><span class="ico">›</span>Signal log</span></a>
+          <a><span class="label"><span class="ico">›</span>Diagnostics</span></a>
+        </nav>
+      </aside>
+      <div class="app-main">
+        <div class="app-top">
+          <div class="crumbs">Today · <b>Advanced view</b></div>
+          <div class="actions">
+            <span class="seg"><button>Beginner</button><button class="on">Advanced</button></span>
+            <button class="btn secondary sm">⌘K</button>
+            <button class="btn secondary sm">⌘. Pause</button>
+          </div>
+        </div>
+        <div class="app-body">
+          <div class="grid-6">
+            <div class="stat" style="padding:14px 16px"><span class="label">P&amp;L · DAY</span><span class="value" style="font-size:22px">+$24.18</span><svg class="spark" viewBox="0 0 200 28" preserveAspectRatio="none"><polyline points="0,18 30,16 60,12 90,14 120,10 150,12 180,8 200,6" fill="none" stroke="var(--sage)" stroke-width="1.5"/></svg></div>
+            <div class="stat" style="padding:14px 16px"><span class="label">P&amp;L · 30D</span><span class="value" style="font-size:22px">+$614</span><svg class="spark" viewBox="0 0 200 28" preserveAspectRatio="none"><polyline points="0,22 20,18 40,20 60,14 80,16 100,12 120,8 140,12 160,6 180,10 200,4" fill="none" stroke="var(--ink)" stroke-width="1.5"/></svg></div>
+            <div class="stat" style="padding:14px 16px"><span class="label">EXPOSURE</span><span class="value" style="font-size:22px">62%</span><div class="bars" style="height:20px; gap:2px; margin-top:8px"><i style="height:30%"></i><i style="height:55%"></i><i style="height:40%"></i><i style="height:80%"></i><i style="height:62%"></i><i style="height:48%"></i><i style="height:90%; background:var(--amber)"></i></div></div>
+            <div class="stat" style="padding:14px 16px"><span class="label">WIN RATE 30D</span><span class="value" style="font-size:22px">58%</span><span class="delta muted tnum">42 / 72 trades</span></div>
+            <div class="stat" style="padding:14px 16px"><span class="label">MAX DD 30D</span><span class="value down" style="font-size:22px">−4.2%</span><span class="delta muted tnum">on Apr 18</span></div>
+            <div class="stat" style="padding:14px 16px"><span class="label">SHARPE 30D</span><span class="value" style="font-size:22px">1.21</span><span class="delta muted tnum">target ≥ 1.0</span></div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1.6fr 1fr; gap:24px; min-height:280px;">
+            <div class="card">
+              <div class="card-head"><h4>Equity curve · 30 days</h4><span class="meta">$10,000 → $10,614 · annot. event May 5</span></div>
+              <svg viewBox="0 0 600 220" width="100%" height="220">
+                <defs><pattern id="grid" width="60" height="22" patternUnits="userSpaceOnUse"><path d="M0 22h60" stroke="oklch(0.86 0.012 70)" stroke-width="1"/></pattern></defs>
+                <rect width="600" height="220" fill="url(#grid)"/>
+                <polyline points="0,180 30,178 60,170 90,165 120,168 150,150 180,148 210,138 240,140 270,128 300,130 330,118 360,108 390,114 420,98 450,90 480,96 510,82 540,78 570,68 600,60" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+                <line x1="300" y1="0" x2="300" y2="220" stroke="var(--amber)" stroke-width="1" stroke-dasharray="2 3"/>
+                <text x="305" y="20" fill="var(--ink-2)" font-family="JetBrains Mono" font-size="10">May 5 · earnings pause</text>
+              </svg>
+            </div>
+            <div class="card">
+              <div class="card-head"><h4>Live decisions</h4><span class="meta mono">tail -f signals.log</span></div>
+              <div class="timeline" style="font:var(--t-mono-sm)">
+                <div class="t-row up"><span class="when">14:32:08</span><span class="what mono"><b>BUY</b> MSFT × 4 @ 418.32 · conf 0.78</span><span class="meta">+$0</span></div>
+                <div class="t-row"><span class="when">14:14:02</span><span class="what mono">SKIP NVDA · earnings_window=1d</span><span class="meta">—</span></div>
+                <div class="t-row down"><span class="when">13:48:21</span><span class="what mono"><b>STOP</b> AMZN × 2 @ 175.40 · loss=$18.40</span><span class="meta">−$18</span></div>
+                <div class="t-row"><span class="when">13:30:11</span><span class="what mono">SCAN watchlist=14 candidates=3</span><span class="meta">—</span></div>
+                <div class="t-row up"><span class="when">10:14:55</span><span class="what mono"><b>BUY</b> AAPL × 8 @ 189.20 · conf 0.72</span><span class="meta">+$0</span></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §17 ACTIVITY FEED                                       -->
+<!-- ====================================================== -->
+<section id="s17" class="section">
+  <header class="section-head">
+    <div class="section-num">§17 — ACTIVITY</div>
+    <h2 class="section-title">Logs, in plain English</h2>
+    <p class="section-lede">A reverse-chronological feed of trades and decisions, written as sentences. Each row links to a "Why?" panel that shows the same event in the language a developer would want.</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · ACTIVITY</div><div></div></div>
+    <div class="mode-bar"><span>· DEMO MODE ·</span><span class="lozenge">Demo</span></div>
+    <div style="display:grid; grid-template-columns: 1fr 360px; min-height:520px;">
+      <div style="padding:24px 32px;">
+        <div class="row between" style="margin-bottom:16px">
+          <div class="seg"><button class="on">All</button><button>Trades</button><button>Skipped</button><button>System</button></div>
+          <input class="input" style="width:280px" placeholder="Search by symbol or word…" />
+        </div>
+        <div class="timeline">
+          <div class="t-row"><span class="when">May 8 · 14:32</span><span class="what"><b>Bought 4 MSFT</b> at $418.32 — volume building, trend favourable. Stop set $14 below entry.</span><span class="meta">+$0.00</span></div>
+          <div class="t-row"><span class="when">May 8 · 14:14</span><span class="what"><b>Skipped NVDA</b> — earnings tomorrow, our rule pauses for 2 days before.</span><span class="meta">—</span></div>
+          <div class="t-row down"><span class="when">May 8 · 13:48</span><span class="what"><b>Closed AMZN</b> at stop. Down 2% from entry · within today's $50 limit.</span><span class="meta">−$18.40</span></div>
+          <div class="t-row"><span class="when">May 8 · 13:30</span><span class="what"><b>Scanned 14 names</b>, found 3 worth watching, acted on 1.</span><span class="meta">—</span></div>
+          <div class="t-row up"><span class="when">May 8 · 10:14</span><span class="what"><b>Bought 8 AAPL</b> at $189.20 — pullback to 10-day average, RSI 42.</span><span class="meta">+$0.00</span></div>
+          <div class="t-row"><span class="when">May 8 · 09:30</span><span class="what">Market opened. Cash on hand $10,000. Watchlist: 14 names.</span><span class="meta">—</span></div>
+          <div class="t-row"><span class="when">May 7 · 16:00</span><span class="what">Market closed. Day total +$32.10. Held 2 positions overnight per rules.</span><span class="meta">+$32.10</span></div>
+        </div>
+      </div>
+      <aside style="background:var(--paper-2); border-left:1px solid var(--rule); padding:24px;">
+        <div class="eyebrow">WHY THIS DECISION</div>
+        <h4 style="font:var(--t-h3); margin:8px 0 12px">Buy MSFT × 4 @ $418.32</h4>
+        <table class="tbl">
+          <tr><td>Confidence</td><td class="num"><b>0.78</b></td></tr>
+          <tr><td>RSI(14)</td><td class="num">52.4</td></tr>
+          <tr><td>Volume vs SMA10</td><td class="num">+22%</td></tr>
+          <tr><td>Earnings window</td><td class="num">clear (12 days)</td></tr>
+          <tr><td>Position cap</td><td class="num">5% / max 5%</td></tr>
+        </table>
+        <hr class="hr">
+        <div class="muted" style="font:var(--t-body-sm)">Pacekeeper made this call at 14:32:08 using strategy v1.3. <a href="#">View raw signal</a></div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §18 SCANNER & RULES                                     -->
+<!-- ====================================================== -->
+<section id="s18" class="section">
+  <header class="section-head">
+    <div class="section-num">§18 — RULES</div>
+    <h2 class="section-title">Sliders for safety, words for behaviour</h2>
+    <p class="section-lede">All trading rules in one place, organised by question — "What do you want to trade?", "How much per trade?", "When do you want to pause?".</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · RULES</div><div></div></div>
+    <div style="padding:32px 40px; display:grid; grid-template-columns: 1fr 1fr; gap:32px;">
+      <div>
+        <div class="eyebrow">WATCHLIST &amp; SCANNER</div>
+        <h3 style="font:var(--t-h2); margin:8px 0 16px">What to look at</h3>
+        <div class="card">
+          <div class="row between" style="margin-bottom:8px"><span class="label">YOUR WATCHLIST · 14 NAMES</span><button class="btn ghost sm">Edit</button></div>
+          <div class="row" style="gap:6px; flex-wrap:wrap">
+            <span class="badge">AAPL</span><span class="badge">MSFT</span><span class="badge">NVDA</span><span class="badge">META</span>
+            <span class="badge">GOOGL</span><span class="badge">AMZN</span><span class="badge">TSLA</span><span class="badge">SPY</span>
+            <span class="badge">QQQ</span><span class="badge">JPM</span><span class="badge">V</span><span class="badge">UNH</span>
+            <span class="badge">XOM</span><span class="badge">JNJ</span>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="label" style="margin-bottom:14px">SCAN SETTINGS</div>
+          <div class="col" style="gap:14px">
+            <div class="field"><label>Run a scan every</label><div class="row" style="gap:12px"><div class="seg"><button>1 min</button><button class="on">5 min</button><button>15 min</button></div></div></div>
+            <div class="field"><label>Minimum confidence to act</label><div class="mono" style="font-size:18px">0.60 — Cautious</div><input type="range" min="0" max="100" value="60" style="accent-color: var(--ink)"/></div>
+            <div class="row between"><span>Only buy near 10-day moving average</span><span class="switch on"></span></div>
+            <div class="row between"><span>Allow short positions (CFD)</span><span class="switch"></span></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="eyebrow">SCHEDULE</div>
+        <h3 style="font:var(--t-h2); margin:8px 0 16px">When to act</h3>
+        <div class="card">
+          <div class="col" style="gap:14px">
+            <div class="row between"><span>Trade only during market hours</span><span class="switch on"></span></div>
+            <div class="row between"><span>Pause 2 days before / 1 day after earnings</span><span class="switch on"></span></div>
+            <div class="row between"><span>Skip the first &amp; last 15 minutes</span><span class="switch on"></span></div>
+            <div class="row between"><span>Cooldown 10 minutes between trades on the same symbol</span><span class="switch on"></span></div>
+          </div>
+        </div>
+        <div class="eyebrow" style="margin-top:24px">PRESETS</div>
+        <div class="grid-3" style="margin-top:8px">
+          <button class="btn secondary" style="flex-direction:column; padding:16px">Conservative<span class="muted" style="font-size:11px">low risk · 3 names</span></button>
+          <button class="btn secondary" style="flex-direction:column; padding:16px">Balanced<span class="muted" style="font-size:11px">default · 14 names</span></button>
+          <button class="btn secondary" style="flex-direction:column; padding:16px">Active<span class="muted" style="font-size:11px">higher cadence</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §19 SAFETY                                              -->
+<!-- ====================================================== -->
+<section id="s19" class="section">
+  <header class="section-head">
+    <div class="section-num">§19 — SAFETY</div>
+    <h2 class="section-title">A panic room with one big button</h2>
+    <p class="section-lede">All the ways to stop, in one screen. Numbers shown as ranges; consequences spelled out in sentences. The big red button is exactly that — big and red.</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · SAFETY</div><div></div></div>
+    <div style="padding:32px 40px; display:grid; grid-template-columns: 1fr 1fr; gap:32px;">
+      <div>
+        <div class="eyebrow">YOUR LIMITS</div>
+        <h3 style="font:var(--t-h2); margin:8px 0 16px">Where Pacekeeper stops</h3>
+        <div class="card"><div class="col" style="gap:18px">
+          <div class="field"><label>Daily loss limit</label><div class="mono" style="font-size:20px">$50.00 / day</div><input type="range" min="10" max="500" value="50" style="accent-color: var(--ink)"/><div class="help">When today's losses reach $50, Pacekeeper stops opening new trades. Existing positions stay open.</div></div>
+          <div class="field"><label>Max open positions</label><div class="mono" style="font-size:20px">10 holdings</div><input type="range" min="1" max="40" value="10" style="accent-color: var(--ink)"/></div>
+          <div class="field"><label>Max single position</label><div class="mono" style="font-size:20px">5% of cash</div><input type="range" min="1" max="25" value="5" style="accent-color: var(--ink)"/></div>
+          <div class="field"><label>Stop-loss / take-profit</label><div class="row" style="gap:8px"><input class="input mono" value="−2.0%" style="width:90px"/><input class="input mono" value="+4.0%" style="width:90px"/></div></div>
+        </div></div>
+      </div>
+      <div>
+        <div class="eyebrow">EMERGENCY</div>
+        <h3 style="font:var(--t-h2); margin:8px 0 16px">If something feels wrong</h3>
+        <div class="card" style="border-color: var(--rule-2)">
+          <h4 style="margin:0 0 6px; font:var(--t-h3)">Pause trading</h4>
+          <p class="muted" style="font:var(--t-body-sm); margin:0 0 12px">Stops opening new trades. Open positions keep their stops. Reversible in one click.</p>
+          <button class="btn secondary">⌘. Pause</button>
+        </div>
+        <div class="card" style="margin-top:12px; border:1px solid var(--crimson); background: var(--crimson-soft);">
+          <h4 style="margin:0 0 6px; font:var(--t-h3); color: var(--crimson)">Stop everything</h4>
+          <p style="font:var(--t-body-sm); margin:0 0 12px; color:var(--ink-2)">Closes all open positions at the next available market price. You'll be asked to type STOP to confirm. This is irreversible.</p>
+          <button class="btn danger">Stop everything</button>
+        </div>
+        <div class="card" style="margin-top:12px"><h4 style="margin:0 0 6px; font:var(--t-h3)">Switch to Demo</h4><p class="muted" style="font:var(--t-body-sm); margin:0 0 12px">Disconnects Live and runs the same strategy on paper money. Rejoin Live at any time.</p><button class="btn secondary">Switch to Demo</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §20 UPDATE FLOW                                         -->
+<!-- ====================================================== -->
+<section id="s20" class="section">
+  <header class="section-head">
+    <div class="section-num">§20 — UPDATES</div>
+    <h2 class="section-title">Updates that don't interrupt</h2>
+    <p class="section-lede">Pacekeeper checks in the background, never blocks trading, and installs only during a Pause. Failures roll back automatically and explain themselves.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="frame"><div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">UPDATE AVAILABLE · v1.0.4</div><div></div></div>
+      <div style="padding:32px;">
+        <div class="row between" style="margin-bottom:8px"><h4 style="margin:0; font:var(--t-h2)">Pacekeeper 1.0.4</h4><span class="muted mono">Released 2 days ago</span></div>
+        <p class="muted" style="font:var(--t-body-sm); margin:0 0 16px">A small update. Pacekeeper will keep trading until you choose to install — installation takes about 15 seconds and will pause briefly.</p>
+        <div class="card" style="background:var(--paper); border:1px solid var(--rule)">
+          <div class="eyebrow">WHAT'S NEW</div>
+          <ul style="margin:8px 0 0; padding-left:18px; line-height:1.8">
+            <li>Activity feed now explains skipped opportunities.</li>
+            <li>Connection retries are gentler on flaky Wi-Fi.</li>
+            <li>Earnings calendar covers 14 more exchanges.</li>
+            <li class="muted">Fixes a rare crash on quit.</li>
+          </ul>
+        </div>
+        <div class="row between" style="margin-top:24px"><button class="btn ghost">Remind me tomorrow</button><div class="row" style="gap:8px"><button class="btn secondary">Read full notes</button><button class="btn">Install &amp; restart</button></div></div>
+      </div>
+    </div>
+
+    <div class="frame">
+      <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">UPDATE FAILED · ROLLED BACK</div><div></div></div>
+      <div style="padding:32px;">
+        <div class="notice err"><svg class="ico" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.25"><circle cx="8" cy="8" r="6"/><path d="M5 5l6 6M11 5l-6 6"/></svg><div class="body"><b>The update couldn't finish.</b> We rolled back to 1.0.3 and resumed Pacekeeper. Nothing was lost.</div><div></div></div>
+        <h4 style="margin:24px 0 4px; font:var(--t-h3)">What happened</h4>
+        <p class="prose" style="color:var(--ink-2); font:var(--t-body-sm)">The download couldn't be verified. This is usually a temporary network issue. We'll try again automatically tonight.</p>
+        <div class="row" style="gap:8px; margin-top:16px"><button class="btn secondary">Try again now</button><button class="btn ghost">Copy diagnostic bundle</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §21 HELP                                                -->
+<!-- ====================================================== -->
+<section id="s21" class="section">
+  <header class="section-head">
+    <div class="section-num">§21 — HELP</div>
+    <h2 class="section-title">An always-available help drawer</h2>
+    <p class="section-lede">Press ⌘? anywhere to open. Search, browse, or copy a diagnostic bundle to send to support — no terminal required.</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · HELP</div><div></div></div>
+    <div style="display:grid; grid-template-columns: 320px 1fr;">
+      <aside style="border-right:1px solid var(--rule); padding:24px; background:var(--paper-2);">
+        <input class="input" placeholder="Search help…" style="margin-bottom:16px"/>
+        <div class="eyebrow">QUICK ANSWERS</div>
+        <ul style="list-style:none; padding:0; margin:8px 0 24px; display:flex; flex-direction:column; gap:6px;">
+          <li><a href="#" style="border:0; color:var(--ink)">Why did Pacekeeper skip NVDA?</a></li>
+          <li><a href="#" style="border:0; color:var(--ink)">Demo vs Live — what's the difference?</a></li>
+          <li><a href="#" style="border:0; color:var(--ink)">My broker says "Unauthorized"</a></li>
+          <li><a href="#" style="border:0; color:var(--ink)">How do I move my license to a new computer?</a></li>
+          <li><a href="#" style="border:0; color:var(--ink)">Can I export my trade history?</a></li>
+        </ul>
+        <div class="eyebrow">CONTACT</div>
+        <p class="muted" style="font:var(--t-body-sm); margin-top:8px">support@pacekeeper.app · usually 1 business day</p>
+      </aside>
+      <div style="padding:32px 40px;">
+        <div class="eyebrow">TROUBLESHOOTING</div>
+        <h3 style="font:var(--t-h2); margin:8px 0 16px">My broker says "Unauthorized"</h3>
+        <p class="prose" style="color:var(--ink-2)">This usually means the API key is correct but the broker hasn't enabled your account for API trading yet. Walk through the three steps below — most people fix this in under a minute.</p>
+        <ol style="line-height:1.8; padding-left:18px; margin-top:16px">
+          <li>Open your broker's app and confirm <b>API access</b> is on.</li>
+          <li>Re-generate the key, paste it back into Pacekeeper, then click <b>Test connection</b>.</li>
+          <li>If it still fails, click <b>Copy diagnostic bundle</b> below and email it to support.</li>
+        </ol>
+        <div class="card" style="margin-top:24px; background:var(--paper)">
+          <div class="row between"><div><b>Diagnostic bundle</b><div class="muted" style="font:var(--t-body-sm)">A redacted .zip with versions, last 50 events, and your settings. No keys included.</div></div><button class="btn secondary">Copy bundle</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §22 ACCOUNT / SUBSCRIPTION                              -->
+<!-- ====================================================== -->
+<section id="s22" class="section">
+  <header class="section-head">
+    <div class="section-num">§22 — ACCOUNT</div>
+    <h2 class="section-title">Your plan, your seats, your invoices</h2>
+    <p class="section-lede">Plain settings, no dark patterns. Cancel is one click and never asks why.</p>
+  </header>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · SUBSCRIPTION</div><div></div></div>
+    <div style="padding:32px 40px; display:grid; grid-template-columns: 1.4fr 1fr; gap:32px;">
+      <div>
+        <div class="eyebrow">PLAN</div>
+        <h3 style="font:var(--t-h2); margin:8px 0 0">Pacekeeper · Year</h3>
+        <div class="row" style="gap:12px; align-items:baseline; margin:8px 0 16px"><span class="mono" style="font-size:32px">$199.00</span><span class="muted">per year · works out to ~$16.58 / month</span></div>
+        <div class="card">
+          <div class="grid-2" style="gap:16px">
+            <div><div class="label">RENEWS</div><div class="mono" style="font-size:18px; margin-top:4px">2027-05-08</div></div>
+            <div><div class="label">PAYMENT</div><div class="mono" style="font-size:18px; margin-top:4px">VISA ····3829</div></div>
+            <div><div class="label">SEATS</div><div class="mono" style="font-size:18px; margin-top:4px">2 of 2</div></div>
+            <div><div class="label">SINCE</div><div class="mono" style="font-size:18px; margin-top:4px">2026-05-08</div></div>
+          </div>
+          <hr class="hr">
+          <div class="row" style="gap:8px"><button class="btn secondary">Update card</button><button class="btn secondary">Manage seats</button><button class="btn ghost">Cancel renewal</button></div>
+        </div>
+        <div class="eyebrow" style="margin-top:24px">INVOICES</div>
+        <table class="tbl" style="margin-top:8px">
+          <tr><td class="mono">2026-05-08</td><td>Pacekeeper · Year</td><td class="num">$199.00</td><td class="muted">Paid</td><td><a href="#">PDF</a></td></tr>
+        </table>
+      </div>
+      <aside class="card" style="background:var(--paper-2)">
+        <div class="eyebrow">FREQUENTLY ASKED</div>
+        <h4 style="font:var(--t-h3); margin:8px 0">Can I get a refund?</h4>
+        <p class="muted" style="font:var(--t-body-sm)">Yes — within 14 days of purchase, no questions. Email support.</p>
+        <h4 style="font:var(--t-h3); margin:16px 0 8px">What happens if my license expires?</h4>
+        <p class="muted" style="font:var(--t-body-sm)">Pacekeeper stops trading. Your settings, history, and connections stay put. Renew any time to resume.</p>
+        <h4 style="font:var(--t-h3); margin:16px 0 8px">How many computers?</h4>
+        <p class="muted" style="font:var(--t-body-sm)">Two. Move a seat at any time from this screen.</p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §23 EMPTY / LOADING / ERROR / OFFLINE                   -->
+<!-- ====================================================== -->
+<section id="s23" class="section">
+  <header class="section-head">
+    <div class="section-num">§23 — STATES</div>
+    <h2 class="section-title">Empty · loading · error · offline</h2>
+    <p class="section-lede">Every screen has all four. Empty states explain what would be here. Loading uses a single subtle paper-edge shimmer, never spinners. Errors include a one-line "what now". Offline mode is a first-class citizen — Pacekeeper keeps showing the last known good state.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="card"><div class="eyebrow">EMPTY · ACTIVITY</div>
+      <div style="padding:32px 8px; text-align:center;">
+        <svg width="40" height="40" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" style="color:var(--ink-3)"><circle cx="8" cy="8" r="6"/><path d="M5 8h6"/></svg>
+        <h4 style="font:var(--t-h3); margin:16px 0 4px">Nothing yet today</h4>
+        <p class="muted" style="font:var(--t-body-sm); margin:0 auto; max-width:42ch">Pacekeeper is watching the market. The next scan runs in 2 minutes. Activity will appear here as decisions are made.</p>
+      </div>
+    </div>
+    <div class="card"><div class="eyebrow">LOADING · PRICES</div>
+      <div style="padding:24px 8px;">
+        <div style="height:18px; background: linear-gradient(90deg, var(--paper-3), var(--paper-2), var(--paper-3)); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; border-radius:var(--r-1); margin-bottom:8px;"></div>
+        <div style="height:18px; background: linear-gradient(90deg, var(--paper-3), var(--paper-2), var(--paper-3)); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; border-radius:var(--r-1); width:80%; margin-bottom:8px;"></div>
+        <div style="height:18px; background: linear-gradient(90deg, var(--paper-3), var(--paper-2), var(--paper-3)); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; border-radius:var(--r-1); width:60%;"></div>
+        <p class="muted" style="font:var(--t-body-sm); margin:16px 0 0">Fetching prices from the broker…</p>
+      </div>
+    </div>
+    <div class="card"><div class="eyebrow">ERROR · BROKER</div>
+      <div class="notice err" style="margin-top:8px"><svg class="ico" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.25"><circle cx="8" cy="8" r="6"/><path d="M5 5l6 6M11 5l-6 6"/></svg><div class="body"><b>We can't reach Trading212.</b> Pacekeeper paused at 14:32. Last successful check 2 minutes ago. We're trying again every 30 seconds.</div><div></div></div>
+      <div class="row" style="gap:8px; margin-top:12px"><button class="btn secondary">Retry now</button><button class="btn ghost">Open status page</button><button class="btn ghost">Copy diagnostics</button></div>
+    </div>
+    <div class="card"><div class="eyebrow">OFFLINE</div>
+      <div class="notice warn" style="margin-top:8px"><svg class="ico" viewBox="0 0 16 16" stroke="currentColor" fill="none" stroke-width="1.25"><path d="M2 8a8 8 0 0112 0M5 11a4 4 0 016 0M8 14v.01"/></svg><div class="body"><b>You're offline.</b> Pacekeeper is showing your last known balances and positions, paused trading, and will resume when you're back online.</div><div></div></div>
+      <p class="muted" style="font:var(--t-body-sm); margin-top:12px">Last sync · Tuesday, 14:32:08. Keychain still works; license is good for 14 days offline.</p>
+    </div>
+  </div>
+  <style>@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }</style>
+</section>
+
+<!-- ====================================================== -->
+<!-- §24 DEMO ↔ LIVE                                         -->
+<!-- ====================================================== -->
+<section id="s24" class="section">
+  <header class="section-head">
+    <div class="section-num">§24 — DEMO ↔ LIVE</div>
+    <h2 class="section-title">A small ceremony around real money</h2>
+    <p class="section-lede">The mode bar runs across every screen. Live tints the chrome amber, badges become amber, and the user types LIVE to cross over. Switching back to Demo is one click.</p>
+  </header>
+
+  <div class="grid-2">
+    <div data-mode="demo" class="frame">
+      <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · TODAY · DEMO</div><div></div></div>
+      <div class="mode-bar"><span>· DEMO MODE — paper funds, no real money is moving ·</span><span class="lozenge">Demo</span></div>
+      <div style="padding:32px;">
+        <div class="row between" style="margin-bottom:16px"><h4 style="font:var(--t-h2); margin:0">Today</h4><span class="badge demo"><span class="dot"></span>Demo</span></div>
+        <div class="grid-3">
+          <div class="stat"><span class="label">P&amp;L</span><span class="value up">+$24.18</span></div>
+          <div class="stat"><span class="label">POSITIONS</span><span class="value">3</span></div>
+          <div class="stat"><span class="label">HEADROOM</span><span class="value">$50</span></div>
+        </div>
+      </div>
+    </div>
+    <div data-mode="live" class="frame">
+      <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">PACEKEEPER · TODAY · LIVE</div><div></div></div>
+      <div class="mode-bar"><span>· LIVE — real funds are moving · ⌘. to pause ·</span><span class="lozenge">Live</span></div>
+      <div style="padding:32px; background: linear-gradient(0deg, transparent, var(--amber-soft) 200%);">
+        <div class="row between" style="margin-bottom:16px"><h4 style="font:var(--t-h2); margin:0">Today</h4><span class="badge live"><span class="dot"></span>Live</span></div>
+        <div class="grid-3">
+          <div class="stat"><span class="label">P&amp;L</span><span class="value up">+$112.40</span></div>
+          <div class="stat"><span class="label">POSITIONS</span><span class="value">5</span></div>
+          <div class="stat"><span class="label">HEADROOM</span><span class="value">$50</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="frame" style="margin-top:24px">
+    <div class="frame-bar"><div class="dots"><i></i><i></i><i></i></div><div class="title">SWITCH TO LIVE · CONFIRM</div><div></div></div>
+    <div style="padding:48px 64px; text-align:center; max-width:640px; margin:0 auto;">
+      <h3 style="font:var(--t-h1); margin:0 0 8px">You're about to use real money.</h3>
+      <p class="prose" style="color:var(--ink-2); margin:0 auto 24px">Pacekeeper will trade your live Trading212 account. Your safety dials still apply. You can switch back to Demo at any time.</p>
+      <div class="card" style="background:var(--paper); border:1px solid var(--rule); text-align:left; margin-bottom:24px">
+        <table class="tbl">
+          <tr><td>Account</td><td class="mono">Trading212 · Invest · live</td></tr>
+          <tr><td>Cash</td><td class="num mono">$2,418.32</td></tr>
+          <tr><td>Daily loss limit</td><td class="num mono">$50.00</td></tr>
+          <tr><td>Max single position</td><td class="num mono">5%</td></tr>
+        </table>
+      </div>
+      <p class="muted" style="font:var(--t-body-sm); margin-bottom:8px">Type <b>LIVE</b> to confirm</p>
+      <div class="field" style="max-width:240px; margin:0 auto"><input class="input mono" placeholder="LIVE" style="text-align:center; letter-spacing: 0.4em;"/></div>
+      <div class="row" style="gap:12px; justify-content:center; margin-top:24px"><button class="btn secondary">Stay in Demo</button><button class="btn" disabled>Switch to Live</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §25 TRUST                                               -->
+<!-- ====================================================== -->
+<section id="s25" class="section">
+  <header class="section-head">
+    <div class="section-num">§25 — TRUST</div>
+    <h2 class="section-title">Trust as a series of small, kept promises</h2>
+    <p class="section-lede">Trust isn't a badge. It's whether the app does exactly what it said it would do. Pacekeeper signals competence with restraint, never with reassurance theatre.</p>
+  </header>
+
+  <div class="grid-3">
+    <div class="card"><div class="eyebrow">DATA</div><h4 style="font:var(--t-h3); margin:8px 0 6px">Local first</h4><p class="muted" style="font:var(--t-body-sm)">Keys live in the OS keychain. Trade data stays on disk, encrypted at rest. We don't have a server that knows what you trade.</p></div>
+    <div class="card"><div class="eyebrow">DIAGNOSTICS</div><h4 style="font:var(--t-h3); margin:8px 0 6px">Anonymous &amp; opt-in</h4><p class="muted" style="font:var(--t-body-sm)">Crash reports and anonymous usage stats are off by default. The settings screen explains exactly what's sent — no marketing copy.</p></div>
+    <div class="card"><div class="eyebrow">CODE</div><h4 style="font:var(--t-h3); margin:8px 0 6px">Notarised &amp; signed</h4><p class="muted" style="font:var(--t-body-sm)">Apple Notarised, Microsoft signed. Every binary's SHA-256 lives on the changelog page so you can verify it.</p></div>
+    <div class="card"><div class="eyebrow">REVERSIBILITY</div><h4 style="font:var(--t-h3); margin:8px 0 6px">Pause is global</h4><p class="muted" style="font:var(--t-body-sm)">⌘. anywhere pauses trading. Stop closes all positions with a typed confirmation. There is always a way out.</p></div>
+    <div class="card"><div class="eyebrow">DEMO</div><h4 style="font:var(--t-h3); margin:8px 0 6px">Required, not suggested</h4><p class="muted" style="font:var(--t-body-sm)">Live unlocks only after a 24-hour Demo run. Switching back to Demo is one click — and we don't hide it.</p></div>
+    <div class="card"><div class="eyebrow">REFUND</div><h4 style="font:var(--t-h3); margin:8px 0 6px">14 days, no questions</h4><p class="muted" style="font:var(--t-body-sm)">Cancel from inside the app. Refund within 14 days from a single email. No retention call.</p></div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §26 PRICING                                             -->
+<!-- ====================================================== -->
+<section id="s26" class="section">
+  <header class="section-head">
+    <div class="section-num">§26 — PRICING</div>
+    <h2 class="section-title">One plan, two ways to pay</h2>
+    <p class="section-lede">Pacekeeper is one product. We don't ration features. The annual plan is what we recommend; monthly is for people who want to try it past the trial.</p>
+  </header>
+
+  <div class="grid-3">
+    <div class="plan">
+      <div class="eyebrow">TRIAL</div>
+      <h4>14 days</h4>
+      <div class="price">Free <small>· no card</small></div>
+      <ul>
+        <li>Everything in Pacekeeper, paper-only</li>
+        <li>Connect every market, run every scanner</li>
+        <li>14-day Live trial unlocks after Demo</li>
+      </ul>
+      <button class="btn secondary">Start trial</button>
+    </div>
+    <div class="plan featured">
+      <div class="eyebrow" style="color: oklch(0.94 0.012 80)">YEAR · BEST VALUE</div>
+      <h4>Pacekeeper · Year</h4>
+      <div class="price">$199<small> / year</small></div>
+      <ul>
+        <li>Works out to <b>$16.58 / month</b></li>
+        <li>2 computers · move at any time</li>
+        <li>All current and future markets</li>
+        <li>Priority support, 1 business day</li>
+        <li>14-day refund, no questions</li>
+      </ul>
+      <button class="btn">Buy · $199 / year</button>
+    </div>
+    <div class="plan">
+      <div class="eyebrow">MONTHLY</div>
+      <h4>Pacekeeper · Month</h4>
+      <div class="price">$24<small> / month</small></div>
+      <ul>
+        <li>Same product, billed monthly</li>
+        <li>Cancel from inside the app</li>
+        <li>Switch to yearly any time, prorated</li>
+      </ul>
+      <button class="btn secondary">Buy · $24 / month</button>
+    </div>
+  </div>
+  <p class="muted" style="font:var(--t-body-sm); margin-top:24px; text-align:center">Prices in USD. Local taxes added at checkout. <a href="#">EULA</a> · <a href="#">Privacy</a> · <a href="#">Refund policy</a></p>
+</section>
+
+<!-- ====================================================== -->
+<!-- §27 COPY DECK                                           -->
+<!-- ====================================================== -->
+<section id="s27" class="section">
+  <header class="section-head">
+    <div class="section-num">§27 — COPY</div>
+    <h2 class="section-title">From "ModuleNotFoundError" to "We couldn't find that"</h2>
+    <p class="section-lede">A canonical copy deck. The left column is what an engineer would say; the right is what Pacekeeper says.</p>
+  </header>
+
+  <div class="card">
+    <table class="tbl">
+      <thead><tr><th style="width:40%">Don't say</th><th>Say</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">BOT_ENABLED=false</td><td>Pacekeeper is paused. Resume from the title bar.</td></tr>
+        <tr><td class="mono">429 Too Many Requests</td><td>The broker asked us to slow down. Trying again in 10 seconds.</td></tr>
+        <tr><td class="mono">Authentication failed (401)</td><td>Your API key isn't being accepted. Double-check it in Settings → Markets.</td></tr>
+        <tr><td class="mono">Watchlist is empty</td><td>Add a few names to start — or load the recommended 14.</td></tr>
+        <tr><td class="mono">No candidates this cycle</td><td>Nothing met our rules this round. We'll look again in 5 minutes.</td></tr>
+        <tr><td class="mono">Earnings window block</td><td>Earnings are coming up — Pacekeeper steps aside until they're past.</td></tr>
+        <tr><td class="mono">RiskManager.validate failed: position_size</td><td>That trade would be too big — Pacekeeper trimmed it to fit your size limit.</td></tr>
+        <tr><td class="mono">Stop-loss triggered</td><td>We closed the position at your safety stop. Loss kept inside today's limit.</td></tr>
+        <tr><td class="mono">License invalid</td><td>This license isn't active on this computer. <a href="#">Move a seat →</a></td></tr>
+        <tr><td class="mono">Update download integrity check failed</td><td>The update couldn't be verified. We rolled back; nothing was lost.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px">
+    <div class="card"><div class="eyebrow">ONBOARDING · WELCOME</div><div class="prose" style="font:400 16px/1.55 var(--sans); color:var(--ink); margin-top:8px">"Pacekeeper is a careful trading bot. It will start in Demo for at least 24 hours. You can leave at any time and we'll keep your settings."</div></div>
+    <div class="card"><div class="eyebrow">SAFETY · DAILY LIMIT</div><div class="prose" style="font:400 16px/1.55 var(--sans); color:var(--ink); margin-top:8px">"When today's losses reach $50, Pacekeeper stops opening new trades. Your existing positions keep their stops in place."</div></div>
+    <div class="card"><div class="eyebrow">NO CANDIDATES</div><div class="prose" style="font:400 16px/1.55 var(--sans); color:var(--ink); margin-top:8px">"Nothing met our rules this round. That's normal — Pacekeeper trades a few times a day on average."</div></div>
+    <div class="card"><div class="eyebrow">LIVE CONFIRMATION</div><div class="prose" style="font:400 16px/1.55 var(--sans); color:var(--ink); margin-top:8px">"You're about to use real money. Pacekeeper will trade your live account. Type LIVE to confirm. You can switch back at any time."</div></div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §28 ACCESSIBILITY                                       -->
+<!-- ====================================================== -->
+<section id="s28" class="section">
+  <header class="section-head">
+    <div class="section-num">§28 — ACCESS</div>
+    <h2 class="section-title">Accessibility checklist</h2>
+    <p class="section-lede">Numerals are tabular. Money never leans on colour alone. Every flow is reachable on the keyboard.</p>
+  </header>
+
+  <div class="grid-2">
+    <div class="card"><div class="eyebrow">VISUAL</div>
+      <ul style="line-height:1.9; padding-left:18px">
+        <li>WCAG <b>AA</b> minimum, <b>AAA</b> for confirmations and money figures.</li>
+        <li>Up/down conveyed by sign + colour + weight, never colour alone.</li>
+        <li>Dark theme parity tested at the same contrasts.</li>
+        <li>Focus rings 3px, accent-soft, never removed on click.</li>
+        <li>Honours <span class="mono">prefers-reduced-motion</span> — disables y-translate, keeps opacity.</li>
+      </ul>
+    </div>
+    <div class="card"><div class="eyebrow">INPUT</div>
+      <ul style="line-height:1.9; padding-left:18px">
+        <li>Every action reachable by keyboard. ⌘. pause, ⌘? help, ⌘K palette.</li>
+        <li>Tab order matches reading order. Skip-to-content link in the shell.</li>
+        <li>Form errors tied to fields with <span class="mono">aria-describedby</span>.</li>
+        <li>Modals trap focus, restore on close, can be dismissed with Esc.</li>
+        <li>Live regions for activity feed updates (polite, throttled).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!-- §29 HANDOFF / MVP                                       -->
+<!-- ====================================================== -->
+<section id="s29" class="section">
+  <header class="section-head">
+    <div class="section-num">§29 — HANDOFF</div>
+    <h2 class="section-title">What to build first</h2>
+    <p class="section-lede">A 2-week MVP that ships a sellable v1 with Demo only. Live, prediction markets, and advanced view follow on.</p>
+  </header>
+
+  <div class="grid-3">
+    <div class="card"><div class="eyebrow" style="color:var(--ink)">P0 — 2 WEEKS · DEMO LAUNCH</div>
+      <ul style="line-height:1.8; padding-left:18px; margin-top:12px">
+        <li>Installer + signed binary (mac+win)</li>
+        <li>License activation + 14-day trial</li>
+        <li>Connect one market (stocks)</li>
+        <li>Beginner Today screen</li>
+        <li>Activity feed (plain English)</li>
+        <li>Safety dials + Pause + Stop</li>
+        <li>Demo only — Live behind feature flag</li>
+        <li>Help drawer + diagnostic bundle</li>
+      </ul>
+    </div>
+    <div class="card"><div class="eyebrow">P1 — 4 WEEKS · LIVE</div>
+      <ul style="line-height:1.8; padding-left:18px; margin-top:12px">
+        <li>Demo→Live ceremony + amber chrome</li>
+        <li>Update flow + rollback</li>
+        <li>Account / subscription screen</li>
+        <li>Advanced view toggle (KPI strip, equity curve)</li>
+        <li>Empty / loading / error / offline states</li>
+        <li>Earnings calendar pause</li>
+      </ul>
+    </div>
+    <div class="card"><div class="eyebrow">P2 — POST-LAUNCH</div>
+      <ul style="line-height:1.8; padding-left:18px; margin-top:12px">
+        <li>Prediction markets engine + screen</li>
+        <li>Multi-market exposure view</li>
+        <li>⌘K command palette</li>
+        <li>Strategy JSON viewer</li>
+        <li>Mobile companion read-only</li>
+        <li>Scheduled email digests</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:24px">
+    <div class="eyebrow" style="margin-bottom:8px">Defer after launch</div>
+    <p class="prose" style="color:var(--ink-2)">Multi-language, themable accents, custom strategy authoring, social/leaderboard features, broker billing integration. None of these earn their seat in v1; all of them dilute the trust posture.</p>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px">
+    <div class="card"><div class="eyebrow">COMPONENT INVENTORY</div>
+      <table class="tbl" style="margin-top:8px">
+        <tr><td>Buttons</td><td class="num">5 variants × 3 sizes × 6 states</td></tr>
+        <tr><td>Inputs</td><td class="num">5 types × 5 states</td></tr>
+        <tr><td>Toggles</td><td class="num">switch · segmented · checkbox · radio</td></tr>
+        <tr><td>Badges</td><td class="num">demo · live · up · down · info · idle</td></tr>
+        <tr><td>Notices</td><td class="num">info · warn · err · ok</td></tr>
+        <tr><td>Cards / Stats</td><td class="num">3 paddings × KPI variant</td></tr>
+        <tr><td>Tables</td><td class="num">standard · cozy · compact</td></tr>
+        <tr><td>Modal · Drawer · Stepper</td><td class="num">small / medium / fullscreen</td></tr>
+        <tr><td>Activity timeline</td><td class="num">plain · technical</td></tr>
+        <tr><td>Charts</td><td class="num">spark · bars · gauge · equity</td></tr>
+        <tr><td>App shell</td><td class="num">side nav · top bar · mode bar</td></tr>
+      </table>
+    </div>
+    <div class="card"><div class="eyebrow">TOKEN BUNDLES</div>
+      <table class="tbl" style="margin-top:8px">
+        <tr><td>Color</td><td class="num">paper × 5 · ink × 5 · accent · amber · sage · crimson · slate</td></tr>
+        <tr><td>Type</td><td class="num">9 ramps · 3 families</td></tr>
+        <tr><td>Spacing</td><td class="num">12 steps · 4-point base</td></tr>
+        <tr><td>Radius</td><td class="num">5 steps · 0–10px</td></tr>
+        <tr><td>Elevation</td><td class="num">4 steps · paper-edge style</td></tr>
+        <tr><td>Motion</td><td class="num">3 durations · 2 eases</td></tr>
+        <tr><td>Themes</td><td class="num">light (paper) · dark (ink)</td></tr>
+        <tr><td>Density</td><td class="num">cozy · standard · compact</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer style="margin-top:120px; padding-top:32px; border-top:1px solid var(--rule); display:grid; grid-template-columns: 88px 1fr auto; gap: 32px; font: var(--t-eyebrow); color: var(--ink-3); letter-spacing:0.08em">
+  <div>END</div>
+  <div>PACEKEEPER · DESIGN SPECIFICATION · TRADING DESK</div>
+  <div>v1.0 · 2026·05·08</div>
+</footer>
+
+</main>
+</body>
+</html>

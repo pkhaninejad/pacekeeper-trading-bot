@@ -3,158 +3,266 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Claude Trade Bot</title>
+  <title>Pacekeeper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
+    /* ── Pacekeeper design tokens (Trading Desk · light) ── */
     :root {
-      --bg: #0d1117;
-      --surface: #161b22;
-      --surface2: #21262d;
-      --border: #30363d;
-      --text: #e6edf3;
-      --muted: #7d8590;
-      --green: #3fb950;
-      --red: #f85149;
-      --yellow: #d29922;
-      --blue: #58a6ff;
-      --purple: #bc8cff;
+      --paper:        #FFFFFF;
+      --paper-2:      #F5F7FA;
+      --paper-3:      #EDF1F6;
+      --paper-4:      #DFE5EE;
+      --paper-edge:   #C9D2DF;
+      --ink:          #0A2540;
+      --ink-2:        #2C3E5C;
+      --ink-3:        #5A6B82;
+      --ink-4:        #8A95A8;
+      --rule:         #E3E8EF;
+      --rule-2:       #C5CDD9;
+      --accent:       #1E5BFF;
+      --accent-2:     #1146CC;
+      --accent-soft:  #E1EAFF;
+      --amber:        #B8730E;
+      --amber-soft:   #F7E8C8;
+      --crimson:      #C4302E;
+      --crimson-soft: #F5D9D7;
+      --crimson-2:    #9E1F1D;
+      --sage:         #2C7A4B;
+      --sage-soft:    #DCEBE2;
+      --sage-2:       #1F5C39;
+      --sans: "Inter", "Helvetica Neue", Helvetica, sans-serif;
+      --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+      --r-1: 3px; --r-2: 6px; --r-3: 8px; --r-4: 12px;
+      --t-fast: 120ms;
+      --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+      /* legacy aliases kept for backward-compat with JS color refs */
+      --bg:      var(--paper);
+      --surface: var(--paper-2);
+      --surface2: var(--paper-3);
+      --border:  var(--rule);
+      --text:    var(--ink);
+      --muted:   var(--ink-3);
+      --green:   var(--sage);
+      --red:     var(--crimson);
+      --yellow:  var(--amber);
+      --blue:    var(--accent);
+      --purple:  #5C3D6E;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
       font-size: 14px;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Header ── */
     header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 14px 24px;
+      background: var(--paper);
+      border-bottom: 1px solid var(--rule);
+      padding: 12px 24px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
+      position: sticky; top: 0; z-index: 10;
+      box-shadow: 0 1px 0 var(--rule);
     }
-    header h1 { font-size: 18px; font-weight: 700; }
-    header h1 span { color: var(--blue); }
+    header h1 {
+      font-size: 16px; font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    header h1 span { color: var(--accent); }
     .env-badge {
-      font-size: 11px;
+      font-family: var(--mono);
+      font-size: 10px;
       padding: 2px 8px;
-      border-radius: 20px;
-      background: var(--yellow);
-      color: #000;
-      font-weight: 700;
+      border-radius: var(--r-1);
+      background: var(--amber-soft);
+      color: var(--amber);
+      font-weight: 600;
+      border: 1px solid var(--amber);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
-    .env-badge.live { background: var(--red); color: #fff; }
+    .env-badge.live {
+      background: var(--crimson-soft);
+      color: var(--crimson);
+      border-color: var(--crimson);
+    }
     .market-badge {
-      font-size: 11px;
+      font-family: var(--mono);
+      font-size: 10px;
       padding: 2px 8px;
-      border-radius: 20px;
-      font-weight: 700;
-      background: rgba(248,81,73,.2);
-      color: var(--red);
+      border-radius: var(--r-1);
+      font-weight: 600;
+      background: var(--crimson-soft);
+      color: var(--crimson);
+      border: 1px solid var(--crimson);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
     .market-badge.open {
-      background: rgba(63,185,80,.2);
-      color: var(--green);
+      background: var(--sage-soft);
+      color: var(--sage);
+      border-color: var(--sage);
     }
     .regime-badge {
-      font-size: 11px;
+      font-family: var(--mono);
+      font-size: 10px;
       padding: 2px 8px;
-      border-radius: 20px;
-      font-weight: 700;
-      background: rgba(63,185,80,.2);
-      color: var(--green);
+      border-radius: var(--r-1);
+      font-weight: 600;
+      background: var(--sage-soft);
+      color: var(--sage);
+      border: 1px solid var(--sage);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
     .regime-badge.neutral {
-      background: rgba(88,166,255,.2);
-      color: var(--blue);
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: var(--accent);
     }
     .regime-badge.bear {
-      background: rgba(210,153,34,.2);
-      color: var(--yellow);
+      background: var(--amber-soft);
+      color: var(--amber);
+      border-color: var(--amber);
     }
     .regime-badge.extreme-fear {
-      background: rgba(248,81,73,.2);
-      color: var(--red);
+      background: var(--crimson-soft);
+      color: var(--crimson);
+      border-color: var(--crimson);
     }
     .acct-badge {
       padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
+      border-radius: var(--r-1);
+      font-family: var(--mono);
+      font-size: 10px;
       font-weight: 600;
-      background: rgba(88,166,255,.15);
-      color: #58a6ff;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
-    .acct-badge.cfd { background: rgba(210,153,34,.15); color: var(--yellow); }
+    .acct-badge.cfd {
+      background: var(--amber-soft);
+      color: var(--amber);
+      border-color: var(--amber);
+    }
     .status-dot {
-      width: 10px; height: 10px;
+      width: 8px; height: 8px;
       border-radius: 50%;
-      background: var(--muted);
+      background: var(--ink-4);
       margin-left: auto;
-      transition: background 0.3s;
+      transition: background 0.3s, box-shadow 0.3s;
     }
-    .status-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.active {
+      background: var(--sage);
+      box-shadow: 0 0 0 3px var(--sage-soft);
+    }
     #toggle-btn {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
+      background: var(--paper);
+      border: 1px solid var(--rule-2);
+      color: var(--ink);
       padding: 6px 14px;
-      border-radius: 6px;
+      border-radius: var(--r-2);
       cursor: pointer;
       font-size: 13px;
+      font-family: var(--sans);
+      font-weight: 500;
+      transition: background var(--t-fast) var(--ease-out);
     }
-    #toggle-btn:hover { background: var(--border); }
+    #toggle-btn:hover { background: var(--paper-3); }
 
     /* ── Layout ── */
     main { padding: 24px; max-width: 1400px; margin: 0 auto; }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
+      gap: 12px;
       margin-bottom: 24px;
     }
     .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      background: var(--paper-2);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-2);
       padding: 16px;
     }
-    .card .label { color: var(--muted); font-size: 12px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
-    .card .value { font-size: 24px; font-weight: 700; }
-    .card .value.green { color: var(--green); }
-    .card .value.red { color: var(--red); }
+    .card .label {
+      font-family: var(--mono);
+      color: var(--ink-3);
+      font-size: 11px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+    .card .value {
+      font-family: var(--mono);
+      font-size: 24px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+    }
+    .card .value.green { color: var(--sage); }
+    .card .value.red { color: var(--crimson); }
 
     /* ── Tables ── */
     .section { margin-bottom: 28px; }
     .section h2 {
-      font-size: 15px; font-weight: 600;
+      font-size: 13px; font-weight: 600;
       margin-bottom: 12px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--rule);
       padding-bottom: 8px;
+      color: var(--ink-2);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-family: var(--mono);
     }
     table { width: 100%; border-collapse: collapse; }
     th {
       text-align: left; padding: 8px 12px;
-      background: var(--surface2);
-      color: var(--muted); font-size: 12px;
-      text-transform: uppercase; letter-spacing: .05em;
+      background: var(--paper-2);
+      color: var(--ink-3);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--rule-2);
     }
-    td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--rule);
+      font-size: 13px;
+      color: var(--ink);
+    }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: var(--surface2); }
+    tr:hover td { background: var(--paper-2); }
     .badge {
       display: inline-block;
-      padding: 2px 8px; border-radius: 4px;
-      font-size: 11px; font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--r-1);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid;
     }
-    .badge.long { background: rgba(63,185,80,.15); color: var(--green); }
-    .badge.short { background: rgba(248,81,73,.15); color: var(--red); }
-    .badge.buy { background: rgba(63,185,80,.15); color: var(--green); }
-    .badge.sell { background: rgba(248,81,73,.15); color: var(--red); }
-    .badge.hold { background: rgba(210,153,34,.15); color: var(--yellow); }
-    .positive { color: var(--green); }
-    .negative { color: var(--red); }
+    .badge.long  { background: var(--sage-soft);   color: var(--sage);    border-color: var(--sage); }
+    .badge.short { background: var(--crimson-soft); color: var(--crimson); border-color: var(--crimson); }
+    .badge.buy   { background: var(--sage-soft);   color: var(--sage);    border-color: var(--sage); }
+    .badge.sell  { background: var(--crimson-soft); color: var(--crimson); border-color: var(--crimson); }
+    .badge.hold  { background: var(--amber-soft);  color: var(--amber);   border-color: var(--amber); }
+    .positive { color: var(--sage); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .negative { color: var(--crimson); font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
     /* ── Signal reasoning ── */
     .reasoning-cell {
@@ -162,14 +270,15 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      color: var(--muted);
+      color: var(--ink-3);
       font-size: 12px;
     }
+
     /* ── P&L Chart ── */
     .chart-wrap {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      background: var(--paper-2);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-2);
       padding: 16px 20px;
       margin-bottom: 28px;
       position: relative;
@@ -181,8 +290,15 @@
       align-items: center;
       margin-bottom: 12px;
     }
-    .chart-header h2 { font-size: 15px; font-weight: 600; }
-    .chart-meta { font-size: 12px; color: var(--muted); }
+    .chart-header h2 {
+      font-size: 13px; font-weight: 600;
+      color: var(--ink-2);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-family: var(--mono);
+    }
+    .chart-meta { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
     /* ── Indicators ── */
     .ind-grid {
       display: grid;
@@ -190,9 +306,9 @@
       gap: 12px;
     }
     .ind-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      background: var(--paper-2);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-2);
       padding: 14px 16px;
     }
     .ind-card .ind-header {
@@ -201,12 +317,22 @@
       align-items: baseline;
       margin-bottom: 8px;
     }
-    .ind-card .ind-ticker { font-weight: 700; font-size: 15px; }
-    .ind-card .ind-price { font-size: 13px; color: var(--text); }
-    .ind-card .ind-change { font-size: 12px; }
+    .ind-card .ind-ticker {
+      font-weight: 700;
+      font-size: 15px;
+      font-family: var(--mono);
+      letter-spacing: -0.01em;
+    }
+    .ind-card .ind-price {
+      font-size: 13px;
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+    }
+    .ind-card .ind-change { font-size: 12px; font-family: var(--mono); }
     .ind-card .ind-summary {
       font-size: 11px;
-      color: var(--muted);
+      color: var(--ink-3);
       margin-bottom: 10px;
       line-height: 1.5;
     }
@@ -216,11 +342,11 @@
       justify-content: space-between;
       font-size: 12px;
     }
-    .ind-row .ind-label { color: var(--muted); }
-    .ind-row .ind-val { font-weight: 600; }
+    .ind-row .ind-label { color: var(--ink-3); }
+    .ind-row .ind-val { font-weight: 600; font-family: var(--mono); }
     .rsi-bar-wrap {
-      width: 80px; height: 6px;
-      background: var(--surface2);
+      width: 80px; height: 5px;
+      background: var(--paper-3);
       border-radius: 3px;
       overflow: hidden;
       align-self: center;
@@ -229,36 +355,44 @@
     .tag {
       display: inline-block;
       padding: 1px 6px;
-      border-radius: 3px;
+      border-radius: var(--r-1);
+      font-family: var(--mono);
       font-size: 10px;
       font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
-    .tag.bull { background: rgba(63,185,80,.2); color: var(--green); }
-    .tag.bear { background: rgba(248,81,73,.2); color: var(--red); }
-    .tag.neutral { background: rgba(125,133,144,.15); color: var(--muted); }
+    .tag.bull { background: var(--sage-soft); color: var(--sage); }
+    .tag.bear { background: var(--crimson-soft); color: var(--crimson); }
+    .tag.neutral { background: var(--paper-3); color: var(--ink-3); }
+
     /* ── Footer ── */
     footer {
       text-align: center;
-      color: var(--muted);
+      color: var(--ink-4);
       font-size: 12px;
+      font-family: var(--mono);
       padding: 24px;
+      border-top: 1px solid var(--rule);
+      margin-top: 24px;
     }
-    #last-update { color: var(--blue); }
+    #last-update { color: var(--accent); }
 
     /* ── LLM Settings panel ── */
     .llm-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      background: var(--paper-2);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-2);
       padding: 16px 20px;
       margin-bottom: 24px;
     }
     .llm-panel h2 {
-      font-size: 14px; font-weight: 600;
+      font-size: 11px; font-weight: 600;
       margin-bottom: 12px;
-      color: var(--muted);
+      color: var(--ink-3);
       text-transform: uppercase;
-      letter-spacing: .05em;
+      letter-spacing: 0.08em;
+      font-family: var(--mono);
     }
     .llm-form {
       display: flex;
@@ -266,41 +400,60 @@
       align-items: flex-end;
       flex-wrap: wrap;
     }
-    .llm-form label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing:.04em; }
+    .llm-form label {
+      font-size: 11px;
+      color: var(--ink-3);
+      display: block;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-family: var(--mono);
+      font-weight: 600;
+    }
     .llm-form select, .llm-form input[type="text"] {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
+      background: var(--paper);
+      border: 1px solid var(--rule-2);
+      color: var(--ink);
       padding: 6px 10px;
-      border-radius: 6px;
+      border-radius: var(--r-1);
       font-size: 13px;
+      font-family: var(--sans);
       min-width: 160px;
+      outline: none;
+      transition: border-color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out);
+    }
+    .llm-form select:focus, .llm-form input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
     }
     .llm-form input[type="text"] { min-width: 220px; }
     #llm-save-btn {
-      background: var(--blue);
+      background: var(--ink);
       border: none;
-      color: #000;
+      color: var(--paper);
       padding: 7px 16px;
-      border-radius: 6px;
+      border-radius: var(--r-2);
       cursor: pointer;
       font-size: 13px;
-      font-weight: 600;
+      font-family: var(--sans);
+      font-weight: 500;
+      transition: opacity var(--t-fast) var(--ease-out);
     }
-    #llm-save-btn:hover { opacity: .85; }
+    #llm-save-btn:hover { opacity: 0.85; }
     #llm-toast {
       font-size: 12px;
       padding: 4px 10px;
-      border-radius: 4px;
+      border-radius: var(--r-1);
       display: none;
+      font-family: var(--mono);
     }
-    #llm-toast.ok  { background: rgba(63,185,80,.15); color: var(--green); display: inline-block; }
-    #llm-toast.err { background: rgba(248,81,73,.15);  color: var(--red);   display: inline-block; }
+    #llm-toast.ok  { background: var(--sage-soft);   color: var(--sage);    display: inline-block; border: 1px solid var(--sage); }
+    #llm-toast.err { background: var(--crimson-soft); color: var(--crimson); display: inline-block; border: 1px solid var(--crimson); }
   </style>
 </head>
 <body>
   <header>
-    <h1>Claude <span>Trade Bot</span></h1>
+    <h1>Pace<span>keeper</span></h1>
     <span class="env-badge" id="env-badge">DEMO</span>
     <span class="market-badge" id="market-badge">CLOSED</span>
     <span class="regime-badge" id="regime-badge" style="display:none"></span>
@@ -388,7 +541,7 @@
     <div class="section">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h2>Open Positions</h2>
-        <button id="close-all-btn" onclick="closeAllPositions()" style="background:var(--red,#e74c3c);color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.85rem">Close All</button>
+        <button id="close-all-btn" onclick="closeAllPositions()" style="background:var(--crimson);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-family:var(--sans);font-weight:500">Close All</button>
       </div>
       <table>
         <thead>
@@ -434,8 +587,8 @@
   </main>
 
   <footer>
-    Last updated: <span id="last-update">—</span> &nbsp;|&nbsp;
-    Claude Trade Bot &copy; 2025
+    Last updated: <span id="last-update">—</span> &nbsp;·&nbsp;
+    Pacekeeper &copy; 2025
   </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
@@ -458,9 +611,9 @@
       datasets: [{
         label: 'Unrealised P&L ($)',
         data: [],
-        borderColor: '#3fb950',
-        backgroundColor: 'rgba(63,185,80,0.08)',
-        borderWidth: 2,
+        borderColor: '#2C7A4B',
+        backgroundColor: 'rgba(44,122,75,0.06)',
+        borderWidth: 1.5,
         pointRadius: 3,
         pointHoverRadius: 5,
         tension: 0.3,
@@ -474,6 +627,11 @@
       plugins: {
         legend: { display: false },
         tooltip: {
+          backgroundColor: '#FFFFFF',
+          titleColor: '#0A2540',
+          bodyColor: '#2C3E5C',
+          borderColor: '#E3E8EF',
+          borderWidth: 1,
           callbacks: {
             label: ctx => ` $${ctx.parsed.y.toFixed(2)}`
           }
@@ -481,15 +639,16 @@
       },
       scales: {
         x: {
-          ticks: { color: '#7d8590', maxTicksLimit: 10, maxRotation: 0 },
-          grid: { color: 'rgba(48,54,61,0.6)' }
+          ticks: { color: '#5A6B82', maxTicksLimit: 10, maxRotation: 0, font: { family: "'JetBrains Mono', monospace", size: 11 } },
+          grid: { color: 'rgba(227,232,239,0.8)' }
         },
         y: {
           ticks: {
-            color: '#7d8590',
+            color: '#5A6B82',
+            font: { family: "'JetBrains Mono', monospace", size: 11 },
             callback: v => '$' + v.toFixed(2)
           },
-          grid: { color: 'rgba(48,54,61,0.6)' }
+          grid: { color: 'rgba(227,232,239,0.8)' }
         }
       }
     }
@@ -511,10 +670,10 @@
 
       // Colour line red if current P&L is negative
       const last = values[values.length - 1];
-      const colour = last >= 0 ? '#3fb950' : '#f85149';
+      const colour = last >= 0 ? '#2C7A4B' : '#C4302E';
       _pnlChart.data.datasets[0].borderColor = colour;
       _pnlChart.data.datasets[0].backgroundColor = last >= 0
-        ? 'rgba(63,185,80,0.08)' : 'rgba(248,81,73,0.08)';
+        ? 'rgba(44,122,75,0.06)' : 'rgba(196,48,46,0.06)';
 
       _pnlChart.update('none'); // 'none' = skip animation on poll updates
 
@@ -593,10 +752,10 @@
 
   // ── Indicators ────────────────────────────────────────────────────────────
   function rsiColor(v) {
-    if (v == null) return 'var(--muted)';
-    if (v >= 70) return 'var(--red)';
-    if (v <= 30) return 'var(--green)';
-    return 'var(--text)';
+    if (v == null) return 'var(--ink-3)';
+    if (v >= 70) return 'var(--crimson)';
+    if (v <= 30) return 'var(--sage)';
+    return 'var(--ink)';
   }
   function rsiLabel(v) {
     if (v == null) return '';
@@ -650,8 +809,8 @@
         const rsiVal = d.rsi;
         const rsiW = rsiVal != null ? rsiVal : 50;
         const rsiC = rsiVal != null
-          ? (rsiVal >= 70 ? 'var(--red)' : rsiVal <= 30 ? 'var(--green)' : 'var(--blue)')
-          : 'var(--muted)';
+          ? (rsiVal >= 70 ? 'var(--crimson)' : rsiVal <= 30 ? 'var(--sage)' : 'var(--accent)')
+          : 'var(--ink-4)';
         return `<div class="ind-card">
           <div class="ind-header">
             <span class="ind-ticker">${ticker}</span>
@@ -713,7 +872,7 @@
           <td>$${fmt(p.currentPrice, 4)}</td>
           <td class="${pnlClass(p.ppl)}">$${fmt(p.ppl)}</td>
           <td class="${pnlClass(pnlPct)}">${fmt(pnlPct, 2)}%</td>
-          <td><button onclick="closePosition('${p.ticker}')" style="background:var(--red,#e74c3c);color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:0.8rem">Close</button></td>
+          <td><button onclick="closePosition('${p.ticker}')" style="background:var(--crimson);color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--sans);font-weight:500">Close</button></td>
         </tr>`;
       }).join('');
     } catch(e) { console.warn('positions fetch failed', e); }

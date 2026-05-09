@@ -78,6 +78,34 @@ Keep files focused and small. When a file grows large, extract cohesive function
 
 This keeps token consumption low and each file easy to reason about in context.
 
+## Design System
+
+All UI work **must** follow the Pacekeeper design system. Read the full spec before touching any frontend file:
+
+- **`design/Pacekeeper Design Document.html`** — canonical 29-section spec (open in a browser to view)
+- **`design/pacekeeper-tokens.css`** — design tokens (colors, type, spacing, radii, motion)
+- **`design/pacekeeper-doc.css`** — full component library stylesheet
+
+### Key principles
+- **Trading Desk aesthetic**: white/light canvas, electric-cobalt primary (`#1E5BFF`), market-standard sage/crimson for P&L.
+- **Typography**: Inter for all UI text; JetBrains Mono for every number, timestamp, ticker symbol, and label.
+- **Color roles**: sage (`#2C7A4B`) = gain/success only; crimson (`#C4302E`) = loss/danger only; amber (`#B8730E`) = live-mode chrome and caution; never use these as decoration.
+- **No dark backgrounds** unless explicitly implementing the dark theme toggle.
+- **Motion**: 120ms fast (hover/press), 220ms base (panels), 420ms slow (route changes). `cubic-bezier(.2,.8,.2,1)` ease-out. No springs, parallax, or confetti.
+- **Spacing**: 4-point grid. Use the `--s-*` tokens.
+
+### Token quick reference
+```css
+/* Surfaces */    --paper / --paper-2 / --paper-3
+/* Ink */         --ink / --ink-2 / --ink-3 / --ink-4
+/* Separators */  --rule / --rule-2
+/* Actions */     --accent (#1E5BFF) / --accent-soft
+/* P&L */         --sage / --sage-soft   (bull / gain)
+/*               --crimson / --crimson-soft  (bear / loss)
+/* Live mode */   --amber / --amber-soft
+/* Type */        --sans (Inter) / --mono (JetBrains Mono)
+```
+
 ## Trading212 API Notes
 
 - `T212_ENV=demo` maps to `demo.trading212.com`; `live` maps to `live.trading212.com` — the same key pair works for both

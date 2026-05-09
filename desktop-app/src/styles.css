@@ -369,6 +369,28 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   color: #9fb2c7;
 }
 
+.launcher-progress {
+  margin: 20px auto 0;
+  width: 260px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+.launcher-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #1E5BFF;
+  transition: width 40ms linear;
+}
+
+.launching-label {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: #6b7f96;
+}
+
 /* ── Settings Panel ──────────────────────────────────────────── */
 
 .settings-overlay {

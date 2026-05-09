@@ -11,6 +11,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
 
 from prediction_bot.src.bot.engine import PredictionEngine
 
@@ -32,6 +33,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Prediction Market Bot", lifespan=lifespan)
 
 
+class ScannerSettingsUpdate(BaseModel):
+    expiry_window_hours: int = Field(ge=1, le=24 * 365)
+    min_liquidity: float = Field(ge=0.0)
+    high_prob_min: float = Field(ge=0.0, le=1.0)
+    high_prob_max: float = Field(ge=0.0, le=1.0)
+    enabled_categories: list[str]
+
+
 @app.get("/api/status")
 async def get_status():
     return engine.status.model_dump(mode="json")
@@ -40,6 +49,16 @@ async def get_status():
 @app.post("/api/bot/toggle")
 async def toggle_bot():
     enabled = engine.toggle()
+    state = "enabled" if enabled else "paused"
+    await engine._broadcast(
+        {
+            "type": "activity",
+            "activity": {
+                "timestamp": engine.activity_history[-1]["timestamp"] if engine.activity_history else None,
+                "message": f"Bot {state} by user.",
+            },
+        }
+    )
     return {"enabled": enabled}
 
 
@@ -71,6 +90,15 @@ async def get_scans():
     return list(reversed(engine.scan_history))
 
 
+@app.get("/api/activity")
+async def get_activity(limit: int = 20):
+    if limit < 1:
+        limit = 1
+    if limit > 100:
+        limit = 100
+    return list(reversed(engine.activity_history[-limit:]))
+
+
 @app.post("/api/cycle")
 async def trigger_cycle():
     asyncio.create_task(engine._cycle())
@@ -89,6 +117,43 @@ async def set_interval(seconds: int):
         return {"error": "minimum interval is 30 seconds"}, 400
     engine.set_interval(seconds)
     return {"interval_seconds": seconds}
+
+
+@app.get("/api/settings")
+async def get_settings():
+    return {
+        "expiry_window_hours": engine.settings.EXPIRY_WINDOW_HOURS,
+        "min_liquidity": engine.settings.MIN_LIQUIDITY,
+        "high_prob_min": engine.settings.HIGH_PROB_MIN,
+        "high_prob_max": engine.settings.HIGH_PROB_MAX,
+        "enabled_categories": engine.settings.ENABLED_CATEGORIES,
+    }
+
+
+@app.post("/api/settings")
+async def update_settings(payload: ScannerSettingsUpdate):
+    if payload.high_prob_min > payload.high_prob_max:
+        return {"error": "high_prob_min cannot be greater than high_prob_max"}, 400
+    cleaned_categories = [c.strip().lower() for c in payload.enabled_categories if c.strip()]
+    if not cleaned_categories:
+        return {"error": "at least one category is required"}, 400
+
+    engine.settings.EXPIRY_WINDOW_HOURS = payload.expiry_window_hours
+    engine.settings.MIN_LIQUIDITY = payload.min_liquidity
+    engine.settings.HIGH_PROB_MIN = payload.high_prob_min
+    engine.settings.HIGH_PROB_MAX = payload.high_prob_max
+    engine.settings.ENABLED_CATEGORIES = cleaned_categories
+
+    return {
+        "updated": True,
+        "settings": {
+            "expiry_window_hours": engine.settings.EXPIRY_WINDOW_HOURS,
+            "min_liquidity": engine.settings.MIN_LIQUIDITY,
+            "high_prob_min": engine.settings.HIGH_PROB_MIN,
+            "high_prob_max": engine.settings.HIGH_PROB_MAX,
+            "enabled_categories": engine.settings.ENABLED_CATEGORIES,
+        },
+    }
 
 
 @app.get("/api/stream")

@@ -33,8 +33,19 @@ class PredictionEngine:
         )
         self._running = False
         self.scan_history: list[dict] = []
+        self.activity_history: list[dict] = []
         self._sse_queues: list[asyncio.Queue] = []
         self._clients: dict = {}
+
+    async def _activity(self, message: str):
+        event = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "message": message,
+        }
+        self.activity_history.append(event)
+        if len(self.activity_history) > 100:
+            self.activity_history = self.activity_history[-100:]
+        await self._broadcast({"type": "activity", "activity": event})
 
     async def start(self):
         await self.paper_trader.initialize()
@@ -52,6 +63,9 @@ class PredictionEngine:
 
             enabled = list(self._clients.keys())
             logger.info("Prediction Market Bot started — platforms: %s", enabled)
+            await self._activity(
+                f"Bot is online. Watching {', '.join(enabled) if enabled else 'no platforms'}."
+            )
 
             self._running = True
             while self._running:
@@ -64,17 +78,27 @@ class PredictionEngine:
 
     async def _cycle(self):
         logger.info("Starting scan cycle...")
+        await self._activity("Starting a new market scan.")
 
         await self.paper_trader.re_settle_expired_trades(self._clients)
         await self.paper_trader.settle_open_trades(self._clients)
+        await self._activity("Checked open positions and settled finished markets.")
 
         candidates = await scan_markets(list(self._clients.values()), self.settings)
         logger.info("Scanner found %d candidates", len(candidates))
+        if not candidates:
+            await self._activity("No promising markets found right now. Will try again next cycle.")
+        else:
+            await self._activity(f"Found {len(candidates)} promising market candidates.")
 
         evaluated = []
         if candidates:
             evaluated = await evaluate_candidates(candidates, self.settings)
             logger.info("Evaluator found %d with edge", len(evaluated))
+            if not evaluated:
+                await self._activity("Candidates were reviewed, but none had enough edge to trade.")
+            else:
+                await self._activity(f"{len(evaluated)} opportunities passed quality checks.")
 
         trades_placed = 0
         for candidate in evaluated:
@@ -82,6 +106,9 @@ class PredictionEngine:
             if trade:
                 trades_placed += 1
                 await self._broadcast({"type": "trade_placed", "trade": trade.model_dump(mode="json")})
+                await self._activity(
+                    f"Placed paper trade: {trade.side} on '{trade.market_question[:70]}'."
+                )
 
         stats = await self.paper_trader.store.get_stats()
         self.status.open_trades = stats["open_trades"]
@@ -101,6 +128,11 @@ class PredictionEngine:
         if len(self.scan_history) > 50:
             self.scan_history = self.scan_history[-50:]
 
+        if trades_placed == 0:
+            await self._activity("Cycle complete: no new trades placed this round.")
+        else:
+            await self._activity(f"Cycle complete: placed {trades_placed} new trade(s).")
+
         await self._broadcast({"type": "cycle_complete", "status": self.status.model_dump(mode="json")})
 
     async def _broadcast(self, event: dict):
@@ -115,6 +147,10 @@ class PredictionEngine:
 
     def toggle(self) -> bool:
         self.status.enabled = not self.status.enabled
+        state = "enabled" if self.status.enabled else "paused"
+        self.activity_history.append(
+            {"timestamp": datetime.now(UTC).isoformat(), "message": f"Bot {state} by user."}
+        )
         return self.status.enabled
 
     def set_interval(self, seconds: int) -> int:

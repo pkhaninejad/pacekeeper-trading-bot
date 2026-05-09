@@ -1,0 +1,55 @@
+name: Desktop Build (Tauri)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feat/desktop-productization-issue-80
+    paths:
+      - 'desktop-app/**'
+      - 'scripts/build_desktop_*'
+      - '.github/workflows/desktop-build.yml'
+      - 'prediction_bot/**'
+      - 'src/**'
+      - 'stock_bot.py'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: desktop-app/pnpm-lock.yaml
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend deps
+        working-directory: desktop-app
+        run: pnpm install --frozen-lockfile
+
+      - name: Build with Tauri
+        working-directory: desktop-app
+        run: pnpm tauri:build
+
+      - name: Upload desktop bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-trade-bot-${{ runner.os }}
+          path: desktop-app/src-tauri/target/release/bundle/**

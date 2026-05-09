@@ -176,7 +176,65 @@ class PolymarketClient(PredictionMarketClient):
         data = await self._get("/markets", params)
         markets_raw = data if isinstance(data, list) else data.get("markets", [])
         markets = [m for raw in markets_raw if (m := _parse_market(raw))]
-        return [
+        near = [
             m for m in markets
             if m.liquidity >= min_liquidity and now <= m.end_date <= cutoff
         ]
+
+        if near:
+            return near
+
+        # Some API responses do not reliably honor end-date sort. Fall back to a
+        # larger volume-ordered sample before concluding there are no opportunities.
+        fallback_limit = max(limit, 1000)
+        fallback_params: dict = {
+            "active": "true",
+            "closed": "false",
+            "limit": fallback_limit,
+            "order": "volume_24hr",
+        }
+        fallback_data = await self._get("/markets", fallback_params)
+        fallback_raw = fallback_data if isinstance(fallback_data, list) else fallback_data.get("markets", [])
+        fallback_markets = [m for raw in fallback_raw if (m := _parse_market(raw))]
+        fallback_near = [
+            m for m in fallback_markets
+            if m.liquidity >= min_liquidity and now <= m.end_date <= cutoff
+        ]
+
+        if not fallback_near:
+            upcoming = sorted(
+                (
+                    m for m in fallback_markets
+                    if m.liquidity >= min_liquidity and m.end_date >= now
+                ),
+                key=lambda m: m.end_date,
+            )
+            earliest = min((m.end_date for m in markets), default=None)
+            latest = max((m.end_date for m in markets), default=None)
+            nearest_upcoming = upcoming[0].end_date if upcoming else None
+            logger.info(
+                "polymarket near-expiry debug: window=%sh now=%s cutoff=%s raw=%d parsed=%d min_liq=%.2f earliest_end=%s latest_end=%s fallback_raw=%d fallback_parsed=%d upcoming=%d nearest_upcoming=%s",
+                hours,
+                now.isoformat(),
+                cutoff.isoformat(),
+                len(markets_raw),
+                len(markets),
+                min_liquidity,
+                earliest.isoformat() if earliest else "n/a",
+                latest.isoformat() if latest else "n/a",
+                len(fallback_raw),
+                len(fallback_markets),
+                len(upcoming),
+                nearest_upcoming.isoformat() if nearest_upcoming else "n/a",
+            )
+            if upcoming:
+                # Graceful degradation: if strict near-expiry is empty, continue with
+                # nearest upcoming liquid markets so the bot can still evaluate candidates.
+                limit_count = min(200, len(upcoming))
+                logger.info(
+                    "polymarket fallback activated: using %d nearest upcoming markets outside strict expiry window",
+                    limit_count,
+                )
+                return upcoming[:limit_count]
+
+        return fallback_near

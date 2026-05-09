@@ -2,13 +2,10 @@
 
 AI-powered prediction + execution bot for Trading212, with a FastAPI dashboard.
 
-## What this "prediction bot" is
+## Which bot is which
 
-In this repo, the prediction bot is the background trading engine started by `main.py`.
-
-- It runs every `TRADE_INTERVAL_SECONDS` (default 300s)
-- It builds market context, generates signals with an LLM, validates risk, and can place orders
-- It starts automatically when you start the dashboard server
+- `stock_bot.py` = stock trading bot (Trading212 + dashboard)
+- `prediction_bot/main.py` = prediction market bot
 
 ## Quick Start (Local)
 
@@ -43,10 +40,10 @@ Recommended while testing:
 - `T212_ENV=demo` (paper trading)
 - `BOT_ENABLED=false` (start in safe/manual mode)
 
-### 4. Start the app
+### 4. Start the stock trading bot app
 
 ```bash
-.venv/bin/python main.py
+.venv/bin/python stock_bot.py
 ```
 
 ### 5. Open the dashboard
@@ -87,6 +84,56 @@ docker-compose up --build
 ```
 
 Dashboard: [http://localhost:4000](http://localhost:4000)
+
+## Run The Prediction Bot
+
+From the repo root:
+
+```bash
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m prediction_bot.main
+.venv/bin/python prediction_bot/main.py
+```
+
+Prefer `-m prediction_bot.main` as the default form; it is the most reliable import path setup.
+
+Prediction bot dashboard: [http://localhost:4001](http://localhost:4001)
+
+## Desktop App (Tauri + TypeScript) (Issue #80)
+
+This repo includes a Tauri desktop app so non-technical users can start bots without terminal commands.
+
+- Desktop source: `desktop-app/`
+- UI stack: React + TypeScript
+- Native bridge: Rust (Tauri commands)
+- Stock bot URL: `http://localhost:4000`
+- Prediction bot URL: `http://localhost:4001`
+
+Run desktop app in dev mode:
+
+```bash
+cd desktop-app
+pnpm install
+pnpm tauri:dev
+```
+
+Prerequisite: install Rust toolchain once via [rustup](https://rustup.rs/).
+
+Note: `pnpm dev` runs browser preview only. Process controls (start/stop bots) require Tauri runtime via `pnpm tauri:dev`.
+
+### Build macOS binary
+
+```bash
+./scripts/build_desktop_macos.sh
+```
+
+### Build Windows binary
+
+```powershell
+./scripts/build_desktop_windows.ps1
+```
+
+CI builds Tauri desktop artifacts on GitHub Actions via `.github/workflows/desktop-build.yml`.
 
 ## Common Issues
 

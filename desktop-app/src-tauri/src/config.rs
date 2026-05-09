@@ -210,20 +210,29 @@ pub async fn check_ai_connection(provider: &str, key: &str, endpoint: Option<&st
             if key.is_empty() {
                 return Err("Azure API key is required.".to_string());
             }
-            // Azure AI Foundry: GET {endpoint}/models?api-version=2024-05-01-preview
-            let url = format!("{}/models?api-version=2024-05-01-preview", ep);
-            let resp = client
-                .get(&url)
-                .header("api-key", key)
-                .send()
-                .await
-                .map_err(|e| network_err(&e))?;
-            match resp.status().as_u16() {
-                200 => Ok("Connected — Azure AI endpoint verified".to_string()),
-                401 | 403 => Err("Invalid key or endpoint — check your Azure AI key and endpoint URL.".to_string()),
-                404 => Err("Endpoint not found — make sure the URL ends with .services.ai.azure.com/ or .openai.azure.com/".to_string()),
-                code => Err(format!("Unexpected response from Azure (HTTP {}). Check endpoint and key.", code)),
+            // Try AI Foundry path first, then Azure OpenAI path
+            let candidates = [
+                format!("{}/models?api-version=2024-05-01-preview", ep),
+                format!("{}/openai/deployments?api-version=2024-02-15-preview", ep),
+            ];
+            let mut last_status = 0u16;
+            let mut last_body   = String::new();
+            for url in &candidates {
+                let resp = match client.get(url).header("api-key", key).send().await {
+                    Ok(r)  => r,
+                    Err(e) => return Err(network_err(&e)),
+                };
+                last_status = resp.status().as_u16();
+                match last_status {
+                    200 => return Ok("Connected — Azure AI endpoint verified".to_string()),
+                    401 | 403 => {
+                        return Err("Invalid API key — double-check your Azure AI key.".to_string());
+                    }
+                    _ => { last_body = resp.text().await.unwrap_or_default(); }
+                }
             }
+            let snippet = last_body.chars().take(200).collect::<String>();
+            Err(format!("Azure returned HTTP {} — {}", last_status, snippet))
         }
         "ollama" => {
             let base = if key.is_empty() { "http://localhost:11434" } else { key };

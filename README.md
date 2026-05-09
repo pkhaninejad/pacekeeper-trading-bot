@@ -135,6 +135,27 @@ Note: `pnpm dev` runs browser preview only. Process controls (start/stop bots) r
 
 CI builds Tauri desktop artifacts on GitHub Actions via `.github/workflows/desktop-build.yml`.
 
+## macOS Release Signing and Notarization
+
+If macOS shows `"<App> is damaged and can't be opened"`, the app was not properly signed/notarized.
+
+For tagged releases (`.github/workflows/release.yml`), configure these GitHub repository secrets:
+
+- `APPLE_CERTIFICATE` (base64-encoded `.p12` Developer ID Application certificate)
+- `APPLE_CERTIFICATE_PASSWORD`
+- `APPLE_SIGNING_IDENTITY` (for example `Developer ID Application: Your Name (TEAMID)`)
+- `APPLE_ID` (Apple account email)
+- `APPLE_PASSWORD` (app-specific password)
+- `APPLE_TEAM_ID`
+
+Temporary local unblock for a previously downloaded build:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Pacekeeper.app
+```
+
+Use this only for internal testing. Public releases should be signed + notarized.
+
 ## Common Issues
 
 - `ModuleNotFoundError` or missing packages:

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Config, AI_PROVIDERS } from "../../types/config";
+import { Config, AI_PROVIDERS, AI_PROVIDER_MODELS, defaultModel } from "../../types/config";
 import WizardProgress from "./WizardProgress";
 
 interface Props {
@@ -15,20 +15,31 @@ type TestState = "idle" | "testing" | "ok" | "error";
 export default function StepAIProvider({ config, setConfig, onNext, onBack }: Props) {
   const [provider, setProvider] = useState<Config["ai_provider"]>(config.ai_provider);
   const [key, setKey]           = useState(config.ai_api_key);
+  const [model, setModel]       = useState(config.ai_model || defaultModel(config.ai_provider));
   const [endpoint, setEndpoint] = useState(config.azure_endpoint);
   const [test, setTest]         = useState<TestState>("idle");
   const [msg, setMsg]           = useState("");
 
-  const meta = AI_PROVIDERS.find(p => p.value === provider) ?? AI_PROVIDERS[0];
-  const isAzure = provider === "azure";
+  const meta       = AI_PROVIDERS.find(p => p.value === provider) ?? AI_PROVIDERS[0];
+  const modelList  = AI_PROVIDER_MODELS[provider];
+  const isAzure    = provider === "azure";
+  const freeText   = modelList.length === 0; // azure + ollama get a text input
+
+  function changeProvider(next: Config["ai_provider"]) {
+    setProvider(next);
+    setModel(defaultModel(next));
+    setTest("idle");
+    setMsg("");
+  }
 
   function resetTest() { setTest("idle"); setMsg(""); }
 
   function mergedConfig(): Config {
     return {
       ...config,
-      ai_provider: provider,
-      ai_api_key: key.trim(),
+      ai_provider:    provider,
+      ai_api_key:     key.trim(),
+      ai_model:       model.trim(),
       azure_endpoint: isAzure ? endpoint.trim() : config.azure_endpoint,
     };
   }
@@ -69,7 +80,7 @@ export default function StepAIProvider({ config, setConfig, onNext, onBack }: Pr
 
       <div className="field">
         <label>Provider</label>
-        <select value={provider} onChange={e => { setProvider(e.target.value as Config["ai_provider"]); resetTest(); }}>
+        <select value={provider} onChange={e => changeProvider(e.target.value as Config["ai_provider"])}>
           {AI_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
       </div>
@@ -94,6 +105,22 @@ export default function StepAIProvider({ config, setConfig, onNext, onBack }: Pr
           onChange={e => { setKey(e.target.value); resetTest(); }}
           placeholder={meta.keyPlaceholder}
         />
+      </div>
+
+      <div className="field">
+        <label>Model{isAzure ? " (deployment name)" : ""}</label>
+        {freeText ? (
+          <input
+            type="text"
+            value={model}
+            onChange={e => setModel(e.target.value)}
+            placeholder={isAzure ? "my-gpt-4o-deployment" : "llama3.2"}
+          />
+        ) : (
+          <select value={model} onChange={e => setModel(e.target.value)}>
+            {modelList.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        )}
       </div>
 
       <div className="test-row">

@@ -15,6 +15,8 @@ pub struct Config {
     pub ai_provider: String,
     pub ai_api_key: String,
     #[serde(default)]
+    pub ai_model: String,
+    #[serde(default)]
     pub azure_endpoint: String,
     #[serde(default = "default_stop_loss_pct")]
     pub stop_loss_pct: f64,
@@ -65,7 +67,7 @@ pub fn save_to_path(path: &Path, config: &Config) -> Result<(), String> {
 const WIZARD_KEYS: &[&str] = &[
     "T212_API_KEY", "T212_API_SECRET", "T212_ENV", "T212_ACCOUNT_TYPE",
     "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "AZURE_AI_KEY", "AZURE_AI_ENDPOINT",
-    "GEMINI_API_KEY", "DEEPSEEK_API_KEY", "OLLAMA_BASE_URL",
+    "GEMINI_API_KEY", "DEEPSEEK_API_KEY", "OLLAMA_BASE_URL", "AI_MODEL",
     "STOP_LOSS_PCT", "TAKE_PROFIT_PCT", "MAX_OPEN_POSITIONS", "MAX_POSITION_SIZE_PCT",
     "WATCHLIST",
 ];
@@ -114,6 +116,9 @@ pub fn write_env_to_path(env_path: &Path, config: &Config) -> Result<(), String>
 
     if config.ai_provider == "azure" && !config.azure_endpoint.is_empty() {
         lines.push(format!("AZURE_AI_ENDPOINT={}", config.azure_endpoint));
+    }
+    if !config.ai_model.is_empty() {
+        lines.push(format!("AI_MODEL={}", config.ai_model));
     }
     lines.extend(preserved);
 
@@ -265,6 +270,7 @@ mod tests {
             t212_account_type: "invest".to_string(),
             ai_provider: "anthropic".to_string(),
             ai_api_key: "sk-ant-xxx".to_string(),
+            ai_model: "claude-sonnet-4-6".to_string(),
             azure_endpoint: String::new(),
             stop_loss_pct: 0.02,
             take_profit_pct: 0.04,
@@ -317,6 +323,7 @@ mod tests {
         assert!(content.contains("STOP_LOSS_PCT=0.02"), "missing STOP_LOSS_PCT");
         assert!(content.contains("MAX_OPEN_POSITIONS=10"), "missing MAX_OPEN_POSITIONS");
         assert!(content.contains("WATCHLIST="), "missing WATCHLIST");
+        assert!(content.contains("AI_MODEL=claude-sonnet-4-6"), "missing AI_MODEL");
     }
 
     #[test]

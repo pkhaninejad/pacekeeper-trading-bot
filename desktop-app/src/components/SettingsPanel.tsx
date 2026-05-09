@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Config, AI_PROVIDERS } from "../types/config";
+import { Config, AI_PROVIDERS, AI_PROVIDER_MODELS, defaultModel } from "../types/config";
 
 interface Props {
   config: Config;
@@ -15,6 +15,8 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
   const [acct,       setAcct]       = useState<Config["t212_account_type"]>(config.t212_account_type);
   const [provider,   setProvider]   = useState<Config["ai_provider"]>(config.ai_provider);
   const [aiKey,      setAiKey]      = useState(config.ai_api_key);
+  const [aiModel,    setAiModel]    = useState(config.ai_model || defaultModel(config.ai_provider));
+  const [azureEp,    setAzureEp]    = useState(config.azure_endpoint);
   const [stopLoss,   setStopLoss]   = useState(+(config.stop_loss_pct   * 100).toFixed(1));
   const [takeProfit, setTakeProfit] = useState(+(config.take_profit_pct * 100).toFixed(1));
   const [maxPos,     setMaxPos]     = useState(config.max_open_positions);
@@ -22,7 +24,14 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
   const [watchlist,  setWatchlist]  = useState(config.watchlist.join(", "));
   const [saving,     setSaving]     = useState(false);
 
-  const meta = AI_PROVIDERS.find(p => p.value === provider) ?? AI_PROVIDERS[0];
+  const meta      = AI_PROVIDERS.find(p => p.value === provider) ?? AI_PROVIDERS[0];
+  const modelList = AI_PROVIDER_MODELS[provider];
+  const freeText  = modelList.length === 0;
+
+  function changeProvider(next: Config["ai_provider"]) {
+    setProvider(next);
+    setAiModel(defaultModel(next));
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -34,6 +43,8 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
       t212_account_type:     acct,
       ai_provider:           provider,
       ai_api_key:            aiKey.trim(),
+      ai_model:              aiModel.trim(),
+      azure_endpoint:        provider === "azure" ? azureEp.trim() : config.azure_endpoint,
       stop_loss_pct:         stopLoss   / 100,
       take_profit_pct:       takeProfit / 100,
       max_open_positions:    maxPos,
@@ -80,13 +91,31 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
           <h3>AI Provider</h3>
           <div className="field">
             <label>Provider</label>
-            <select value={provider} onChange={e => setProvider(e.target.value as Config["ai_provider"])}>
+            <select value={provider} onChange={e => changeProvider(e.target.value as Config["ai_provider"])}>
               {AI_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
+          {provider === "azure" && (
+            <div className="field">
+              <label>Azure Endpoint URL</label>
+              <input type="text" value={azureEp} onChange={e => setAzureEp(e.target.value)}
+                placeholder="https://your-resource.services.ai.azure.com/" />
+            </div>
+          )}
           <div className="field">
             <label>{meta.keyLabel}</label>
             <input type="password" value={aiKey} onChange={e => setAiKey(e.target.value)} placeholder={meta.keyPlaceholder} />
+          </div>
+          <div className="field">
+            <label>Model{provider === "azure" ? " (deployment name)" : ""}</label>
+            {freeText ? (
+              <input type="text" value={aiModel} onChange={e => setAiModel(e.target.value)}
+                placeholder={provider === "azure" ? "my-gpt-4o-deployment" : "llama3.2"} />
+            ) : (
+              <select value={aiModel} onChange={e => setAiModel(e.target.value)}>
+                {modelList.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            )}
           </div>
         </div>
 

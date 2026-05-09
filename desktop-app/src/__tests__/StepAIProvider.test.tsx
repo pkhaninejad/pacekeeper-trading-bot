@@ -21,7 +21,7 @@ test("Next disabled until test passes", () => {
 
 test("provider selector updates key label", () => {
   render(<StepAIProvider {...baseProps} />);
-  fireEvent.change(screen.getByRole("combobox"), { target: { value: "openai" } });
+  fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "openai" } });
   expect(screen.getByText("OpenAI API Key")).toBeInTheDocument();
 });
 

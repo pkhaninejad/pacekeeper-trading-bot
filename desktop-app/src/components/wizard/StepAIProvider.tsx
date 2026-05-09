@@ -15,19 +15,36 @@ type TestState = "idle" | "testing" | "ok" | "error";
 export default function StepAIProvider({ config, setConfig, onNext, onBack }: Props) {
   const [provider, setProvider] = useState<Config["ai_provider"]>(config.ai_provider);
   const [key, setKey]           = useState(config.ai_api_key);
+  const [endpoint, setEndpoint] = useState(config.azure_endpoint);
   const [test, setTest]         = useState<TestState>("idle");
   const [msg, setMsg]           = useState("");
 
   const meta = AI_PROVIDERS.find(p => p.value === provider) ?? AI_PROVIDERS[0];
+  const isAzure = provider === "azure";
+
+  function resetTest() { setTest("idle"); setMsg(""); }
+
+  function mergedConfig(): Config {
+    return {
+      ...config,
+      ai_provider: provider,
+      ai_api_key: key.trim(),
+      azure_endpoint: isAzure ? endpoint.trim() : config.azure_endpoint,
+    };
+  }
 
   async function handleTest() {
     setTest("testing");
     setMsg("Testing connection…");
     try {
-      const result = await invoke<string>("test_ai_connection", { provider, key: key.trim() });
+      const result = await invoke<string>("test_ai_connection", {
+        provider,
+        key: key.trim(),
+        endpoint: isAzure ? endpoint.trim() : null,
+      });
       setMsg(result);
       setTest("ok");
-      setConfig({ ...config, ai_provider: provider, ai_api_key: key.trim() });
+      setConfig(mergedConfig());
     } catch (err) {
       setMsg(String(err));
       setTest("error");
@@ -35,9 +52,14 @@ export default function StepAIProvider({ config, setConfig, onNext, onBack }: Pr
   }
 
   function handleNext() {
-    setConfig({ ...config, ai_provider: provider, ai_api_key: key.trim() });
+    setConfig(mergedConfig());
     onNext();
   }
+
+  const testDisabled =
+    test === "testing" ||
+    (provider !== "ollama" && !key) ||
+    (isAzure && !endpoint);
 
   return (
     <div className="wizard-step">
@@ -47,25 +69,42 @@ export default function StepAIProvider({ config, setConfig, onNext, onBack }: Pr
 
       <div className="field">
         <label>Provider</label>
-        <select value={provider} onChange={e => { setProvider(e.target.value as Config["ai_provider"]); setTest("idle"); setMsg(""); }}>
+        <select value={provider} onChange={e => { setProvider(e.target.value as Config["ai_provider"]); resetTest(); }}>
           {AI_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
       </div>
 
+      {isAzure && (
+        <div className="field">
+          <label>Azure Endpoint URL</label>
+          <input
+            type="text"
+            value={endpoint}
+            onChange={e => { setEndpoint(e.target.value); resetTest(); }}
+            placeholder="https://your-resource.services.ai.azure.com/"
+          />
+        </div>
+      )}
+
       <div className="field">
         <label>{meta.keyLabel}</label>
-        <input type="password" value={key}
-          onChange={e => { setKey(e.target.value); setTest("idle"); }}
+        <input
+          type="password"
+          value={key}
+          onChange={e => { setKey(e.target.value); resetTest(); }}
           placeholder={meta.keyPlaceholder}
         />
       </div>
 
       <div className="test-row">
-        <button className="btn-primary" onClick={handleTest}
-          disabled={test === "testing" || (provider !== "ollama" && !key)}>
+        <button className="btn-primary" onClick={handleTest} disabled={testDisabled}>
           {test === "testing" ? "Testing…" : "Test Connection"}
         </button>
-        {msg && <span className={`test-result ${test === "ok" ? "ok" : test === "error" ? "error" : "busy"}`}>{msg}</span>}
+        {msg && (
+          <span className={`test-result ${test === "ok" ? "ok" : test === "error" ? "error" : "busy"}`}>
+            {msg}
+          </span>
+        )}
       </div>
 
       <div className="wizard-nav">

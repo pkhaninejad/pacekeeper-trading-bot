@@ -7,6 +7,7 @@ export interface Config {
   t212_account_type: "invest" | "cfd";
   ai_provider: "anthropic" | "openai" | "azure" | "gemini" | "deepseek" | "ollama";
   ai_api_key: string;
+  azure_endpoint: string;
   stop_loss_pct: number;
   take_profit_pct: number;
   max_open_positions: number;
@@ -23,6 +24,7 @@ export const DEFAULT_CONFIG: Config = {
   t212_account_type: "invest",
   ai_provider: "anthropic",
   ai_api_key: "",
+  azure_endpoint: "",
   stop_loss_pct: 0.02,
   take_profit_pct: 0.04,
   max_open_positions: 10,

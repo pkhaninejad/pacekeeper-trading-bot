@@ -101,8 +101,8 @@ async fn test_t212_connection(key: String, secret: String, env: String) -> Resul
 }
 
 #[tauri::command]
-async fn test_ai_connection(provider: String, key: String) -> Result<String, String> {
-    config::check_ai_connection(&provider, &key).await
+async fn test_ai_connection(provider: String, key: String, endpoint: Option<String>) -> Result<String, String> {
+    config::check_ai_connection(&provider, &key, endpoint.as_deref()).await
 }
 
 #[tauri::command]

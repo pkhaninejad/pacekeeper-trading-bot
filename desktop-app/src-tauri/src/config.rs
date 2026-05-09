@@ -14,6 +14,8 @@ pub struct Config {
     #[serde(default = "default_ai_provider")]
     pub ai_provider: String,
     pub ai_api_key: String,
+    #[serde(default)]
+    pub azure_endpoint: String,
     #[serde(default = "default_stop_loss_pct")]
     pub stop_loss_pct: f64,
     #[serde(default = "default_take_profit_pct")]
@@ -62,8 +64,8 @@ pub fn save_to_path(path: &Path, config: &Config) -> Result<(), String> {
 
 const WIZARD_KEYS: &[&str] = &[
     "T212_API_KEY", "T212_API_SECRET", "T212_ENV", "T212_ACCOUNT_TYPE",
-    "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "AZURE_AI_KEY", "GEMINI_API_KEY",
-    "DEEPSEEK_API_KEY", "OLLAMA_BASE_URL",
+    "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "AZURE_AI_KEY", "AZURE_AI_ENDPOINT",
+    "GEMINI_API_KEY", "DEEPSEEK_API_KEY", "OLLAMA_BASE_URL",
     "STOP_LOSS_PCT", "TAKE_PROFIT_PCT", "MAX_OPEN_POSITIONS", "MAX_POSITION_SIZE_PCT",
     "WATCHLIST",
 ];
@@ -109,6 +111,10 @@ pub fn write_env_to_path(env_path: &Path, config: &Config) -> Result<(), String>
         format!("MAX_POSITION_SIZE_PCT={}", config.max_position_size_pct),
         format!("WATCHLIST={}", watchlist_json),
     ];
+
+    if config.ai_provider == "azure" && !config.azure_endpoint.is_empty() {
+        lines.push(format!("AZURE_AI_ENDPOINT={}", config.azure_endpoint));
+    }
     lines.extend(preserved);
 
     std::fs::write(env_path, lines.join("\n") + "\n").map_err(|e| e.to_string())?;
@@ -153,7 +159,7 @@ pub async fn check_t212_connection(key: &str, secret: &str, env: &str) -> Result
     }
 }
 
-pub async fn check_ai_connection(provider: &str, key: &str) -> Result<String, String> {
+pub async fn check_ai_connection(provider: &str, key: &str, endpoint: Option<&str>) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
@@ -189,6 +195,29 @@ pub async fn check_ai_connection(provider: &str, key: &str) -> Result<String, St
                 401 => Err("Invalid API key — make sure you copied the full key.".to_string()),
                 429 => Err("Key is valid but rate-limited. Wait a moment and test again.".to_string()),
                 code => Err(format!("Unexpected response from OpenAI (HTTP {}). Try again.", code)),
+            }
+        }
+        "azure" => {
+            let ep = endpoint.unwrap_or("").trim().trim_end_matches('/');
+            if ep.is_empty() {
+                return Err("Azure endpoint URL is required.".to_string());
+            }
+            if key.is_empty() {
+                return Err("Azure API key is required.".to_string());
+            }
+            // Azure AI Foundry: GET {endpoint}/models?api-version=2024-05-01-preview
+            let url = format!("{}/models?api-version=2024-05-01-preview", ep);
+            let resp = client
+                .get(&url)
+                .header("api-key", key)
+                .send()
+                .await
+                .map_err(|e| network_err(&e))?;
+            match resp.status().as_u16() {
+                200 => Ok("Connected — Azure AI endpoint verified".to_string()),
+                401 | 403 => Err("Invalid key or endpoint — check your Azure AI key and endpoint URL.".to_string()),
+                404 => Err("Endpoint not found — make sure the URL ends with .services.ai.azure.com/ or .openai.azure.com/".to_string()),
+                code => Err(format!("Unexpected response from Azure (HTTP {}). Check endpoint and key.", code)),
             }
         }
         "ollama" => {
@@ -236,6 +265,7 @@ mod tests {
             t212_account_type: "invest".to_string(),
             ai_provider: "anthropic".to_string(),
             ai_api_key: "sk-ant-xxx".to_string(),
+            azure_endpoint: String::new(),
             stop_loss_pct: 0.02,
             take_profit_pct: 0.04,
             max_open_positions: 10,
@@ -299,6 +329,21 @@ mod tests {
         assert!(content.contains("T212_API_KEY=key123"), "wizard key not updated");
         assert!(content.contains("FINNHUB_API_KEY=fh123"), "non-wizard key lost");
         assert!(content.contains("NEWS_API_KEY=news456"), "non-wizard key lost");
+    }
+
+    #[test]
+    fn write_env_azure_provider_includes_endpoint() {
+        let dir = tempfile::tempdir().unwrap();
+        let env_path = dir.path().join(".env");
+        let mut config = make_config();
+        config.ai_provider = "azure".to_string();
+        config.ai_api_key = "azure-key-abc".to_string();
+        config.azure_endpoint = "https://my-resource.services.ai.azure.com/".to_string();
+        write_env_to_path(&env_path, &config).unwrap();
+        let content = std::fs::read_to_string(&env_path).unwrap();
+        assert!(content.contains("AZURE_AI_KEY=azure-key-abc"));
+        assert!(content.contains("AZURE_AI_ENDPOINT=https://my-resource.services.ai.azure.com/"));
+        assert!(!content.contains("ANTHROPIC_API_KEY="));
     }
 
     #[test]

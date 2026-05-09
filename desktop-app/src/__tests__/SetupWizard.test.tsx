@@ -12,7 +12,7 @@ beforeEach(() => {
 
 test("starts on welcome screen", () => {
   render(<SetupWizard initialConfig={DEFAULT_CONFIG} onComplete={vi.fn()} />);
-  expect(screen.getByText("Welcome to Claude Trade Bot")).toBeInTheDocument();
+  expect(screen.getByText("Welcome to Pacekeeper")).toBeInTheDocument();
 });
 
 test("Get Started advances to T212 step", () => {

@@ -125,7 +125,7 @@ export default function App() {
     <main className="app">
       <header className="top launcher-header">
         <div>
-          <h1>Claude Trade Bot</h1>
+          <h1>Pacekeeper</h1>
           <p>One-click launcher for stock and prediction dashboards</p>
         </div>
         <button className="gear-btn" onClick={() => setShowSettings(true)} title="Settings">⚙</button>

@@ -220,7 +220,7 @@ pub async fn check_ai_connection(provider: &str, key: &str, endpoint: Option<&st
                 "{}/openai/deployments/{}/chat/completions?api-version=2024-12-01-preview",
                 ep, deployment
             );
-            let mini_body = r#"{"messages":[{"role":"user","content":"hi"}],"max_tokens":1}"#;
+            let mini_body = r#"{"messages":[{"role":"user","content":"hi"}],"max_tokens":10}"#;
             let resp = client
                 .post(&azure_oai_url)
                 .header("api-key", key)
@@ -229,12 +229,17 @@ pub async fn check_ai_connection(provider: &str, key: &str, endpoint: Option<&st
                 .send()
                 .await
                 .map_err(|e| network_err(&e))?;
-            match resp.status().as_u16() {
+            let status = resp.status().as_u16();
+            let body   = resp.text().await.unwrap_or_default();
+            match status {
                 200 | 201 => return Ok(format!("Connected — Azure OpenAI deployment «{}» verified", deployment)),
                 401 | 403 => return Err("Invalid API key — double-check your Azure AI key.".to_string()),
+                // 400 + max_tokens message = endpoint+key+deployment are all valid
+                400 if body.contains("max_tokens") => {
+                    return Ok(format!("Connected — Azure OpenAI deployment «{}» verified", deployment));
+                }
                 404 => {} // fall through to Strategy 2
                 code => {
-                    let body = resp.text().await.unwrap_or_default();
                     let snippet = body.chars().take(300).collect::<String>();
                     return Err(format!("Azure returned HTTP {} — {}", code, snippet));
                 }
@@ -243,7 +248,7 @@ pub async fn check_ai_connection(provider: &str, key: &str, endpoint: Option<&st
             // Strategy 2 — Azure AI Foundry: POST {endpoint}/models/chat/completions
             let foundry_url = format!("{}/models/chat/completions?api-version=2024-05-01-preview", ep);
             let foundry_body = format!(
-                r#"{{"model":"{}","messages":[{{"role":"user","content":"hi"}}],"max_tokens":1}}"#,
+                r#"{{"model":"{}","messages":[{{"role":"user","content":"hi"}}],"max_tokens":10}}"#,
                 deployment
             );
             let resp = client
@@ -254,11 +259,15 @@ pub async fn check_ai_connection(provider: &str, key: &str, endpoint: Option<&st
                 .send()
                 .await
                 .map_err(|e| network_err(&e))?;
-            match resp.status().as_u16() {
+            let status = resp.status().as_u16();
+            let body   = resp.text().await.unwrap_or_default();
+            match status {
                 200 | 201 => return Ok(format!("Connected — Azure AI Foundry model «{}» verified", deployment)),
                 401 | 403 => return Err("Invalid API key — double-check your Azure AI key.".to_string()),
+                400 if body.contains("max_tokens") => {
+                    return Ok(format!("Connected — Azure AI Foundry model «{}» verified", deployment));
+                }
                 code => {
-                    let body = resp.text().await.unwrap_or_default();
                     let snippet = body.chars().take(300).collect::<String>();
                     Err(format!("Azure returned HTTP {} — {}", code, snippet))
                 }

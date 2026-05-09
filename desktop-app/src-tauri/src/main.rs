@@ -1,3 +1,5 @@
+mod config;
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
@@ -58,19 +60,74 @@ fn bot_command(bot: &str, root: &PathBuf) -> Result<(PathBuf, Vec<String>), Stri
     }
 }
 
+fn bot_port(bot: &str) -> u16 {
+    match bot {
+        "stock" => 4000,
+        "prediction" => 4001,
+        _ => 0,
+    }
+}
+
+// Kill any process holding the given port so we can spawn fresh.
+fn kill_port(port: u16) {
+    if port == 0 { return; }
+    #[cfg(unix)]
+    let _ = Command::new("sh")
+        .args(["-c", &format!("lsof -ti:{port} | xargs kill -9 2>/dev/null; true")])
+        .status();
+    #[cfg(windows)]
+    let _ = Command::new("cmd")
+        .args(["/C", &format!(
+            "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr \":{port} \"') do @taskkill /f /pid %a >nul 2>&1"
+        )])
+        .status();
+}
+
 #[tauri::command]
-fn start_bot(bot: String, state: tauri::State<AppState>) -> Result<(), String> {
+fn load_config(app: tauri::AppHandle) -> Result<Option<config::Config>, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    config::load_from_path(&config::config_path(&data_dir))
+}
+
+#[tauri::command]
+fn save_config(app: tauri::AppHandle, config: config::Config) -> Result<(), String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    config::save_to_path(&config::config_path(&data_dir), &config)
+}
+
+#[tauri::command]
+async fn test_t212_connection(key: String, secret: String, env: String) -> Result<String, String> {
+    config::check_t212_connection(&key, &secret, &env).await
+}
+
+#[tauri::command]
+async fn test_ai_connection(provider: String, key: String, endpoint: Option<String>, model: Option<String>) -> Result<String, String> {
+    config::check_ai_connection(&provider, &key, endpoint.as_deref(), model.as_deref()).await
+}
+
+#[tauri::command]
+fn start_bot(bot: String, state: tauri::State<AppState>, app: tauri::AppHandle) -> Result<(), String> {
     let root = project_root()?;
+
+    // Write .env from wizard config before spawning Python
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cfg_path = config::config_path(&data_dir);
+    if let Some(cfg) = config::load_from_path(&cfg_path)? {
+        if cfg.setup_complete {
+            config::write_env_to_path(&root.join(".env"), &cfg)?;
+        }
+    }
+
+    // Kill anything holding the port (handles stale processes from prior sessions)
+    kill_port(bot_port(&bot));
+
     let mut map = state
         .processes
         .lock()
         .map_err(|_| "process state poisoned".to_string())?;
 
-    if let Some(existing) = map.get_mut(&bot) {
-        if existing.try_wait().map_err(|e| e.to_string())?.is_none() {
-            return Ok(());
-        }
-    }
+    // Drop any tracked handle — port is already freed above
+    map.remove(&bot);
 
     let (program, args) = bot_command(&bot, &root)?;
     let child = Command::new(program)
@@ -123,36 +180,27 @@ fn get_status(state: tauri::State<AppState>) -> Result<HashMap<String, String>, 
 }
 
 #[tauri::command]
-fn open_dashboard(bot: String) -> Result<(), String> {
-    let url = match bot.as_str() {
-        "stock" => "http://localhost:4000",
-        "prediction" => "http://localhost:4001",
+fn open_dashboard(bot: String, app: tauri::AppHandle) -> Result<(), String> {
+    let (url_str, label, title) = match bot.as_str() {
+        "stock"      => ("http://localhost:4000", "stock-dashboard",      "Pacekeeper — Stock Bot"),
+        "prediction" => ("http://localhost:4001", "prediction-dashboard", "Pacekeeper — Prediction Bot"),
         _ => return Err(format!("unsupported bot: {bot}")),
     };
 
-    #[cfg(target_os = "macos")]
-    {
-        Command::new("open")
-            .arg(url)
-            .spawn()
-            .map_err(|e| format!("failed to open dashboard: {e}"))?;
+    // If the window is already open, bring it to front
+    if let Some(win) = app.get_webview_window(label) {
+        win.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("cmd")
-            .args(["/C", "start", "", url])
-            .spawn()
-            .map_err(|e| format!("failed to open dashboard: {e}"))?;
-    }
+    let url: url::Url = url_str.parse().map_err(|e: url::ParseError| e.to_string())?;
 
-    #[cfg(target_os = "linux")]
-    {
-        Command::new("xdg-open")
-            .arg(url)
-            .spawn()
-            .map_err(|e| format!("failed to open dashboard: {e}"))?;
-    }
+    tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::External(url))
+        .title(title)
+        .inner_size(1440.0, 900.0)
+        .min_inner_size(900.0, 600.0)
+        .build()
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -160,7 +208,10 @@ fn open_dashboard(bot: String) -> Result<(), String> {
 fn main() {
     let app = tauri::Builder::default()
         .manage(AppState::new())
-        .invoke_handler(tauri::generate_handler![start_bot, stop_bot, get_status, open_dashboard])
+        .invoke_handler(tauri::generate_handler![
+            start_bot, stop_bot, get_status, open_dashboard,
+            load_config, save_config, test_t212_connection, test_ai_connection
+        ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 

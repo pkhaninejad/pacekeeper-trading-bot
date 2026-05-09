@@ -40,3 +40,5 @@ htmlcov/
 desktop-app/node_modules/
 desktop-app/dist/
 desktop-app/src-tauri/target/
+
+.env_backup

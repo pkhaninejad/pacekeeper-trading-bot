@@ -52,6 +52,7 @@ export default function StepAIProvider({ config, setConfig, onNext, onBack }: Pr
         provider,
         key: key.trim(),
         endpoint: isAzure ? endpoint.trim() : null,
+        model:    isAzure ? model.trim()    : null,
       });
       setMsg(result);
       setTest("ok");

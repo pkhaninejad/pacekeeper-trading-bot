@@ -207,6 +207,8 @@ fn open_dashboard(bot: String, app: tauri::AppHandle) -> Result<(), String> {
 
 fn main() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             start_bot, stop_bot, get_status, open_dashboard,

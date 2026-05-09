@@ -42,3 +42,4 @@ desktop-app/dist/
 desktop-app/src-tauri/target/
 
 .env_backup
+Cargo.lock

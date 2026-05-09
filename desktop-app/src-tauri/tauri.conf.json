@@ -25,5 +25,13 @@
     "active": true,
     "targets": ["app", "dmg", "msi"],
     "icon": []
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "PASTE_YOUR_PUBLIC_KEY_HERE",
+      "endpoints": [
+        "https://github.com/pkhaninejad/Claude-trade-bot/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

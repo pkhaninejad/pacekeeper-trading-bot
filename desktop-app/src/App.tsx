@@ -3,6 +3,8 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { Config, DEFAULT_CONFIG } from "./types/config";
 import SetupWizard from "./components/wizard/SetupWizard";
 import SettingsPanel from "./components/SettingsPanel";
+import { getVersion } from "@tauri-apps/api/app";
+import UpdateBanner from "./components/UpdateBanner";
 
 type BotKey = "stock" | "prediction";
 type BotState = "running" | "stopped";
@@ -22,6 +24,7 @@ export default function App() {
   const [status,       setStatus]       = useState<StatusMap>({ stock: "stopped", prediction: "stopped" });
   const [message,      setMessage]      = useState("Ready. Start a bot to continue.");
   const [busy,         setBusy]         = useState(false);
+  const [appVersion,   setAppVersion]   = useState<string | null>(null);
   const tauriMode = isTauri();
 
   const runningCount = useMemo(
@@ -115,6 +118,12 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (tauriMode) {
+      getVersion().then(setAppVersion).catch(() => {});
+    }
+  }, [tauriMode]);
+
   if (view === "loading") {
     return <div className="app" style={{ textAlign: "center", paddingTop: 80, color: "#9fb2c7" }}>Loading…</div>;
   }
@@ -125,6 +134,7 @@ export default function App() {
 
   return (
     <main className="app">
+      <UpdateBanner />
       <header className="top launcher-header">
         <div>
           <h1>Pacekeeper</h1>
@@ -179,7 +189,14 @@ export default function App() {
         </div>
       </section>
 
-      <footer className="status">{message}</footer>
+      <footer className="status" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>{message}</span>
+        {appVersion && (
+          <span style={{ fontFamily: "var(--mono)", color: "var(--ink-4)", fontSize: "0.8rem" }}>
+            v{appVersion}
+          </span>
+        )}
+      </footer>
       {!tauriMode && (
         <footer className="status">
           Web preview mode — backend controls require the Tauri runtime.

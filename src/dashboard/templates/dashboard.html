@@ -1211,6 +1211,77 @@
     } catch(e) { console.warn('investments fetch failed', e); }
   }
 
+  // ── Simple: Recent Activity ───────────────────────────────────────────────────
+  function buildActivityStream(signals, trades) {
+    const entries = [];
+
+    for (const t of trades) {
+      const action = (t.action || '').toUpperCase();
+      const ticker = (t.ticker || '').split('_')[0];
+      const qty = Math.abs(t.quantity || 0);
+      const fmtQty = qty % 1 < 1e-6 ? String(Math.round(qty)) : fmt(qty, 4);
+      const reason = (t.reason || '').toLowerCase();
+      const isTP = reason.includes('profit') || reason.includes('target') || reason.includes('take');
+      const isSL = reason.includes('stop') || reason.includes('loss');
+
+      if (action === 'BUY') {
+        entries.push({
+          ts: t.timestamp,
+          emoji: '🟢', cls: 'buy',
+          title: `Bought ${fmtQty} share${qty !== 1 ? 's' : ''} of ${ticker}`,
+          sub: 'AI spotted a buying opportunity',
+        });
+      } else {
+        entries.push({
+          ts: t.timestamp,
+          emoji: '🔴', cls: 'sell',
+          title: `Sold ${ticker}`,
+          sub: isTP ? 'Took profit' : isSL ? 'Stop-loss triggered' : t.reason || 'Sold position',
+        });
+      }
+    }
+
+    for (const s of signals) {
+      if ((s.action || '').toUpperCase() === 'HOLD') {
+        const ticker = (s.ticker || '').split('_')[0];
+        const reasoning = s.reasoning ? s.reasoning.slice(0, 80) : 'Market conditions uncertain';
+        entries.push({
+          ts: s.timestamp,
+          emoji: '⏸', cls: 'hold',
+          title: `Decided to hold ${ticker}`,
+          sub: reasoning,
+        });
+      }
+    }
+
+    entries.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+    return entries.slice(0, 20);
+  }
+
+  async function refreshActivity() {
+    try {
+      const [signals, trades] = await Promise.all([
+        fetchJSON('/api/signals'),
+        fetchJSON('/api/trades'),
+      ]);
+      const entries = buildActivityStream(signals || [], trades || []);
+      const list = document.getElementById('activity-list');
+      if (!entries.length) {
+        list.innerHTML = '<div style="color:var(--ink-3);font-size:13px">No activity yet — waiting for first trading cycle</div>';
+        return;
+      }
+      list.innerHTML = entries.map(e => `
+        <div class="activity-entry ${e.cls}">
+          <span class="activity-emoji">${e.emoji}</span>
+          <div>
+            <div class="activity-title">${e.title}</div>
+            <div class="activity-sub">${e.sub} · ${fmtTime(e.ts)}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) { console.warn('activity fetch failed', e); }
+  }
+
   async function closePosition(ticker) {
     if (!confirm(`Close position in ${ticker}?`)) return;
     try {

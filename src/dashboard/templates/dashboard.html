@@ -605,15 +605,15 @@
     <!-- KPI cards -->
     <div class="grid">
       <div class="card">
-        <div class="label">Free Cash</div>
+        <div class="label">Available Cash</div>
         <div class="value" id="kpi-cash">—</div>
       </div>
       <div class="card">
-        <div class="label">Total Value</div>
+        <div class="label">Portfolio Value</div>
         <div class="value" id="kpi-total">—</div>
       </div>
       <div class="card">
-        <div class="label">Overall PnL</div>
+        <div class="label">Today's Gain / Loss</div>
         <div class="value" id="kpi-pnl">—</div>
       </div>
       <div class="card">
@@ -624,13 +624,16 @@
         <div class="label">Trades Today</div>
         <div class="value" id="kpi-trades">—</div>
       </div>
-      <div class="card">
-        <div class="label">Signals Generated</div>
-        <div class="value" id="kpi-signals">—</div>
+      <div data-mode="advanced">
+        <div class="card">
+          <div class="label">Signals Generated</div>
+          <div class="value" id="kpi-signals">—</div>
+        </div>
       </div>
     </div>
 
     <!-- LLM Settings -->
+    <div data-mode="advanced">
     <div class="llm-panel">
       <h2>LLM Settings</h2>
       <div class="llm-form">
@@ -657,6 +660,7 @@
         <span id="llm-toast"></span>
       </div>
     </div>
+    </div>
 
     <!-- P&L Chart -->
     <div class="chart-wrap">
@@ -668,14 +672,17 @@
     </div>
 
     <!-- Indicators grid -->
+    <div data-mode="advanced">
     <div class="section">
       <h2>Market Indicators</h2>
       <div class="ind-grid" id="indicators-grid">
         <div style="color:var(--muted);font-size:13px">Loading…</div>
       </div>
     </div>
+    </div>
 
     <!-- Positions table -->
+    <div data-mode="advanced">
     <div class="section">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h2>Open Positions</h2>
@@ -693,8 +700,10 @@
         </tbody>
       </table>
     </div>
+    </div>
 
     <!-- Signals table -->
+    <div data-mode="advanced">
     <div class="section">
       <h2>Recent Signals</h2>
       <table>
@@ -709,8 +718,10 @@
         </tbody>
       </table>
     </div>
+    </div>
 
     <!-- Trade log -->
+    <div data-mode="advanced">
     <div class="section">
       <h2>Trade Log</h2>
       <table>
@@ -721,6 +732,7 @@
           <tr><td colspan="6" style="color:var(--muted);text-align:center">Loading…</td></tr>
         </tbody>
       </table>
+    </div>
     </div>
   </main>
 

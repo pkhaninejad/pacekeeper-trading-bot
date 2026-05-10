@@ -1369,18 +1369,17 @@
 
   // ── Init & poll ───────────────────────────────────────────────────────────
   async function refresh() {
-    await Promise.allSettled([
-      refreshAccount(),
-      refreshStatus(),
-      refreshPnlChart(),
-      refreshIndicators(),
-      refreshPositions(),
-      refreshSignals(),
-      refreshTrades(),
-    ]);
+    const mode = localStorage.getItem('pk_mode') || 'simple';
+    const shared = [refreshAccount(), refreshStatus(), refreshPnlChart()];
+    const modeSpecific = mode === 'simple'
+      ? [refreshInvestments(), refreshActivity()]
+      : [refreshIndicators(), refreshPositions(), refreshSignals(), refreshTrades()];
+    await Promise.allSettled([...shared, ...modeSpecific]);
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
   }
 
+  initModeToggle();
+  initModal();
   refresh();
   setInterval(refresh, 15000);
   connectSSE();

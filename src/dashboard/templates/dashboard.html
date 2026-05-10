@@ -1177,6 +1177,40 @@
     } catch(e) { console.warn('positions fetch failed', e); }
   }
 
+  // ── Simple: My Investments ────────────────────────────────────────────────────
+  async function refreshInvestments() {
+    try {
+      const raw = await fetchJSON('/api/positions');
+      const data = (raw || []).filter(p => Math.abs(Number(p.quantity || 0)) > 1e-6);
+      const body = document.getElementById('investments-body');
+      if (!data.length) {
+        body.innerHTML = '<p style="color:var(--ink-3);font-size:13px;text-align:center">No open positions</p>';
+        return;
+      }
+      body.innerHTML = data.map(p => {
+        const pnlPct = p.averagePrice
+          ? ((p.currentPrice - p.averagePrice) / p.averagePrice * 100)
+          : 0;
+        const pnlSign = p.ppl >= 0 ? '+' : '';
+        const pnlPctSign = pnlPct >= 0 ? '+' : '';
+        const pnlCls = p.ppl >= 0 ? 'positive' : 'negative';
+        const qty = Math.abs(p.quantity);
+        const fmtQty = qty % 1 < 1e-6 ? String(Math.round(qty)) : fmt(qty, 4);
+        const ticker = p.ticker.split('_')[0];
+        return `<div class="investment-row">
+          <div>
+            <span class="investment-ticker">${ticker}</span>
+            <span class="investment-meta">${fmtQty} share${qty !== 1 ? 's' : ''}</span>
+          </div>
+          <div class="investment-actions">
+            <span class="investment-pnl ${pnlCls}">${pnlSign}$${fmt(p.ppl)} <span style="font-size:11px">(${pnlPctSign}${fmt(pnlPct, 2)}%)</span></span>
+            <button class="sell-btn" onclick="closePosition('${p.ticker}')">Sell</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) { console.warn('investments fetch failed', e); }
+  }
+
   async function closePosition(ticker) {
     if (!confirm(`Close position in ${ticker}?`)) return;
     try {

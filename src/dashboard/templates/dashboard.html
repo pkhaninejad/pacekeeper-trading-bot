@@ -601,6 +601,27 @@
     <button id="toggle-btn">Pause Bot</button>
   </header>
 
+  <div id="mode-modal-backdrop" style="display:none" onclick="handleBackdropClick(event)">
+    <div id="mode-modal">
+      <h2>Welcome to Pacekeeper</h2>
+      <p>How would you like to see your dashboard? You can change this any time from the header.</p>
+      <div class="modal-cards">
+        <div class="modal-card selected" data-mode="simple" onclick="selectModalCard(this)">
+          <div class="modal-card-icon">🟢</div>
+          <div class="modal-card-title">Simple view</div>
+          <div class="modal-card-desc">Plain-English status, your investments at a glance, and easy controls. No jargon.</div>
+          <span class="modal-badge">Default · Recommended</span>
+        </div>
+        <div class="modal-card" data-mode="advanced" onclick="selectModalCard(this)">
+          <div class="modal-card-icon">📊</div>
+          <div class="modal-card-title">Advanced view</div>
+          <div class="modal-card-desc">Full indicators, signal tables, trade log, and all technical data.</div>
+        </div>
+      </div>
+      <button id="modal-cta" onclick="dismissModal()">Get started</button>
+    </div>
+  </div>
+
   <main>
     <!-- KPI cards -->
     <div class="grid">
@@ -756,6 +777,34 @@
     const m = localStorage.getItem('pk_mode') || 'simple';
     document.getElementById('mode-btn-simple').classList.toggle('active-simple', m === 'simple');
     document.getElementById('mode-btn-advanced').classList.toggle('active-advanced', m === 'advanced');
+  }
+
+  // ── First-run modal ───────────────────────────────────────────────────────────
+  let _modalMode = 'simple';
+
+  function selectModalCard(el) {
+    document.querySelectorAll('.modal-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    _modalMode = el.dataset.mode;
+  }
+
+  function dismissModal() {
+    setMode(_modalMode);
+    document.getElementById('mode-modal-backdrop').style.display = 'none';
+  }
+
+  function handleBackdropClick(e) {
+    if (e.target === document.getElementById('mode-modal-backdrop')) dismissModal();
+  }
+
+  function initModal() {
+    if (!localStorage.getItem('pk_mode')) {
+      document.getElementById('mode-modal-backdrop').style.display = 'flex';
+    }
+    document.addEventListener('keydown', function(e) {
+      const backdrop = document.getElementById('mode-modal-backdrop');
+      if (e.key === 'Escape' && backdrop.style.display !== 'none') dismissModal();
+    });
   }
 
   const fmt = (n, dec=2) => n == null ? '—' : Number(n).toFixed(dec);

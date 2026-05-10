@@ -28,7 +28,7 @@ export default function StepRiskProfile({ config, setConfig, onNext, onBack }: P
 
   return (
     <div className="wizard-step">
-      <WizardProgress current={4} total={5} />
+      <WizardProgress current={5} total={6} />
       <h2>Risk Profile</h2>
       <p className="subtitle">These limits control how aggressively the bot trades. The defaults are conservative — great for getting started.</p>
 

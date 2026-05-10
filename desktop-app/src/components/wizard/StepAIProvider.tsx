@@ -75,7 +75,7 @@ export default function StepAIProvider({ config, setConfig, onNext, onBack }: Pr
 
   return (
     <div className="wizard-step">
-      <WizardProgress current={3} total={5} />
+      <WizardProgress current={4} total={6} />
       <h2>AI Provider</h2>
       <p className="subtitle">Choose the AI model that will generate trade signals. Anthropic (Claude) is recommended.</p>
 

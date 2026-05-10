@@ -14,6 +14,7 @@ export interface Config {
   max_open_positions: number;
   max_position_size_pct: number;
   watchlist: string[];
+  license_key: string;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -32,6 +33,7 @@ export const DEFAULT_CONFIG: Config = {
   max_open_positions: 10,
   max_position_size_pct: 0.05,
   watchlist: ["AAPL","TSLA","NVDA","MSFT","AMZN","GOOGL","META","AMD","JPM","V","UBER","PLTR"],
+  license_key: "",
 };
 
 export const AI_PROVIDERS: {

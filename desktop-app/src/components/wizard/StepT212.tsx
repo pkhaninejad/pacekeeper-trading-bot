@@ -41,7 +41,7 @@ export default function StepT212({ config, setConfig, onNext, onBack }: Props) {
 
   return (
     <div className="wizard-step">
-      <WizardProgress current={2} total={5} />
+      <WizardProgress current={3} total={6} />
       <h2>Connect Trading 212</h2>
       <p className="subtitle">Enter your Trading 212 API credentials. Find them in the T212 app under Settings → API.</p>
 

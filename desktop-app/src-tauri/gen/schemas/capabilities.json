@@ -1,1 +1,1 @@
-{}
+{"updater":{"identifier":"updater","description":"Allow main window to check for and install updates","local":true,"windows":["main"],"permissions":["updater:default","process:default"]}}

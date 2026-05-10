@@ -17,6 +17,11 @@ const DASHBOARD_URLS: Record<BotKey, string> = {
 
 type AppView = "loading" | "wizard" | "launcher";
 
+interface LicenseInfo {
+  email: string;
+  expires?: string;
+}
+
 export default function App() {
   const [view,         setView]         = useState<AppView>("loading");
   const [config,       setConfig]       = useState<Config>(DEFAULT_CONFIG);
@@ -25,6 +30,7 @@ export default function App() {
   const [message,      setMessage]      = useState("Ready. Start a bot to continue.");
   const [busy,         setBusy]         = useState(false);
   const [appVersion,   setAppVersion]   = useState<string | null>(null);
+  const [license,      setLicense]      = useState<LicenseInfo | null>(null);
   const tauriMode = isTauri();
 
   const runningCount = useMemo(
@@ -54,6 +60,11 @@ export default function App() {
       .catch(() => {})
       .finally(() => setView("launcher"));
   }
+
+  useEffect(() => {
+    if (!tauriMode || view !== "launcher") return;
+    invoke<LicenseInfo>("get_license_info").then(setLicense).catch(() => {});
+  }, [tauriMode, view]);
 
   function handleSettingsSave(updated: Config) {
     setConfig(updated);
@@ -160,6 +171,19 @@ export default function App() {
           <span className="label">Prediction Bot</span>
           <span className={`value ${status.prediction}`}>{status.prediction.toUpperCase()}</span>
         </div>
+        {license && (
+          <div className="card">
+            <span className="label">License</span>
+            <span className="value" style={{ fontSize: "0.75rem", color: "var(--sage)" }}>
+              {license.email}
+            </span>
+            {license.expires && (
+              <span style={{ fontFamily: "var(--mono)", fontSize: "0.7rem", color: "var(--ink-3)" }}>
+                expires {license.expires}
+              </span>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="panel">

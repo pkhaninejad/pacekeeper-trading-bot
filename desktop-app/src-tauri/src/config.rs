@@ -28,6 +28,10 @@ pub struct Config {
     pub max_position_size_pct: f64,
     #[serde(default = "default_watchlist")]
     pub watchlist: Vec<String>,
+    #[serde(default)]
+    pub project_root: String,
+    #[serde(default)]
+    pub license_key: String,
 }
 
 fn default_t212_env() -> String { "demo".to_string() }
@@ -215,57 +219,51 @@ pub async fn check_ai_connection(provider: &str, key: &str, endpoint: Option<&st
                 return Err("Enter your deployment name in the Model field first.".to_string());
             }
 
-            // Strategy 1 — Azure OpenAI: POST .openai.azure.com/openai/deployments/{name}/chat/completions
-            let azure_oai_url = format!(
-                "{}/openai/deployments/{}/chat/completions?api-version=2024-12-01-preview",
-                ep, deployment
-            );
-            let mini_body = r#"{"messages":[{"role":"user","content":"hi"}],"max_tokens":10}"#;
-            let resp = client
-                .post(&azure_oai_url)
-                .header("api-key", key)
-                .header("content-type", "application/json")
-                .body(mini_body)
-                .send()
-                .await
-                .map_err(|e| network_err(&e))?;
-            let status = resp.status().as_u16();
-            let body   = resp.text().await.unwrap_or_default();
-            match status {
-                200 | 201 => return Ok(format!("Connected — Azure OpenAI deployment «{}» verified", deployment)),
-                401 | 403 => return Err("Invalid API key — double-check your Azure AI key.".to_string()),
-                // 400 + max_tokens message = endpoint+key+deployment are all valid
-                400 if body.contains("max_tokens") => {
-                    return Ok(format!("Connected — Azure OpenAI deployment «{}» verified", deployment));
-                }
-                404 => {} // fall through to Strategy 2
-                code => {
-                    let snippet = body.chars().take(300).collect::<String>();
-                    return Err(format!("Azure returned HTTP {} — {}", code, snippet));
+            // Validate credentials by listing models — no deployment name needed.
+            // Try the traditional Azure OpenAI models endpoint first, then the v1 path.
+            let base = ep.trim_end_matches("/openai/v1").trim_end_matches('/');
+            let candidates = [
+                format!("{}/openai/models?api-version=2024-12-01-preview", base),
+                format!("{}/openai/v1/models", base),
+                format!("{}/models", base),
+            ];
+
+            for url in &candidates {
+                let resp = client
+                    .get(url)
+                    .header("api-key", key)
+                    .send()
+                    .await
+                    .map_err(|e| network_err(&e))?;
+                match resp.status().as_u16() {
+                    200 => return Ok(format!("Connected — Azure key accepted, model «{}» saved.", deployment)),
+                    401 | 403 => return Err("Invalid API key — double-check your Azure AI key.".to_string()),
+                    _ => continue,
                 }
             }
 
-            // Strategy 2 — Azure AI Foundry: POST {endpoint}/models/chat/completions
-            let foundry_url = format!("{}/models/chat/completions?api-version=2024-05-01-preview", ep);
-            let foundry_body = format!(
-                r#"{{"model":"{}","messages":[{{"role":"user","content":"hi"}}],"max_tokens":10}}"#,
-                deployment
-            );
+            // If none of the listing endpoints worked, try a chat completion and
+            // accept DeploymentNotFound as proof the key itself is valid.
+            let chat_url = format!("{}/openai/deployments/{}/chat/completions?api-version=2024-12-01-preview", base, deployment);
             let resp = client
-                .post(&foundry_url)
+                .post(&chat_url)
                 .header("api-key", key)
                 .header("content-type", "application/json")
-                .body(foundry_body)
+                .body(r#"{"messages":[{"role":"user","content":"hi"}],"max_tokens":1}"#)
                 .send()
                 .await
                 .map_err(|e| network_err(&e))?;
             let status = resp.status().as_u16();
-            let body   = resp.text().await.unwrap_or_default();
+            let body = resp.text().await.unwrap_or_default();
             match status {
-                200 | 201 => return Ok(format!("Connected — Azure AI Foundry model «{}» verified", deployment)),
-                401 | 403 => return Err("Invalid API key — double-check your Azure AI key.".to_string()),
+                200 | 201 => Ok(format!("Connected — Azure deployment «{}» verified.", deployment)),
+                401 | 403 => Err("Invalid API key — double-check your Azure AI key.".to_string()),
+                // DeploymentNotFound means the key was accepted — credentials are valid
+                _ if body.contains("DeploymentNotFound") || body.contains("ResourceNotFound") => {
+                    Ok(format!("Connected — Azure key accepted, model «{}» saved.", deployment))
+                }
                 400 if body.contains("max_tokens") => {
-                    return Ok(format!("Connected — Azure AI Foundry model «{}» verified", deployment));
+                    Ok(format!("Connected — Azure deployment «{}» verified.", deployment))
                 }
                 code => {
                     let snippet = body.chars().take(300).collect::<String>();
@@ -325,6 +323,7 @@ mod tests {
             max_open_positions: 10,
             max_position_size_pct: 0.05,
             watchlist: vec!["AAPL".to_string(), "TSLA".to_string()],
+            project_root: String::new(),
         }
     }
 

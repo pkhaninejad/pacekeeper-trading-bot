@@ -1,4 +1,5 @@
 mod config;
+mod license;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -90,7 +91,14 @@ fn load_config(app: tauri::AppHandle) -> Result<Option<config::Config>, String> 
 }
 
 #[tauri::command]
-fn save_config(app: tauri::AppHandle, config: config::Config) -> Result<(), String> {
+fn save_config(app: tauri::AppHandle, mut config: config::Config) -> Result<(), String> {
+    // Auto-detect project root when first completing setup so the installed
+    // app can find the Python project even outside the source tree.
+    if config.project_root.is_empty() {
+        if let Ok(root) = project_root() {
+            config.project_root = root.to_string_lossy().to_string();
+        }
+    }
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     config::save_to_path(&config::config_path(&data_dir), &config)
 }
@@ -106,13 +114,42 @@ async fn test_ai_connection(provider: String, key: String, endpoint: Option<Stri
 }
 
 #[tauri::command]
-fn start_bot(bot: String, state: tauri::State<AppState>, app: tauri::AppHandle) -> Result<(), String> {
-    let root = project_root()?;
+fn check_license(key: String) -> Result<String, String> {
+    let info = license::validate(&key)?;
+    Ok(format!("Licensed to {}", info.email))
+}
 
-    // Write .env from wizard config before spawning Python
+#[tauri::command]
+fn get_license_info(app: tauri::AppHandle) -> Result<license::LicenseInfo, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cfg = config::load_from_path(&config::config_path(&data_dir))?
+        .ok_or("No configuration found.".to_string())?;
+    license::validate(&cfg.license_key)
+}
+
+#[tauri::command]
+fn start_bot(bot: String, state: tauri::State<AppState>, app: tauri::AppHandle) -> Result<(), String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let cfg_path = config::config_path(&data_dir);
-    if let Some(cfg) = config::load_from_path(&cfg_path)? {
+    let saved_cfg = config::load_from_path(&cfg_path)?;
+
+    // Enforce license before starting any bot
+    let license_key = saved_cfg.as_ref().map(|c| c.license_key.as_str()).unwrap_or("");
+    license::validate(license_key).map_err(|e| format!("License error: {e}"))?;
+
+    // Prefer the project_root saved in config (works for installed apps outside
+    // the source tree); fall back to walking up from the executable (dev mode).
+    let root = saved_cfg
+        .as_ref()
+        .filter(|c| !c.project_root.is_empty())
+        .and_then(|c| {
+            let p = PathBuf::from(&c.project_root);
+            if p.join("stock_bot.py").exists() { Some(p) } else { None }
+        })
+        .map(Ok)
+        .unwrap_or_else(project_root)?;
+
+    if let Some(cfg) = saved_cfg {
         if cfg.setup_complete {
             config::write_env_to_path(&root.join(".env"), &cfg)?;
         }
@@ -212,7 +249,8 @@ fn main() {
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             start_bot, stop_bot, get_status, open_dashboard,
-            load_config, save_config, test_t212_connection, test_ai_connection
+            load_config, save_config, test_t212_connection, test_ai_connection,
+            check_license, get_license_info
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

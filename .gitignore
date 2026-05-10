@@ -1,3 +1,6 @@
+# License key signing (NEVER commit this)
+.pacekeeper-private.key
+
 # Environment
 .env
 .env.local

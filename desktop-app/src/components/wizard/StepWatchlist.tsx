@@ -42,7 +42,7 @@ export default function StepWatchlist({ config, setConfig, onFinish, onBack }: P
 
   return (
     <div className="wizard-step">
-      <WizardProgress current={5} total={5} />
+      <WizardProgress current={6} total={6} />
       <h2>Watchlist</h2>
       <p className="subtitle">Choose the stocks the bot will monitor and trade. You can change this at any time in Settings.</p>
 

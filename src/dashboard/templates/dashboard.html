@@ -653,6 +653,27 @@
       </div>
     </div>
 
+    <!-- Simple: Status cards -->
+    <div data-mode="simple">
+      <div class="status-cards">
+        <div class="status-card card-bot">
+          <div class="status-card-label">What is the bot doing?</div>
+          <div class="status-card-value" id="sc-bot-value">—</div>
+          <div class="status-card-sub" id="sc-bot-sub"></div>
+        </div>
+        <div class="status-card card-health">
+          <div class="status-card-label">Is everything healthy?</div>
+          <div class="status-card-value" id="sc-health-value">—</div>
+          <div class="status-card-sub" id="sc-health-sub"></div>
+        </div>
+        <div class="status-card card-next">
+          <div class="status-card-label">What happens next?</div>
+          <div class="status-card-value" id="sc-next-value">—</div>
+          <div class="status-card-sub" id="sc-next-sub"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- LLM Settings -->
     <div data-mode="advanced">
     <div class="llm-panel">
@@ -690,6 +711,25 @@
         <span class="chart-meta" id="pnl-chart-meta">—</span>
       </div>
       <canvas id="pnl-chart"></canvas>
+    </div>
+
+    <!-- Simple: My Investments -->
+    <div data-mode="simple" class="section">
+      <h2>My Investments</h2>
+      <div id="investments-body">
+        <div style="color:var(--muted);text-align:center;font-size:13px">Loading…</div>
+      </div>
+      <div class="investments-footer">
+        <button class="sell-all-btn" onclick="closeAllPositions()">Sell everything</button>
+      </div>
+    </div>
+
+    <!-- Simple: Recent Activity -->
+    <div data-mode="simple" class="section">
+      <h2>Recent Activity</h2>
+      <div class="activity-list" id="activity-list">
+        <div style="color:var(--muted);font-size:13px">Loading…</div>
+      </div>
     </div>
 
     <!-- Indicators grid -->

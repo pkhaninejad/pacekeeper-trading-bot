@@ -1001,7 +1001,52 @@
       } else {
         nol.textContent = '';
       }
+      refreshStatusCards(s);
     } catch(e) { console.warn('status fetch failed', e); }
+  }
+
+  function refreshStatusCards(s) {
+    // What is the bot doing?
+    const botVal = document.getElementById('sc-bot-value');
+    const botSub = document.getElementById('sc-bot-sub');
+    if (!s.enabled) {
+      botVal.textContent = 'Bot is paused';
+      botSub.textContent = 'Click "Resume Bot" to restart';
+    } else {
+      botVal.textContent = 'Watching markets';
+      if (s.next_run) {
+        const secsUntil = Math.max(0, Math.round((new Date(s.next_run) - Date.now()) / 1000));
+        botSub.textContent = secsUntil < 60
+          ? 'Next check in under a minute'
+          : `Next check in ${Math.ceil(secsUntil / 60)} min`;
+      } else {
+        botSub.textContent = '';
+      }
+    }
+
+    // Is everything healthy?
+    const healthVal = document.getElementById('sc-health-value');
+    const healthSub = document.getElementById('sc-health-sub');
+    healthVal.textContent = '✓ All systems running';
+    const posCount = s.open_positions ?? 0;
+    healthSub.textContent = `${posCount} position${posCount !== 1 ? 's' : ''} open`;
+
+    // What happens next?
+    const nextVal = document.getElementById('sc-next-value');
+    const nextSub = document.getElementById('sc-next-sub');
+    if (s.market_open) {
+      nextVal.textContent = 'Market is open';
+      nextSub.textContent = 'Bot is watching for opportunities';
+    } else if (s.next_market_open) {
+      const d = new Date(s.next_market_open);
+      const day = d.toLocaleDateString([], { weekday: 'short' });
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      nextVal.textContent = `Market opens ${day} ${time}`;
+      nextSub.textContent = 'Bot will scan your watchlist';
+    } else {
+      nextVal.textContent = 'Market closed';
+      nextSub.textContent = '';
+    }
   }
 
   // ── Indicators ────────────────────────────────────────────────────────────

@@ -580,6 +580,12 @@
   </style>
 </head>
 <body>
+<script>
+  (function() {
+    var m = localStorage.getItem('pk_mode') || 'simple';
+    document.documentElement.classList.add('mode-' + m);
+  })();
+</script>
   <header>
     <h1>Pace<span>keeper</span></h1>
     <span class="env-badge" id="env-badge">DEMO</span>
@@ -721,6 +727,21 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
+  // ── Mode management ──────────────────────────────────────────────────────────
+  function setMode(m) {
+    localStorage.setItem('pk_mode', m);
+    document.documentElement.classList.remove('mode-simple', 'mode-advanced');
+    document.documentElement.classList.add('mode-' + m);
+    document.getElementById('mode-btn-simple').classList.toggle('active-simple', m === 'simple');
+    document.getElementById('mode-btn-advanced').classList.toggle('active-advanced', m === 'advanced');
+  }
+
+  function initModeToggle() {
+    const m = localStorage.getItem('pk_mode') || 'simple';
+    document.getElementById('mode-btn-simple').classList.toggle('active-simple', m === 'simple');
+    document.getElementById('mode-btn-advanced').classList.toggle('active-advanced', m === 'advanced');
+  }
+
   const fmt = (n, dec=2) => n == null ? '—' : Number(n).toFixed(dec);
   const fmtTime = s => s ? new Date(s).toLocaleTimeString() : '—';
   const pnlClass = v => v >= 0 ? 'positive' : 'negative';

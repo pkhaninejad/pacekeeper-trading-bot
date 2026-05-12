@@ -3,8 +3,10 @@ Main trading engine — orchestrates strategy, risk management, and order execut
 """
 
 import asyncio
+import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -27,6 +29,15 @@ from src.data.screener import ScreenCandidate
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+CONFIRMED_FILE = Path("data/live_confirmed.json")
+
+
+def _load_live_confirmed() -> bool:
+    try:
+        return json.loads(CONFIRMED_FILE.read_text()).get("confirmed", False)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return False
 
 
 class TradingEngine:
@@ -52,11 +63,22 @@ class TradingEngine:
             environment=settings.T212_ENV,
             account_type=settings.T212_ACCOUNT_TYPE,
         )
+        self._live_confirmed: bool = _load_live_confirmed()
+        self.status.live_confirmed = self._live_confirmed
+        self.status.daily_loss_limit_pct = settings.MAX_DAILY_LOSS_PCT
+
+        # In live mode, block the bot until the user completes the confirmation flow
+        if settings.T212_ENV == "live" and not self._live_confirmed:
+            self.status.enabled = False
+            logger.warning("Live mode detected but not confirmed — bot paused until confirmation")
+
         self._running = False
         self._signals_history: list[TradeSignal] = []
         self._trade_log: list[dict] = []
         self._instruments_cache: list = []
         self._pnl_history: list[dict] = []   # [{t, ppl, total, invested}]
+        self._day_start_ppl: float = 0.0      # PPL at start of current trading day
+        self._day_start_total: float = 0.0    # Portfolio total at start of current trading day
         self._outcome_log: list[TradeOutcome] = []
         self._session_date: str = ""          # YYYY-MM-DD; resets history each new day
         self._last_regime: RegimeResult | None = None
@@ -98,6 +120,14 @@ class TradingEngine:
     def toggle(self) -> bool:
         self.status.enabled = not self.status.enabled
         return self.status.enabled
+
+    async def emergency_stop(self) -> dict:
+        self.status.enabled = False
+        self.status.halted_reason = "emergency_stop"
+        results = await self.close_all_positions()
+        closed = sum(1 for r in results if r.get("status") == "closed")
+        logger.warning("Emergency stop triggered — %d position(s) closed", closed)
+        return {"halted": True, "positions_closed": closed}
 
     def update_provider_config(self, config: ProviderConfig) -> None:
         """Hot-swap the LLM provider. Takes effect on the next trading cycle."""
@@ -290,6 +320,26 @@ class TradingEngine:
             if today != self._session_date:
                 self._session_date = today
                 self._pnl_history = []
+                self._day_start_ppl = cash.ppl
+                self._day_start_total = cash.total
+
+            self.status.daily_loss_pct = round(self._compute_daily_loss_pct(cash.ppl), 4)
+
+            # Daily loss circuit-breaker (live mode only)
+            if (
+                settings.T212_ENV == "live"
+                and self.status.daily_loss_pct >= settings.MAX_DAILY_LOSS_PCT
+                and self.status.enabled
+            ):
+                self.status.enabled = False
+                self.status.halted_reason = "daily_loss_limit"
+                logger.warning(
+                    "Daily loss limit hit (%.2f%% >= %.2f%%) — bot auto-halted",
+                    self.status.daily_loss_pct * 100,
+                    settings.MAX_DAILY_LOSS_PCT * 100,
+                )
+                return
+
             self._pnl_history.append({
                 "t": datetime.now(UTC).isoformat(),
                 "ppl": round(cash.ppl, 2),
@@ -502,6 +552,12 @@ class TradingEngine:
                 logger.info("Skip order for %s: position already closed", signal.ticker)
                 return
             logger.error("Order execution failed for %s: %s", signal.ticker, e)
+
+    def _compute_daily_loss_pct(self, ppl: float) -> float:
+        if self._day_start_total <= 0:
+            return 0.0
+        loss = self._day_start_ppl - ppl
+        return max(0.0, loss / self._day_start_total)
 
     @staticmethod
     def _normalize_ticker(ticker: str) -> str:

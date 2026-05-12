@@ -449,9 +449,143 @@
     }
     #llm-toast.ok  { background: var(--sage-soft);   color: var(--sage);    display: inline-block; border: 1px solid var(--sage); }
     #llm-toast.err { background: var(--crimson-soft); color: var(--crimson); display: inline-block; border: 1px solid var(--crimson); }
+
+    /* ── Mode visibility ── */
+    html.mode-simple   [data-mode="advanced"] { display: none; }
+    html.mode-advanced [data-mode="simple"]   { display: none; }
+
+    /* ── Mode toggle pill ── */
+    #mode-toggle {
+      display: inline-flex;
+      border: 1px solid var(--rule);
+      border-radius: 20px;
+      background: var(--paper-3);
+      padding: 2px;
+      gap: 0;
+    }
+    #mode-toggle button {
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--sans);
+      padding: 4px 12px;
+      border-radius: 16px;
+      border: none;
+      background: transparent;
+      color: var(--ink-3);
+      cursor: pointer;
+      transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+    }
+    #mode-toggle button.active-simple  { background: var(--accent); color: var(--paper); }
+    #mode-toggle button.active-advanced { background: var(--ink);   color: var(--paper); }
+
+    /* ── Status cards ── */
+    .status-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .status-card { border-radius: var(--r-3); padding: 14px 16px; border: 1px solid; }
+    .status-card-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; margin-bottom: 6px; font-family: var(--mono);
+    }
+    .status-card-value { font-weight: 600; font-size: 13px; color: var(--ink); }
+    .status-card-sub   { font-size: 11px; color: var(--ink-2); margin-top: 3px; }
+    .status-card.card-bot  { background: var(--accent-soft); border-color: var(--accent); }
+    .status-card.card-bot  .status-card-label { color: var(--accent); }
+    .status-card.card-health { background: var(--sage-soft); border-color: var(--sage); }
+    .status-card.card-health .status-card-label { color: var(--sage); }
+    .status-card.card-next { background: var(--paper-2); border-color: var(--rule); }
+    .status-card.card-next .status-card-label { color: var(--ink-3); }
+
+    /* ── My Investments ── */
+    .investment-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 12px;
+      background: var(--paper-2); border: 1px solid var(--rule);
+      border-radius: var(--r-2); margin-bottom: 6px;
+    }
+    .investment-ticker { font-weight: 700; color: var(--ink); }
+    .investment-meta   { font-size: 11px; color: var(--ink-3); margin-left: 8px; }
+    .investment-pnl    { font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .investment-actions { display: flex; align-items: center; gap: 10px; }
+    .sell-btn {
+      font-size: 11px; background: var(--paper); border: 1px solid var(--rule-2);
+      border-radius: var(--r-1); padding: 3px 10px; cursor: pointer;
+      font-weight: 500; font-family: var(--sans);
+      transition: background var(--t-fast) var(--ease-out);
+    }
+    .sell-btn:hover { background: var(--paper-3); }
+    .investments-footer { text-align: right; margin-top: 6px; }
+    .sell-all-btn {
+      font-size: 11px; background: var(--crimson-soft); border: 1px solid var(--crimson);
+      color: var(--crimson); border-radius: var(--r-1); padding: 4px 12px;
+      cursor: pointer; font-weight: 600; font-family: var(--sans);
+    }
+
+    /* ── Recent Activity ── */
+    .activity-list { display: flex; flex-direction: column; gap: 8px; }
+    .activity-entry {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 12px; border-radius: var(--r-2); border: 1px solid;
+    }
+    .activity-entry.buy  { background: var(--sage-soft);    border-color: var(--sage); }
+    .activity-entry.sell { background: var(--crimson-soft); border-color: var(--crimson); }
+    .activity-entry.hold { background: var(--paper-2);      border-color: var(--rule); }
+    .activity-emoji { font-size: 16px; flex-shrink: 0; line-height: 1.4; }
+    .activity-title { font-weight: 600; color: var(--ink); font-size: 13px; }
+    .activity-sub   { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+    /* ── First-run modal ── */
+    #mode-modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(10,37,64,0.45);
+      z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #mode-modal {
+      background: var(--paper); border-radius: 10px; padding: 28px 32px;
+      max-width: 440px; width: calc(100% - 48px);
+      box-shadow: 0 8px 32px rgba(10,37,64,0.18);
+    }
+    #mode-modal h2 {
+      font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 6px;
+      border: none; padding: 0; text-transform: none; letter-spacing: normal;
+      font-family: var(--sans);
+    }
+    #mode-modal p { font-size: 13px; color: var(--ink-3); margin-bottom: 20px; line-height: 1.5; }
+    .modal-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .modal-card {
+      border: 2px solid var(--rule); border-radius: var(--r-3); padding: 16px;
+      cursor: pointer; background: var(--paper-2);
+      transition: border-color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
+    }
+    .modal-card.selected { border-color: var(--accent); background: var(--accent-soft); }
+    .modal-card-icon  { font-size: 22px; margin-bottom: 6px; }
+    .modal-card-title { font-weight: 700; color: var(--ink); margin-bottom: 4px; font-size: 14px; }
+    .modal-card-desc  { font-size: 12px; color: var(--ink-3); line-height: 1.4; }
+    .modal-badge {
+      display: inline-block; margin-top: 8px; font-size: 10px;
+      background: var(--accent); color: var(--paper);
+      padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    }
+    #modal-cta {
+      width: 100%; background: var(--accent); color: var(--paper); border: none;
+      border-radius: var(--r-2); padding: 11px; font-size: 14px; font-weight: 600;
+      cursor: pointer; font-family: var(--sans);
+      transition: opacity var(--t-fast) var(--ease-out);
+    }
+    #modal-cta:hover { opacity: 0.88; }
   </style>
 </head>
 <body>
+<script>
+  (function() {
+    var m = localStorage.getItem('pk_mode') || 'simple';
+    document.documentElement.classList.add('mode-' + m);
+  })();
+</script>
   <header>
     <h1>Pace<span>keeper</span></h1>
     <span class="env-badge" id="env-badge">DEMO</span>
@@ -459,23 +593,48 @@
     <span class="regime-badge" id="regime-badge" style="display:none"></span>
     <span class="acct-badge" id="acct-badge">INVEST</span>
     <span id="next-open-label" style="font-size:11px;color:var(--muted)"></span>
+    <div id="mode-toggle">
+      <button id="mode-btn-simple" onclick="setMode('simple')">Simple</button>
+      <button id="mode-btn-advanced" onclick="setMode('advanced')">Advanced</button>
+    </div>
     <span class="status-dot" id="status-dot"></span>
     <button id="toggle-btn">Pause Bot</button>
   </header>
+
+  <div id="mode-modal-backdrop" style="display:none" onclick="handleBackdropClick(event)">
+    <div id="mode-modal">
+      <h2>Welcome to Pacekeeper</h2>
+      <p>How would you like to see your dashboard? You can change this any time from the header.</p>
+      <div class="modal-cards">
+        <div class="modal-card selected" data-mode="simple" onclick="selectModalCard(this)">
+          <div class="modal-card-icon">🟢</div>
+          <div class="modal-card-title">Simple view</div>
+          <div class="modal-card-desc">Plain-English status, your investments at a glance, and easy controls. No jargon.</div>
+          <span class="modal-badge">Default · Recommended</span>
+        </div>
+        <div class="modal-card" data-mode="advanced" onclick="selectModalCard(this)">
+          <div class="modal-card-icon">📊</div>
+          <div class="modal-card-title">Advanced view</div>
+          <div class="modal-card-desc">Full indicators, signal tables, trade log, and all technical data.</div>
+        </div>
+      </div>
+      <button id="modal-cta" onclick="dismissModal()">Get started</button>
+    </div>
+  </div>
 
   <main>
     <!-- KPI cards -->
     <div class="grid">
       <div class="card">
-        <div class="label">Free Cash</div>
+        <div class="label">Available Cash</div>
         <div class="value" id="kpi-cash">—</div>
       </div>
       <div class="card">
-        <div class="label">Total Value</div>
+        <div class="label">Portfolio Value</div>
         <div class="value" id="kpi-total">—</div>
       </div>
       <div class="card">
-        <div class="label">Overall PnL</div>
+        <div class="label">Today's Gain / Loss</div>
         <div class="value" id="kpi-pnl">—</div>
       </div>
       <div class="card">
@@ -486,13 +645,37 @@
         <div class="label">Trades Today</div>
         <div class="value" id="kpi-trades">—</div>
       </div>
-      <div class="card">
-        <div class="label">Signals Generated</div>
-        <div class="value" id="kpi-signals">—</div>
+      <div data-mode="advanced">
+        <div class="card">
+          <div class="label">Signals Generated</div>
+          <div class="value" id="kpi-signals">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simple: Status cards -->
+    <div data-mode="simple">
+      <div class="status-cards">
+        <div class="status-card card-bot">
+          <div class="status-card-label">What is the bot doing?</div>
+          <div class="status-card-value" id="sc-bot-value">—</div>
+          <div class="status-card-sub" id="sc-bot-sub"></div>
+        </div>
+        <div class="status-card card-health">
+          <div class="status-card-label">Is everything healthy?</div>
+          <div class="status-card-value" id="sc-health-value">—</div>
+          <div class="status-card-sub" id="sc-health-sub"></div>
+        </div>
+        <div class="status-card card-next">
+          <div class="status-card-label">What happens next?</div>
+          <div class="status-card-value" id="sc-next-value">—</div>
+          <div class="status-card-sub" id="sc-next-sub"></div>
+        </div>
       </div>
     </div>
 
     <!-- LLM Settings -->
+    <div data-mode="advanced">
     <div class="llm-panel">
       <h2>LLM Settings</h2>
       <div class="llm-form">
@@ -519,6 +702,7 @@
         <span id="llm-toast"></span>
       </div>
     </div>
+    </div>
 
     <!-- P&L Chart -->
     <div class="chart-wrap">
@@ -529,15 +713,37 @@
       <canvas id="pnl-chart"></canvas>
     </div>
 
+    <!-- Simple: My Investments -->
+    <div data-mode="simple" class="section">
+      <h2>My Investments</h2>
+      <div id="investments-body">
+        <div style="color:var(--muted);text-align:center;font-size:13px">Loading…</div>
+      </div>
+      <div class="investments-footer">
+        <button class="sell-all-btn" onclick="closeAllPositions()">Sell everything</button>
+      </div>
+    </div>
+
+    <!-- Simple: Recent Activity -->
+    <div data-mode="simple" class="section">
+      <h2>Recent Activity</h2>
+      <div class="activity-list" id="activity-list">
+        <div style="color:var(--muted);font-size:13px">Loading…</div>
+      </div>
+    </div>
+
     <!-- Indicators grid -->
+    <div data-mode="advanced">
     <div class="section">
       <h2>Market Indicators</h2>
       <div class="ind-grid" id="indicators-grid">
         <div style="color:var(--muted);font-size:13px">Loading…</div>
       </div>
     </div>
+    </div>
 
     <!-- Positions table -->
+    <div data-mode="advanced">
     <div class="section">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h2>Open Positions</h2>
@@ -555,8 +761,10 @@
         </tbody>
       </table>
     </div>
+    </div>
 
     <!-- Signals table -->
+    <div data-mode="advanced">
     <div class="section">
       <h2>Recent Signals</h2>
       <table>
@@ -571,8 +779,10 @@
         </tbody>
       </table>
     </div>
+    </div>
 
     <!-- Trade log -->
+    <div data-mode="advanced">
     <div class="section">
       <h2>Trade Log</h2>
       <table>
@@ -584,6 +794,7 @@
         </tbody>
       </table>
     </div>
+    </div>
   </main>
 
   <footer>
@@ -593,6 +804,49 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
+  // ── Mode management ──────────────────────────────────────────────────────────
+  function setMode(m) {
+    localStorage.setItem('pk_mode', m);
+    document.documentElement.classList.remove('mode-simple', 'mode-advanced');
+    document.documentElement.classList.add('mode-' + m);
+    document.getElementById('mode-btn-simple').classList.toggle('active-simple', m === 'simple');
+    document.getElementById('mode-btn-advanced').classList.toggle('active-advanced', m === 'advanced');
+  }
+
+  function initModeToggle() {
+    const m = localStorage.getItem('pk_mode') || 'simple';
+    document.getElementById('mode-btn-simple').classList.toggle('active-simple', m === 'simple');
+    document.getElementById('mode-btn-advanced').classList.toggle('active-advanced', m === 'advanced');
+  }
+
+  // ── First-run modal ───────────────────────────────────────────────────────────
+  let _modalMode = 'simple';
+
+  function selectModalCard(el) {
+    document.querySelectorAll('.modal-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    _modalMode = el.dataset.mode;
+  }
+
+  function dismissModal() {
+    setMode(_modalMode);
+    document.getElementById('mode-modal-backdrop').style.display = 'none';
+  }
+
+  function handleBackdropClick(e) {
+    if (e.target === document.getElementById('mode-modal-backdrop')) dismissModal();
+  }
+
+  function initModal() {
+    if (!localStorage.getItem('pk_mode')) {
+      document.getElementById('mode-modal-backdrop').style.display = 'flex';
+    }
+    document.addEventListener('keydown', function(e) {
+      const backdrop = document.getElementById('mode-modal-backdrop');
+      if (e.key === 'Escape' && backdrop.style.display !== 'none') dismissModal();
+    });
+  }
+
   const fmt = (n, dec=2) => n == null ? '—' : Number(n).toFixed(dec);
   const fmtTime = s => s ? new Date(s).toLocaleTimeString() : '—';
   const pnlClass = v => v >= 0 ? 'positive' : 'negative';
@@ -747,7 +1001,52 @@
       } else {
         nol.textContent = '';
       }
+      refreshStatusCards(s);
     } catch(e) { console.warn('status fetch failed', e); }
+  }
+
+  function refreshStatusCards(s) {
+    // What is the bot doing?
+    const botVal = document.getElementById('sc-bot-value');
+    const botSub = document.getElementById('sc-bot-sub');
+    if (!s.enabled) {
+      botVal.textContent = 'Bot is paused';
+      botSub.textContent = 'Click "Resume Bot" to restart';
+    } else {
+      botVal.textContent = 'Watching markets';
+      if (s.next_run) {
+        const secsUntil = Math.max(0, Math.round((new Date(s.next_run) - Date.now()) / 1000));
+        botSub.textContent = secsUntil < 60
+          ? 'Next check in under a minute'
+          : `Next check in ${Math.ceil(secsUntil / 60)} min`;
+      } else {
+        botSub.textContent = '';
+      }
+    }
+
+    // Is everything healthy?
+    const healthVal = document.getElementById('sc-health-value');
+    const healthSub = document.getElementById('sc-health-sub');
+    healthVal.textContent = '✓ All systems running';
+    const posCount = s.open_positions ?? 0;
+    healthSub.textContent = `${posCount} position${posCount !== 1 ? 's' : ''} open`;
+
+    // What happens next?
+    const nextVal = document.getElementById('sc-next-value');
+    const nextSub = document.getElementById('sc-next-sub');
+    if (s.market_open) {
+      nextVal.textContent = 'Market is open';
+      nextSub.textContent = 'Bot is watching for opportunities';
+    } else if (s.next_market_open) {
+      const d = new Date(s.next_market_open);
+      const day = d.toLocaleDateString([], { weekday: 'short' });
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      nextVal.textContent = `Market opens ${day} ${time}`;
+      nextSub.textContent = 'Bot will scan your watchlist';
+    } else {
+      nextVal.textContent = 'Market closed';
+      nextSub.textContent = '';
+    }
   }
 
   // ── Indicators ────────────────────────────────────────────────────────────
@@ -878,6 +1177,111 @@
     } catch(e) { console.warn('positions fetch failed', e); }
   }
 
+  // ── Simple: My Investments ────────────────────────────────────────────────────
+  async function refreshInvestments() {
+    try {
+      const raw = await fetchJSON('/api/positions');
+      const data = (raw || []).filter(p => Math.abs(Number(p.quantity || 0)) > 1e-6);
+      const body = document.getElementById('investments-body');
+      if (!data.length) {
+        body.innerHTML = '<p style="color:var(--ink-3);font-size:13px;text-align:center">No open positions</p>';
+        return;
+      }
+      body.innerHTML = data.map(p => {
+        const pnlPct = p.averagePrice
+          ? ((p.currentPrice - p.averagePrice) / p.averagePrice * 100)
+          : 0;
+        const pnlSign = p.ppl >= 0 ? '+' : '';
+        const pnlPctSign = pnlPct >= 0 ? '+' : '';
+        const pnlCls = p.ppl >= 0 ? 'positive' : 'negative';
+        const qty = Math.abs(p.quantity);
+        const fmtQty = qty % 1 < 1e-6 ? String(Math.round(qty)) : fmt(qty, 4);
+        const ticker = p.ticker.split('_')[0];
+        return `<div class="investment-row">
+          <div>
+            <span class="investment-ticker">${ticker}</span>
+            <span class="investment-meta">${fmtQty} share${qty !== 1 ? 's' : ''}</span>
+          </div>
+          <div class="investment-actions">
+            <span class="investment-pnl ${pnlCls}">${pnlSign}$${fmt(p.ppl)} <span style="font-size:11px">(${pnlPctSign}${fmt(pnlPct, 2)}%)</span></span>
+            <button class="sell-btn" onclick="closePosition('${p.ticker}')">Sell</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) { console.warn('investments fetch failed', e); }
+  }
+
+  // ── Simple: Recent Activity ───────────────────────────────────────────────────
+  function buildActivityStream(signals, trades) {
+    const entries = [];
+
+    for (const t of trades) {
+      const action = (t.action || '').toUpperCase();
+      const ticker = (t.ticker || '').split('_')[0];
+      const qty = Math.abs(t.quantity || 0);
+      const fmtQty = qty % 1 < 1e-6 ? String(Math.round(qty)) : fmt(qty, 4);
+      const reason = (t.reason || '').toLowerCase();
+      const isTP = reason.includes('profit') || reason.includes('target') || reason.includes('take');
+      const isSL = reason.includes('stop') || reason.includes('loss');
+
+      if (action === 'BUY') {
+        entries.push({
+          ts: t.timestamp,
+          emoji: '🟢', cls: 'buy',
+          title: `Bought ${fmtQty} share${qty !== 1 ? 's' : ''} of ${ticker}`,
+          sub: 'AI spotted a buying opportunity',
+        });
+      } else {
+        entries.push({
+          ts: t.timestamp,
+          emoji: '🔴', cls: 'sell',
+          title: `Sold ${ticker}`,
+          sub: isTP ? 'Took profit' : isSL ? 'Stop-loss triggered' : t.reason || 'Sold position',
+        });
+      }
+    }
+
+    for (const s of signals) {
+      if ((s.action || '').toUpperCase() === 'HOLD') {
+        const ticker = (s.ticker || '').split('_')[0];
+        const reasoning = s.reasoning ? s.reasoning.slice(0, 80) : 'Market conditions uncertain';
+        entries.push({
+          ts: s.timestamp,
+          emoji: '⏸', cls: 'hold',
+          title: `Decided to hold ${ticker}`,
+          sub: reasoning,
+        });
+      }
+    }
+
+    entries.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+    return entries.slice(0, 20);
+  }
+
+  async function refreshActivity() {
+    try {
+      const [signals, trades] = await Promise.all([
+        fetchJSON('/api/signals'),
+        fetchJSON('/api/trades'),
+      ]);
+      const entries = buildActivityStream(signals || [], trades || []);
+      const list = document.getElementById('activity-list');
+      if (!entries.length) {
+        list.innerHTML = '<div style="color:var(--ink-3);font-size:13px">No activity yet — waiting for first trading cycle</div>';
+        return;
+      }
+      list.innerHTML = entries.map(e => `
+        <div class="activity-entry ${e.cls}">
+          <span class="activity-emoji">${e.emoji}</span>
+          <div>
+            <div class="activity-title">${e.title}</div>
+            <div class="activity-sub">${e.sub} · ${fmtTime(e.ts)}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) { console.warn('activity fetch failed', e); }
+  }
+
   async function closePosition(ticker) {
     if (!confirm(`Close position in ${ticker}?`)) return;
     try {
@@ -965,18 +1369,17 @@
 
   // ── Init & poll ───────────────────────────────────────────────────────────
   async function refresh() {
-    await Promise.allSettled([
-      refreshAccount(),
-      refreshStatus(),
-      refreshPnlChart(),
-      refreshIndicators(),
-      refreshPositions(),
-      refreshSignals(),
-      refreshTrades(),
-    ]);
+    const mode = localStorage.getItem('pk_mode') || 'simple';
+    const shared = [refreshAccount(), refreshStatus(), refreshPnlChart()];
+    const modeSpecific = mode === 'simple'
+      ? [refreshInvestments(), refreshActivity()]
+      : [refreshIndicators(), refreshPositions(), refreshSignals(), refreshTrades()];
+    await Promise.allSettled([...shared, ...modeSpecific]);
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
   }
 
+  initModeToggle();
+  initModal();
   refresh();
   setInterval(refresh, 15000);
   connectSSE();

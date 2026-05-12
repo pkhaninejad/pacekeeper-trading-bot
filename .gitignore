@@ -46,3 +46,6 @@ desktop-app/src-tauri/target/
 
 .env_backup
 Cargo.lock
+
+# Runtime confirmation state (machine-local, not a secret)
+data/live_confirmed.json

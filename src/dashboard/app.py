@@ -15,10 +15,12 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from pathlib import Path
+
 from pydantic import BaseModel
 from src.api.client import Trading212Client
 from src.api.models import BotStatus
-from src.bot.engine import TradingEngine
+from src.bot.engine import TradingEngine, CONFIRMED_FILE
 from src.bot.llm_config import (
     ProviderConfig, save_provider_config,
     SUPPORTED_PROVIDERS, PROVIDER_DEFAULTS,
@@ -226,6 +228,10 @@ class LLMConfigRequest(BaseModel):
     base_url: str = ""
 
 
+class LiveConfirmRequest(BaseModel):
+    checks: list[bool]
+
+
 @app.get("/api/llm/config", tags=["Bot"])
 async def get_llm_config():
     """Return the active LLM provider config (API key masked)."""
@@ -288,6 +294,31 @@ async def close_all_positions():
         if item.get("status") in {"closed", "skipped"}:
             _mark_recently_closed(str(item.get("ticker", "")))
     return {"closed": results}
+
+
+@app.post("/api/bot/emergency-stop", tags=["Bot"])
+async def emergency_stop_bot():
+    """Halt the bot immediately and close all open positions."""
+    result = await engine.emergency_stop()
+    await _broadcast("status", engine.status.model_dump(mode="json"))
+    return result
+
+
+@app.post("/api/mode/live/confirm", tags=["Bot"])
+async def confirm_live_mode(req: LiveConfirmRequest):
+    """Complete the live mode confirmation checklist to unlock live trading."""
+    if len(req.checks) != 5 or not all(req.checks):
+        raise HTTPException(status_code=422, detail="All 5 confirmation checks must be accepted")
+    CONFIRMED_FILE.parent.mkdir(parents=True, exist_ok=True)
+    CONFIRMED_FILE.write_text(
+        json.dumps({"confirmed": True, "confirmed_at": datetime.now(UTC).isoformat()})
+    )
+    engine._live_confirmed = True
+    engine.status.live_confirmed = True
+    engine.status.enabled = True
+    engine.status.halted_reason = None
+    await _broadcast("status", engine.status.model_dump(mode="json"))
+    return {"confirmed": True}
 
 
 # ─── SSE real-time feed ───────────────────────────────────────────────────────

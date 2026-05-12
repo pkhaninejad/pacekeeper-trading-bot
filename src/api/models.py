@@ -124,6 +124,10 @@ class BotStatus(BaseModel):
     next_market_open: Optional[datetime] = None
     regime: Optional[str] = None
     vix: Optional[float] = None
+    daily_loss_pct: float = 0.0
+    daily_loss_limit_pct: float = 0.02
+    halted_reason: Optional[str] = None
+    live_confirmed: bool = False
 
 
 class TradeOutcome(BaseModel):

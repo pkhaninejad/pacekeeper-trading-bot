@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     MAX_OPEN_POSITIONS: int = 10
     STOP_LOSS_PCT: float = 0.02             # 2% stop-loss
     TAKE_PROFIT_PCT: float = 0.04           # 4% take-profit
+    MAX_DAILY_LOSS_PCT: float = 0.02        # 2% daily portfolio loss triggers auto-halt (live only)
     WATCHLIST: list[str] = [
         "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "NFLX",
         "AMD", "JPM", "V", "UBER", "PLTR"

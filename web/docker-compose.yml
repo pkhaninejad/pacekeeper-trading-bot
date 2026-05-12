@@ -1,0 +1,19 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pacekeeper-web
+    ports:
+      - "3001:3000"
+    env_file: .env
+    environment:
+      PRIVATE_KEY_PATH: /secrets/pacekeeper.key
+      LICENSE_DB_PATH: /data/licenses.db
+    volumes:
+      - pacekeeper_data:/data
+      - /home/ubuntu/.pacekeeper-private.key:/secrets/pacekeeper.key:ro
+    restart: unless-stopped
+
+volumes:
+  pacekeeper_data:

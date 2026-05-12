@@ -179,6 +179,20 @@
       transition: background var(--t-fast) var(--ease-out);
     }
     #toggle-btn:hover { background: var(--paper-3); }
+    #emergency-stop-btn {
+      margin-left: 8px;
+      padding: 6px 14px;
+      border-radius: var(--r-1);
+      border: none;
+      background: var(--crimson);
+      color: #fff;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 120ms cubic-bezier(.2,.8,.2,1);
+    }
+    #emergency-stop-btn:hover { opacity: 0.85; }
 
     /* ── Layout ── */
     main { padding: 24px; max-width: 1400px; margin: 0 auto; }
@@ -577,6 +591,70 @@
       transition: opacity var(--t-fast) var(--ease-out);
     }
     #modal-cta:hover { opacity: 0.88; }
+
+    /* ── Live mode confirmation modal ── */
+    #live-confirm-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    #live-confirm-modal {
+      background: var(--paper); border-radius: var(--r-3);
+      border: 2px solid var(--amber); padding: 28px 32px;
+      max-width: 480px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    #live-confirm-modal .modal-live-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+    }
+    #live-confirm-modal .modal-live-badge {
+      background: var(--amber-soft); color: var(--amber);
+      font-family: var(--mono); font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 4px; letter-spacing: .06em;
+    }
+    #live-confirm-modal h2 { font-size: 17px; font-weight: 700; color: var(--ink); margin: 0; }
+    #live-confirm-modal p {
+      font-size: 13px; color: var(--ink-3); margin-bottom: 20px; line-height: 1.5;
+    }
+    .live-checklist { list-style: none; padding: 0; margin: 0 0 20px; }
+    .live-checklist li {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 13px; color: var(--ink-2); margin-bottom: 12px; line-height: 1.4;
+    }
+    .live-checklist input[type="checkbox"] { margin-top: 2px; accent-color: var(--amber); flex-shrink: 0; }
+    #live-confirm-cta {
+      width: 100%; padding: 10px; border-radius: var(--r-1); border: none;
+      background: var(--amber); color: #fff;
+      font-family: var(--sans); font-size: 14px; font-weight: 700; cursor: pointer;
+      transition: opacity 120ms cubic-bezier(.2,.8,.2,1);
+    }
+    #live-confirm-cta:disabled { opacity: 0.4; cursor: not-allowed; }
+    #live-confirm-cta:not(:disabled):hover { opacity: 0.88; }
+
+    /* ── Guardrails panel ── */
+    #guardrails-panel {
+      background: var(--paper-2); border-radius: var(--r-2);
+      border: 1px solid var(--rule); padding: 14px 18px; margin-bottom: 24px;
+    }
+    #guardrails-panel .gr-title {
+      font-family: var(--mono); font-size: 11px; font-weight: 700;
+      color: var(--ink-3); letter-spacing: .06em; margin-bottom: 12px; text-transform: uppercase;
+    }
+    .gr-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .gr-row:last-child { margin-bottom: 0; }
+    .gr-label { font-size: 12px; color: var(--ink-3); min-width: 120px; }
+    .gr-bar-wrap { flex: 1; height: 6px; background: var(--rule-2); border-radius: 3px; overflow: hidden; }
+    .gr-bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width 220ms cubic-bezier(.2,.8,.2,1); }
+    .gr-bar.warn { background: var(--amber); }
+    .gr-bar.danger { background: var(--crimson); }
+    .gr-val { font-family: var(--mono); font-size: 12px; color: var(--ink-2); min-width: 60px; text-align: right; }
+    .gr-desc { font-size: 11px; color: var(--ink-4); margin-top: 8px; line-height: 1.4; }
+
+    /* ── Live mode amber banner ── */
+    #live-banner {
+      display: none;
+      background: var(--amber-soft); border-bottom: 2px solid var(--amber);
+      padding: 8px 24px; text-align: center;
+      font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--amber);
+    }
   </style>
 </head>
 <body>
@@ -586,6 +664,9 @@
     document.documentElement.classList.add('mode-' + m);
   })();
 </script>
+  <div id="live-banner">
+    LIVE TRADING ACTIVE — Real money is at risk. Use Emergency Stop to halt immediately.
+  </div>
   <header>
     <h1>Pace<span>keeper</span></h1>
     <span class="env-badge" id="env-badge">DEMO</span>
@@ -599,6 +680,7 @@
     </div>
     <span class="status-dot" id="status-dot"></span>
     <button id="toggle-btn">Pause Bot</button>
+    <button id="emergency-stop-btn" onclick="triggerEmergencyStop()">Emergency Stop</button>
   </header>
 
   <div id="mode-modal-backdrop" style="display:none" onclick="handleBackdropClick(event)">
@@ -619,6 +701,24 @@
         </div>
       </div>
       <button id="modal-cta" onclick="dismissModal()">Get started</button>
+    </div>
+  </div>
+
+  <div id="live-confirm-backdrop" style="display:none">
+    <div id="live-confirm-modal">
+      <div class="modal-live-header">
+        <span class="modal-live-badge">LIVE TRADING</span>
+        <h2>Before you go live</h2>
+      </div>
+      <p>You are about to enable real-money trading. Please confirm you understand the following before continuing.</p>
+      <ul class="live-checklist" id="live-checklist">
+        <li><input type="checkbox" id="lc1" onchange="updateLiveConfirmCta()"><label for="lc1">I understand this bot will place real trades with real money on my Trading212 account.</label></li>
+        <li><input type="checkbox" id="lc2" onchange="updateLiveConfirmCta()"><label for="lc2">I have reviewed the maximum position size — the bot will not risk more than the configured percentage per trade.</label></li>
+        <li><input type="checkbox" id="lc3" onchange="updateLiveConfirmCta()"><label for="lc3">I have reviewed the daily loss limit — the bot will automatically pause if this limit is reached today.</label></li>
+        <li><input type="checkbox" id="lc4" onchange="updateLiveConfirmCta()"><label for="lc4">I accept that past bot performance does not guarantee future results.</label></li>
+        <li><input type="checkbox" id="lc5" onchange="updateLiveConfirmCta()"><label for="lc5">I take full responsibility for all trading activity on my account.</label></li>
+      </ul>
+      <button id="live-confirm-cta" disabled onclick="submitLiveConfirm()">Enable Live Trading</button>
     </div>
   </div>
 
@@ -651,6 +751,22 @@
           <div class="value" id="kpi-signals">—</div>
         </div>
       </div>
+    </div>
+
+    <!-- Guardrails panel -->
+    <div id="guardrails-panel">
+      <div class="gr-title">Risk Guardrails</div>
+      <div class="gr-row">
+        <span class="gr-label">Daily loss</span>
+        <div class="gr-bar-wrap"><div class="gr-bar" id="gr-loss-bar" style="width:0%"></div></div>
+        <span class="gr-val" id="gr-loss-val">0.00%</span>
+      </div>
+      <div class="gr-row">
+        <span class="gr-label">Open positions</span>
+        <div class="gr-bar-wrap"><div class="gr-bar" id="gr-pos-bar" style="width:0%"></div></div>
+        <span class="gr-val" id="gr-pos-val">0 / 10</span>
+      </div>
+      <div class="gr-desc">The bot will automatically pause if your account loses more than <span id="gr-limit-pct">2</span>% today.</div>
     </div>
 
     <!-- Simple: Status cards -->
@@ -1002,6 +1118,9 @@
         nol.textContent = '';
       }
       refreshStatusCards(s);
+      updateGuardrails(s);
+      maybeShowLiveConfirmModal(s);
+      notifyHaltedReason(s);
     } catch(e) { console.warn('status fetch failed', e); }
   }
 
@@ -1451,6 +1570,100 @@
   });
 
   loadLLMConfig();
+
+  // ── Guardrails helpers ────────────────────────────────────────────────────
+
+  function showToast(msg, type) {
+    const el = document.createElement('div');
+    el.textContent = msg;
+    const bg = type === 'error' ? 'var(--crimson)' : type === 'warn' ? 'var(--amber)' : 'var(--accent)';
+    el.style.cssText = `position:fixed;bottom:20px;right:20px;z-index:9999;padding:10px 16px;border-radius:6px;font-size:13px;font-weight:600;background:${bg};color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18);transition:opacity 300ms;`;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 350); }, 3500);
+  }
+
+  async function triggerEmergencyStop() {
+    if (!confirm('Close ALL positions and halt the bot immediately?\n\nThis cannot be undone.')) return;
+    try {
+      const res = await fetch('/api/bot/emergency-stop', { method: 'POST' });
+      const data = await res.json();
+      showToast(`Emergency stop: ${data.positions_closed} position(s) closed`, 'warn');
+      refreshStatus();
+    } catch (e) {
+      showToast('Emergency stop failed — check connection', 'error');
+    }
+  }
+
+  function updateGuardrails(s) {
+    const banner = document.getElementById('live-banner');
+    if (banner) banner.style.display = (s.environment === 'live' && s.live_confirmed) ? 'block' : 'none';
+
+    const lossLimit = s.daily_loss_limit_pct ?? 0.02;
+    const lossPct = s.daily_loss_pct ?? 0;
+    const lossRatio = lossLimit > 0 ? Math.min(1, lossPct / lossLimit) : 0;
+    const lossBar = document.getElementById('gr-loss-bar');
+    const lossVal = document.getElementById('gr-loss-val');
+    if (lossBar) {
+      lossBar.style.width = (lossRatio * 100).toFixed(1) + '%';
+      lossBar.className = 'gr-bar' + (lossRatio >= 1 ? ' danger' : lossRatio >= 0.75 ? ' warn' : '');
+    }
+    if (lossVal) lossVal.textContent = (lossPct * 100).toFixed(2) + '%';
+
+    const maxPos = 10;
+    const openPos = s.open_positions ?? 0;
+    const posRatio = maxPos > 0 ? Math.min(1, openPos / maxPos) : 0;
+    const posBar = document.getElementById('gr-pos-bar');
+    const posVal = document.getElementById('gr-pos-val');
+    if (posBar) {
+      posBar.style.width = (posRatio * 100).toFixed(1) + '%';
+      posBar.className = 'gr-bar' + (posRatio >= 1 ? ' danger' : posRatio >= 0.75 ? ' warn' : '');
+    }
+    if (posVal) posVal.textContent = openPos + ' / ' + maxPos;
+
+    const limitSpan = document.getElementById('gr-limit-pct');
+    if (limitSpan) limitSpan.textContent = (lossLimit * 100).toFixed(0);
+  }
+
+  function maybeShowLiveConfirmModal(s) {
+    if (s.environment === 'live' && !s.live_confirmed) {
+      document.getElementById('live-confirm-backdrop').style.display = 'flex';
+    }
+  }
+
+  function updateLiveConfirmCta() {
+    const all = ['lc1','lc2','lc3','lc4','lc5'].every(id => document.getElementById(id)?.checked);
+    document.getElementById('live-confirm-cta').disabled = !all;
+  }
+
+  async function submitLiveConfirm() {
+    const checks = ['lc1','lc2','lc3','lc4','lc5'].map(id => document.getElementById(id)?.checked ?? false);
+    try {
+      const res = await fetch('/api/mode/live/confirm', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ checks }),
+      });
+      if (!res.ok) throw new Error('Server rejected confirmation');
+      document.getElementById('live-confirm-backdrop').style.display = 'none';
+      showToast('Live trading enabled', 'info');
+      refreshStatus();
+    } catch (e) {
+      showToast('Confirmation failed — try again', 'error');
+    }
+  }
+
+  let _lastHaltedReason = null;
+  function notifyHaltedReason(s) {
+    if (s.halted_reason && s.halted_reason !== _lastHaltedReason) {
+      _lastHaltedReason = s.halted_reason;
+      if (s.halted_reason === 'daily_loss_limit') {
+        showToast('Bot paused: daily loss limit reached', 'warn');
+      } else if (s.halted_reason === 'emergency_stop') {
+        showToast('Emergency stop active — bot halted', 'error');
+      }
+    }
+    if (!s.halted_reason) _lastHaltedReason = null;
+  }
 </script>
 </body>
 </html>

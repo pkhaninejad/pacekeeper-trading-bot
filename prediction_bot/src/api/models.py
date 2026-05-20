@@ -57,7 +57,7 @@ class BankrollSnapshot(BaseModel):
 
 
 class PMBotStatus(BaseModel):
-    enabled: bool = True
+    enabled: bool = False
     platforms: dict = {"polymarket": True, "kalshi": False}
     categories: list[str] = ["crypto", "sports", "politics"]
     open_trades: int = 0

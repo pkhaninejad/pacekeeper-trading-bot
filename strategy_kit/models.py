@@ -15,7 +15,7 @@ class ParamField(BaseModel):
     min: float | None = None
     max: float | None = None
     help: str = ""
-    step: int = 1
+    step: float = 1
     options: list[str] | None = None
 
 
@@ -34,6 +34,8 @@ class ParamSchema(BaseModel):
                 continue
             val = params[field.key]
             if field.type in ("number", "percent"):
+                if not isinstance(val, (int, float)):
+                    raise ValueError(f"{field.key}: expected a number, got {type(val).__name__}")
                 if field.min is not None and val < field.min:
                     raise ValueError(f"{field.key}: {val} < min {field.min}")
                 if field.max is not None and val > field.max:

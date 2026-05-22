@@ -13,3 +13,7 @@ def get_schema(bot: str) -> ParamSchema:
     if bot not in _registry:
         raise KeyError(f"No schema registered for bot: {bot!r}")
     return _registry[bot]
+
+
+def clear() -> None:
+    _registry.clear()

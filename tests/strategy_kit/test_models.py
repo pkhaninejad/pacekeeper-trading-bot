@@ -1,6 +1,8 @@
 """Tests for strategy_kit models and registry."""
 import pytest
+from pydantic import ValidationError
 from strategy_kit import ParamField, ParamSchema, StrategyDefinition, get_schema, register
+import strategy_kit.registry as _reg
 
 
 class TestParamSchema:
@@ -66,7 +68,7 @@ class TestStrategyDefinition:
         assert defn.created_at is not None
 
     def test_bot_must_be_valid_literal(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             StrategyDefinition(name="x", bot="invalid_bot")
 
     def test_accepts_stock_bot(self):
@@ -75,6 +77,9 @@ class TestStrategyDefinition:
 
 
 class TestRegistry:
+    def teardown_method(self, method):
+        _reg.clear()
+
     def test_register_and_get_schema(self):
         schema = ParamSchema(fields=[
             ParamField(key="x", label="X", type="number", default=1),

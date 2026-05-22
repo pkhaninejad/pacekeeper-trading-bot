@@ -31,6 +31,12 @@ class StrategyStore:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("PRAGMA journal_mode=WAL")
             await db.executescript(_SCHEMA)
+            async with db.execute("PRAGMA table_info(strategies)") as cur:
+                cols = {row[1] async for row in cur}
+            if "active" not in cols:
+                await db.execute(
+                    "ALTER TABLE strategies ADD COLUMN active INTEGER NOT NULL DEFAULT 1"
+                )
             await db.commit()
 
     async def create(self, definition: StrategyDefinition) -> str:
@@ -62,16 +68,20 @@ class StrategyStore:
             return None
         return _row_to_definition(row)
 
-    async def list(self, bot: str, include_archived: bool = False) -> list[StrategyDefinition]:
+    async def list(
+        self, bot: str, include_archived: bool = False, active_only: bool = False
+    ) -> list[StrategyDefinition]:
         query = "SELECT * FROM strategies WHERE bot = ?"
         args: list = [bot]
         if not include_archived:
             query += " AND archived = 0"
+        if active_only:
+            query += " AND active = 1"
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(query, args) as cur:
                 rows = await cur.fetchall()
-        return [_row_to_definition(r) for r in rows]
+        return [_row_to_definition(row) for row in rows]
 
     async def update(
         self,
@@ -106,6 +116,16 @@ class StrategyStore:
             await db.execute(
                 "UPDATE strategies SET archived = 1 WHERE id = ?", (id,)
             )
+            await db.commit()
+
+    async def activate(self, id: str) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("UPDATE strategies SET active = 1 WHERE id = ?", (id,))
+            await db.commit()
+
+    async def deactivate(self, id: str) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("UPDATE strategies SET active = 0 WHERE id = ?", (id,))
             await db.commit()
 
 

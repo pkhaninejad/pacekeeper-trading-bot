@@ -105,3 +105,31 @@ class TestShadowPortfolio:
         """open_trade raises ValueError if bankroll was never seeded."""
         with pytest.raises(ValueError, match="strat-X"):
             await portfolio.open_trade("strat-X", "t1", entry_price=10.0, quantity=1.0)
+
+    async def test_close_short_winning(self, portfolio):
+        """Closing a winning short trade (exit < entry) adds pnl to bankroll."""
+        await portfolio.seed_bankroll("strat-A", 1000.0)
+        tid = await portfolio.open_trade("strat-A", "t1", entry_price=10.0, quantity=5.0, direction="short")
+        # balance = 950 (cost still deducted on open)
+        await portfolio.close_trade(tid, exit_price=8.0)
+        # pnl = (10-8)*5 = 10; balance = 950 + 50 + 10 = 1010
+        curve = await portfolio.equity_curve("strat-A")
+        assert curve[-1].balance == pytest.approx(1010.0)
+
+    async def test_close_short_losing(self, portfolio):
+        """Closing a losing short trade (exit > entry) deducts loss from bankroll."""
+        await portfolio.seed_bankroll("strat-A", 1000.0)
+        tid = await portfolio.open_trade("strat-A", "t1", entry_price=10.0, quantity=5.0, direction="short")
+        # balance = 950
+        await portfolio.close_trade(tid, exit_price=12.0)
+        # pnl = (10-12)*5 = -10; balance = 950 + 50 - 10 = 990
+        curve = await portfolio.equity_curve("strat-A")
+        assert curve[-1].balance == pytest.approx(990.0)
+
+    async def test_close_trade_raises_on_double_close(self, portfolio):
+        """close_trade raises ValueError if trade is already closed."""
+        await portfolio.seed_bankroll("strat-A", 1000.0)
+        tid = await portfolio.open_trade("strat-A", "t1", entry_price=10.0, quantity=1.0)
+        await portfolio.close_trade(tid, exit_price=12.0)
+        with pytest.raises(ValueError, match=str(tid)):
+            await portfolio.close_trade(tid, exit_price=15.0)

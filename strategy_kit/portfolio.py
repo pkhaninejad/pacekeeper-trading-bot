@@ -118,12 +118,14 @@ class ShadowPortfolio:
             )
             cost = entry_price * quantity
             balance = await self._get_balance(db, strategy_id)
-            await db.execute(
+            cur = await db.execute(
                 """UPDATE shadow_trades
                    SET exit_price = ?, pnl = ?, status = 'closed', closed_at = ?
-                   WHERE id = ?""",
+                   WHERE id = ? AND status = 'open'""",
                 (exit_price, pnl, datetime.now(UTC).isoformat(), trade_id),
             )
+            if cur.rowcount == 0:
+                raise ValueError(f"trade {trade_id} is already closed or does not exist")
             await db.execute(
                 "INSERT INTO shadow_equity (strategy_id, balance, timestamp) VALUES (?, ?, ?)",
                 (strategy_id, balance + cost + pnl, datetime.now(UTC).isoformat()),

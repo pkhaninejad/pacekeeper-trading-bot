@@ -118,6 +118,12 @@ class TestStrategyRunnerFiltering:
         decisions = runner.run(candidates, 1000.0, open_market_ids={"m0"})
         assert len(decisions) == 1
 
+    def test_returns_empty_when_bankroll_is_zero(self):
+        params = PREDICTION_SCHEMA.fill_defaults({})
+        runner = StrategyRunner(params)
+        decisions = runner.run([_candidate("m1", edge=0.05)], bankroll=0, open_market_ids=set())
+        assert decisions == []
+
 
 class TestStrategyRunnerBetStrategies:
     def test_kelly_strategy_sizing(self):
@@ -175,6 +181,15 @@ class TestStrategyRunnerBetStrategies:
         c = _candidate("m1", yes_price=0.30, edge=0.05)
         decisions = runner.run([c], 1000.0, set())
         assert len(decisions) == 1
+
+    def test_contrarian_flips_entry_price(self):
+        """Contrarian: entry_price on the decision should be 1 - original yes_price."""
+        params = PREDICTION_SCHEMA.fill_defaults({"BET_STRATEGY": "contrarian"})
+        runner = StrategyRunner(params)
+        c = _candidate("m1", yes_price=0.90, best_side="YES", edge=0.05)
+        decisions = runner.run([c], 1000.0, set())
+        assert len(decisions) == 1
+        assert decisions[0].candidate.market_price == pytest.approx(round(1.0 - 0.90, 8))
 
     def test_trade_decision_fields(self):
         """TradeDecision has candidate, side, quantity, cost."""

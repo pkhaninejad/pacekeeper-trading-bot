@@ -54,6 +54,8 @@ PREDICTION_SCHEMA = ParamSchema(fields=[
                help="Comma-separated list: crypto, sports, politics, etc."),
 ])
 
+# EXPIRY_WINDOW_HOURS and MIN_LIQUIDITY are enforced by scan_markets() upstream,
+# not by StrategyRunner — they are schema fields for the wizard and engine config.
 register("prediction", PREDICTION_SCHEMA)
 
 
@@ -74,6 +76,8 @@ class StrategyRunner:
         bankroll: float,
         open_market_ids: set[str],
     ) -> list[TradeDecision]:
+        if bankroll <= 0:
+            return []
         resolved = self.params
         categories = {c.strip() for c in resolved["ENABLED_CATEGORIES"].split(",") if c.strip()}
         high_min = float(resolved["HIGH_PROB_MIN"])
@@ -102,6 +106,8 @@ class StrategyRunner:
             side = candidate.best_side
             entry_price = candidate.market_price
 
+            # Strategies are mutually exclusive; elif order matters — contrarian
+            # updates entry_price before min_rr would read it.
             if bet_strategy == "contrarian":
                 side = "NO" if side == "YES" else "YES"
                 entry_price = round(1.0 - entry_price, 8)

@@ -29,6 +29,7 @@ class StrategyStore:
 
     async def initialize(self) -> None:
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("PRAGMA journal_mode=WAL")
             await db.executescript(_SCHEMA)
             await db.commit()
 
@@ -114,7 +115,7 @@ def _row_to_definition(row: aiosqlite.Row) -> StrategyDefinition:
         name=row["name"],
         description=row["description"],
         bot=row["bot"],
-        params=json.loads(row["params"]),
+        params=json.loads(row["params"] or "{}"),
         created_at=datetime.fromisoformat(row["created_at"]),
         archived=bool(row["archived"]),
     )

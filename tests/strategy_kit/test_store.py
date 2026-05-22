@@ -98,3 +98,11 @@ class TestStrategyStore:
         sid = await store.create(_defn(params=params))
         result = await store.get(sid)
         assert result.params == params
+
+    async def test_update_nonexistent_id_is_silent_noop(self, store):
+        """update() on a missing id silently does nothing."""
+        await store.update("nonexistent-id", name="Ghost")  # must not raise
+
+    async def test_archive_nonexistent_id_is_silent_noop(self, store):
+        """archive() on a missing id silently does nothing."""
+        await store.archive("nonexistent-id")  # must not raise

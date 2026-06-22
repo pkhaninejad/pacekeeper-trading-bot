@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from prediction_bot.src.bot.engine import PredictionEngine
+from prediction_bot.src.dashboard.strategies_router import make_strategies_router
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,20 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Prediction Market Bot", lifespan=lifespan)
+
+# In-memory mirror of which strategies are active (DB `active` column is the
+# source of truth; the engine reads it each cycle via active_only=True).
+_active_strategy_ids: set[str] = set()
+app.include_router(
+    make_strategies_router(engine._strategy_store, _active_strategy_ids),
+    prefix="/api",
+)
+
+
+@app.get("/api/strategies/{strategy_id}/equity")
+async def get_equity_curve(strategy_id: str):
+    points = await engine._portfolio.equity_curve(strategy_id)
+    return [{"timestamp": p.timestamp.isoformat(), "balance": p.balance} for p in points]
 
 
 class ScannerSettingsUpdate(BaseModel):

@@ -28,6 +28,16 @@ class _UpdatePayload(BaseModel):
     params: dict | None = None
 
 
+class _ImportPayload(BaseModel):
+    # Portable export format (id/timestamps/bot are assigned on import).
+    name: str
+    description: str = ""
+    params: dict = {}
+
+
+_EXPORT_FORMAT = "strategy-export/v1"
+
+
 def make_strategies_router(
     store: StrategyStore,
     active_strategy_ids: set[str],
@@ -57,6 +67,32 @@ def make_strategies_router(
         )
         await store.create(defn)
         return defn.model_dump(mode="json")
+
+    @router.post("/import", status_code=201)
+    async def import_strategy(payload: _ImportPayload):
+        # Local sharing: import a strategy exported from another machine.
+        try:
+            schema.validate_params(payload.params)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=f"Invalid strategy params: {e}")
+        defn = StrategyDefinition(
+            name=payload.name, description=payload.description, bot=bot,
+            params=payload.params,
+        )
+        await store.create(defn)
+        return defn.model_dump(mode="json")
+
+    @router.get("/{strategy_id}/export")
+    async def export_strategy(strategy_id: str):
+        defn = await store.get(strategy_id)
+        if defn is None:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+        return {
+            "_format": _EXPORT_FORMAT,
+            "name": defn.name,
+            "description": defn.description,
+            "params": defn.params,
+        }
 
     @router.get("/{strategy_id}")
     async def get_strategy(strategy_id: str):

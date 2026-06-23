@@ -101,6 +101,44 @@ class TestActivateDeactivate:
         assert r.status_code == 404
 
 
+class TestExportImport:
+    def test_export_returns_portable_format(self, client):
+        r = client.post("/strategies", json={"name": "S", "params": {"HIGH_PROB_MIN": 0.85}})
+        sid = r.json()["id"]
+        e = client.get(f"/strategies/{sid}/export")
+        assert e.status_code == 200
+        body = e.json()
+        assert body["_format"] == "strategy-export/v1"
+        assert body["name"] == "S"
+        assert body["params"]["HIGH_PROB_MIN"] == 0.85
+        assert "id" not in body  # portable: no machine-specific id
+
+    def test_export_unknown_404(self, client):
+        assert client.get("/strategies/nope/export").status_code == 404
+
+    def test_import_creates_strategy(self, client):
+        payload = {"name": "Shared", "description": "from a friend",
+                   "params": {"HIGH_PROB_MIN": 0.9}}
+        r = client.post("/strategies/import", json=payload)
+        assert r.status_code == 201
+        assert r.json()["bot"] == "prediction"
+        assert r.json()["params"]["HIGH_PROB_MIN"] == 0.9
+        assert len(client.get("/strategies").json()) == 1
+
+    def test_import_rejects_invalid_params(self, client):
+        # HIGH_PROB_MIN max is 1.0 — 5.0 must be rejected.
+        r = client.post("/strategies/import",
+                        json={"name": "Bad", "params": {"HIGH_PROB_MIN": 5.0}})
+        assert r.status_code == 422
+
+    def test_export_import_round_trip(self, client):
+        sid = client.post("/strategies", json={"name": "Orig", "params": {}}).json()["id"]
+        exported = client.get(f"/strategies/{sid}/export").json()
+        r = client.post("/strategies/import", json=exported)
+        assert r.status_code == 201
+        assert len(client.get("/strategies").json()) == 2
+
+
 class TestSchemaEndpoint:
     def test_get_schema_returns_param_fields(self, client):
         r = client.get("/strategies/schema")

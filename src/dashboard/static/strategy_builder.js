@@ -9,6 +9,10 @@
   var editingId = null;       // null = creating, else editing
   var formState = {};         // key -> value
   var liveId = null;
+  var chartInstance = null;   // Chart.js instance for the compare view
+
+  var LIVE_COLOR = "#B8730E"; // amber — LIVE strategy
+  var PALETTE = ["#1E5BFF", "#2C7A4B", "#C4302E", "#7A4BC4", "#0E8FB8", "#B8460E"];
 
   function api(path, opts) {
     return fetch("/api" + path, Object.assign({ headers: { "Content-Type": "application/json" } }, opts))
@@ -78,8 +82,85 @@
     modal.appendChild(body);
     modal.appendChild(el("div", { class: "sb-footer" }, [
       el("button", { class: "sb-btn", onclick: triggerImport }, ["Import…"]),
+      el("button", { class: "sb-btn", onclick: renderCompare }, ["Compare equity"]),
       el("button", { class: "sb-btn primary", onclick: function () { startBuilder(null); } }, ["+ New strategy"]),
     ]));
+  }
+
+  // ── equity-curve comparison (issue #107) ─────────────────────────────────
+  function renderCompare() {
+    api("/strategies").then(function (strategies) {
+      return Promise.all(strategies.map(function (s) {
+        return api("/strategies/" + s.id + "/equity").then(function (curve) {
+          return { strategy: s, curve: curve || [] };
+        });
+      }));
+    }).then(function (series) {
+      drawCompare(series);
+    }).catch(function (e) { renderError(e.message); });
+  }
+
+  function drawCompare(series) {
+    var modal = document.getElementById("sb-modal");
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    modal.innerHTML = "";
+    modal.appendChild(el("header", {}, [
+      el("h2", {}, ["Equity comparison"]),
+      el("button", { class: "sb-close", onclick: loadList }, ["×"]),
+    ]));
+    var body = el("div", { class: "sb-body" });
+
+    var withData = series.filter(function (s) { return s.curve.length > 0; });
+    if (!withData.length) {
+      body.appendChild(el("div", { class: "sb-empty" }, [
+        "No equity data yet. Strategies build a curve as the bot runs cycles.",
+      ]));
+      modal.appendChild(body);
+      modal.appendChild(el("div", { class: "sb-footer" }, [
+        el("button", { class: "sb-btn", onclick: loadList }, ["← Back"]),
+      ]));
+      return;
+    }
+
+    var wrap = el("div", { style: "position:relative;height:340px;" });
+    var canvas = el("canvas", { id: "sb-equity-canvas" });
+    wrap.appendChild(canvas);
+    body.appendChild(wrap);
+    modal.appendChild(body);
+    modal.appendChild(el("div", { class: "sb-footer" }, [
+      el("button", { class: "sb-btn", onclick: loadList }, ["← Back"]),
+    ]));
+
+    var palIdx = 0;
+    var datasets = withData.map(function (s) {
+      var isLive = liveId === s.strategy.id;
+      var color = isLive ? LIVE_COLOR : PALETTE[palIdx++ % PALETTE.length];
+      return {
+        label: s.strategy.name + (isLive ? " (LIVE)" : ""),
+        data: s.curve.map(function (p, i) { return { x: i, y: p.balance }; }),
+        borderColor: color,
+        backgroundColor: color,
+        borderWidth: isLive ? 3 : 2,
+        tension: 0.25,
+        pointRadius: 0,
+      };
+    });
+
+    chartInstance = new window.Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: { datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "nearest", intersect: false },
+        plugins: { legend: { labels: { font: { family: "JetBrains Mono, monospace" } } } },
+        scales: {
+          x: { type: "linear", title: { display: true, text: "cycle" },
+               ticks: { font: { family: "JetBrains Mono, monospace" } } },
+          y: { title: { display: true, text: "$ balance" },
+               ticks: { font: { family: "JetBrains Mono, monospace" } } },
+        },
+      },
+    });
   }
 
   function renderRow(s) {

@@ -42,9 +42,14 @@
   .activity-list li { border-bottom:1px solid #21262d; padding:8px 0; font-size:0.9em; }
   .activity-time { color:#8b949e; margin-right:8px; font-size:0.8em; }
 </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/pacekeeper-tokens.css">
+  <link rel="stylesheet" href="/static/strategy_builder.css">
 </head>
 <body>
-<h1>Prediction Market Bot</h1>
+<h1 style="display:inline-block">Prediction Market Bot</h1>
+<button id="sb-open-btn" onclick="StrategyBuilder.open()" style="margin-left:12px;padding:6px 14px;font-family:Inter,sans-serif;font-weight:600;border:none;border-radius:8px;background:#1E5BFF;color:#fff;cursor:pointer">Strategies</button>
 
 <div class="cards">
   <div class="card">
@@ -368,5 +373,7 @@ async function saveSettings() {
   }
 }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="/static/strategy_builder.js"></script>
 </body>
 </html>

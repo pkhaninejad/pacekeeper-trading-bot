@@ -9,6 +9,7 @@
   var editingId = null;       // null = creating, else editing
   var formState = {};         // key -> value
   var liveId = null;
+  var liveSupported = false;  // bot exposes LIVE designation? (stock yes, prediction no)
   var chartInstance = null;   // Chart.js instance for the compare view
 
   var LIVE_COLOR = "#B8730E"; // amber — LIVE strategy
@@ -56,7 +57,10 @@
 
   // ── strategies list view ─────────────────────────────────────────────────
   function loadList() {
-    Promise.all([api("/strategies"), api("/live-strategy").catch(function () { return {}; })])
+    Promise.all([
+      api("/strategies"),
+      api("/live-strategy").then(function (r) { liveSupported = true; return r; }).catch(function () { liveSupported = false; return {}; }),
+    ])
       .then(function (res) {
         liveId = (res[1] || {}).live_strategy_id || null;
         renderList(res[0] || []);
@@ -208,7 +212,7 @@
 
     var actions = el("div", { class: "sb-row-actions" }, [
       el("button", { class: "sb-btn", onclick: function () { startBuilder(s); } }, ["Edit"]),
-      el("button", { class: "sb-btn", onclick: function () { designateLive(s); } }, [liveId === s.id ? "LIVE ✓" : "Go LIVE"]),
+      liveSupported ? el("button", { class: "sb-btn", onclick: function () { designateLive(s); } }, [liveId === s.id ? "LIVE ✓" : "Go LIVE"]) : null,
       el("button", { class: "sb-btn", onclick: function () { exportStrategy(s); } }, ["Export"]),
       el("button", { class: "sb-btn", onclick: function () { archiveStrategy(s); } }, ["Archive"]),
     ]);

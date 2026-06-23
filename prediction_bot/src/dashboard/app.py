@@ -10,6 +10,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
@@ -40,6 +41,10 @@ app.include_router(
     make_strategies_router(engine._strategy_store, _active_strategy_ids),
     prefix="/api",
 )
+
+# Reuse the stock dashboard's shared static assets (strategy builder + tokens).
+_SHARED_STATIC = Path(__file__).resolve().parents[3] / "src" / "dashboard" / "static"
+app.mount("/static", StaticFiles(directory=str(_SHARED_STATIC)), name="static")
 
 
 @app.get("/api/strategies/{strategy_id}/equity")

@@ -1,0 +1,62 @@
+/* Wallstrdev Design System — tokens + fonts.
+ * Canonical reference: design/Wallstrdev Design System.html
+ * Loaded after a page's own styles so it re-skins existing dashboards. */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ── Wallstrdev native palette ─────────────────────────────── */
+  --paper:        #FFFFFF;
+  --paper-warm:   #F6F5F0;
+  --paper-cool:   #F2F3F5;
+  --ink:          #0E0E10;
+  --ink-soft:     #1A1A1F;
+  --muted:        #6B6B72;
+  --muted-2:      #9A9AA1;
+  --rule:         #E6E6E2;
+  --rule-strong:  #0E0E10;
+  --chartreuse:   #DCEE2A;   /* primary CTA / accent panel — INK text on top */
+  --chartreuse-2: #C8D820;
+  --pink:         #F0BFE8;
+  --pink-2:       #E89FDD;
+  --navy:         #1B2A4E;
+  --navy-2:       #0F1A33;
+  --gold:         #B8945C;
+  --gold-2:       #8C6E3F;
+
+  /* P&L (market convention) */
+  --gain:         #1F7A3D;
+  --gain-soft:    #EAF6EE;
+  --loss:         #C4302E;
+  --loss-soft:    #FBECEC;
+
+  /* Type */
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body:    "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* Radii */
+  --r-xs: 6px; --r-sm: 10px; --r-md: 16px; --r-lg: 24px; --r-xl: 32px; --r-pill: 999px;
+
+  /* ── Compatibility aliases (old Pacekeeper token names → Wallstrdev) ──
+     so existing dashboard markup adopts the new palette with no rewrite.
+     Note: --accent maps to NAVY (a readable foreground), since chartreuse is
+     a background-only CTA color. Use var(--chartreuse) for CTA fills. */
+  --paper-2:     #F6F5F0;
+  --paper-3:     #F2F3F5;
+  --paper-edge:  #ECECE7;
+  --ink-2:       #1A1A1F;
+  --ink-3:       #6B6B72;
+  --ink-4:       #9A9AA1;
+  --rule-2:      #E6E6E2;
+  --accent:      #1B2A4E;   /* navy — readable as text or button bg */
+  --accent-2:    #0F1A33;
+  --accent-soft: #EEF1F6;
+  --sage:        #1F7A3D;
+  --sage-soft:   #EAF6EE;
+  --crimson:     #C4302E;
+  --crimson-soft:#FBECEC;
+  --amber:       #B8945C;
+  --amber-soft:  #F6EFE3;
+  --sans:        var(--font-body);
+  --mono:        var(--font-mono);
+}

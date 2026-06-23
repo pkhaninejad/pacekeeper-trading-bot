@@ -23,6 +23,7 @@ from src.api.models import BotStatus
 from src.bot.engine import TradingEngine, CONFIRMED_FILE
 from src.bot.live_designation import LiveConfirmationRequired
 from src.dashboard.strategies_router import make_strategies_router
+from src.dashboard.setup_router import make_setup_router
 from src.bot.llm_config import (
     ProviderConfig, save_provider_config,
     SUPPORTED_PROVIDERS, PROVIDER_DEFAULTS,
@@ -113,6 +114,7 @@ app.include_router(
     make_strategies_router(engine._strategy_store, _active_strategy_ids),
     prefix="/api",
 )
+app.include_router(make_setup_router(), prefix="/api")
 
 
 @app.get("/api/live-strategy", tags=["strategies"])

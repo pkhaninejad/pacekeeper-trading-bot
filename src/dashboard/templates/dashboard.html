@@ -656,7 +656,9 @@
       font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--amber);
     }
   </style>
+  <link rel="stylesheet" href="/static/wallstrdev-tokens.css">
   <link rel="stylesheet" href="/static/strategy_builder.css">
+  <link rel="stylesheet" href="/static/wallstrdev_setup.css">
 </head>
 <body>
 <script>
@@ -681,6 +683,7 @@
     </div>
     <span class="status-dot" id="status-dot"></span>
     <button id="sb-open-btn" onclick="StrategyBuilder.open()">Strategies</button>
+    <button id="wds-setup-btn" onclick="WallstrdevSetup.open()">Setup</button>
     <button id="toggle-btn">Pause Bot</button>
     <button id="emergency-stop-btn" onclick="triggerEmergencyStop()">Emergency Stop</button>
   </header>
@@ -1668,5 +1671,6 @@
   }
 </script>
 <script src="/static/strategy_builder.js"></script>
+<script src="/static/wallstrdev_setup.js"></script>
 </body>
 </html>

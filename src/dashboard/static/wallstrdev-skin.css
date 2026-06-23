@@ -81,3 +81,41 @@ body .gr-bar { background: var(--ink); }
 /* Tables (prediction) — ink-outline container */
 body table { border: 1.5px solid var(--ink); border-radius: var(--r-md); overflow: hidden; border-collapse: separate; border-spacing: 0; }
 body table th { background: var(--paper-warm); font-family: var(--font-mono); }
+
+/* ── Compact the header so it stays on one line (no Emergency-Stop wrap) ──── */
+.app-header { gap: 8px; }
+.app-header #toggle-btn, .app-header #sb-open-btn,
+.app-header #wds-setup-btn, .app-header #emergency-stop-btn { padding: 7px 12px; font-size: 12px; }
+.app-header #mode-toggle button { padding: 6px 11px; font-size: 12px; }
+.app-header .env-badge, .app-header .market-badge,
+.app-header .regime-badge, .app-header .acct-badge { padding: 3px 8px; font-size: 10px; min-width: 0; }
+.app-header .botswitch { font-size: 12px; }
+.app-header .botswitch a, .app-header .botswitch span { padding: 6px 12px; }
+
+/* ── Style the pre-existing Simple/Advanced "Welcome" modal to Wallstrdev ─── */
+#mode-modal, #live-confirm-modal {
+  background: var(--paper); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: var(--r-xl);
+  box-shadow: 14px 14px 0 rgba(14,14,16,0.10); font-family: var(--font-body);
+}
+#mode-modal h2, #live-confirm-modal h2 {
+  font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em;
+}
+#mode-modal .modal-card {
+  border: 1.5px solid var(--rule); border-radius: var(--r-md); background: var(--paper);
+  transition: border-color .15s ease, transform .15s ease;
+}
+#mode-modal .modal-card:hover { border-color: var(--ink); transform: translateY(-2px); }
+#mode-modal .modal-card.selected { border-color: var(--ink); background: var(--chartreuse); }
+#mode-modal .modal-card-title { font-family: var(--font-display); font-weight: 700; }
+#mode-modal .modal-badge {
+  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  background: var(--ink); color: var(--paper); border-radius: var(--r-pill); padding: 3px 9px;
+}
+#modal-cta, #live-confirm-cta {
+  font-family: var(--font-display); font-weight: 600;
+  background: var(--chartreuse); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: var(--r-pill); padding: 12px 22px; cursor: pointer;
+}
+#modal-cta:hover, #live-confirm-cta:hover { background: var(--chartreuse-2); }
+#live-confirm-cta:disabled { opacity: .45; cursor: not-allowed; }

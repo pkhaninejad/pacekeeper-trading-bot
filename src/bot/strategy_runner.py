@@ -33,6 +33,9 @@ STOCK_SCHEMA = ParamSchema(fields=[
     ParamField(key="MAX_OPEN_POSITIONS", label="Max open positions", type="number",
                default=10.0, min=1.0, max=100.0, step=1.0,
                help="Maximum number of simultaneously open positions."),
+    ParamField(key="VIRTUAL_BANKROLL", label="Shadow bankroll ($)", type="number",
+               default=10_000.0, min=100.0, max=10_000_000.0, step=100.0,
+               help="Starting virtual bankroll when this strategy runs as a paper shadow."),
     # Step 3 — Exits
     ParamField(key="STOP_LOSS_PCT", label="Stop loss", type="percent",
                default=0.02, min=0.005, max=0.50, step=0.005,
@@ -59,6 +62,25 @@ STOCK_SCHEMA = ParamSchema(fields=[
 ])
 
 register("stock", STOCK_SCHEMA)
+
+
+def settings_to_stock_params(s) -> dict:
+    """Map the global Settings object to a STOCK_SCHEMA param dict (for the
+    auto-created Default strategy)."""
+    return {
+        "MIN_CONFIDENCE": 0.60,
+        "WATCHLIST": ",".join(s.WATCHLIST),
+        "MAX_POSITION_SIZE_PCT": s.MAX_POSITION_SIZE_PCT,
+        "MAX_OPEN_POSITIONS": float(s.MAX_OPEN_POSITIONS),
+        "VIRTUAL_BANKROLL": 10_000.0,
+        "STOP_LOSS_PCT": s.STOP_LOSS_PCT,
+        "TAKE_PROFIT_PCT": s.TAKE_PROFIT_PCT,
+        "CLAUDE_MODEL": s.CLAUDE_MODEL,
+        "ENABLE_SCREENER": s.ENABLE_SCREENER,
+        "MAX_SCREENER_ADDITIONS": float(s.MAX_SCREENER_ADDITIONS),
+        "BLOCK_NEW_POSITIONS_ON_EARNINGS": s.BLOCK_NEW_POSITIONS_ON_EARNINGS,
+        "BLOCK_NEW_POSITIONS_ON_MACRO": s.BLOCK_NEW_POSITIONS_ON_MACRO,
+    }
 
 
 class StockStrategyRunner:

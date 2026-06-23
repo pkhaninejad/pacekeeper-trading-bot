@@ -77,8 +77,14 @@ class TestStrategyDefinition:
 
 
 class TestRegistry:
+    def setup_method(self, method):
+        # Snapshot so we don't wipe real registrations (e.g. "stock",
+        # "prediction") made at import time by other modules.
+        self._snapshot = dict(_reg._registry)
+
     def teardown_method(self, method):
-        _reg.clear()
+        _reg._registry.clear()
+        _reg._registry.update(self._snapshot)
 
     def test_register_and_get_schema(self):
         schema = ParamSchema(fields=[

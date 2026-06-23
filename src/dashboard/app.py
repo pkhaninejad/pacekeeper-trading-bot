@@ -21,6 +21,8 @@ from pydantic import BaseModel
 from src.api.client import Trading212Client
 from src.api.models import BotStatus
 from src.bot.engine import TradingEngine, CONFIRMED_FILE
+from src.bot.live_designation import LiveConfirmationRequired
+from src.dashboard.strategies_router import make_strategies_router
 from src.bot.llm_config import (
     ProviderConfig, save_provider_config,
     SUPPORTED_PROVIDERS, PROVIDER_DEFAULTS,
@@ -103,6 +105,40 @@ app = FastAPI(
 
 templates = Jinja2Templates(directory="src/dashboard/templates")
 templates.env.cache = None  # workaround for Jinja2 cache bug on Python 3.14
+
+# Strategy builder: shared CRUD/activate router + stock-only LIVE designation.
+_active_strategy_ids: set[str] = set()
+app.include_router(
+    make_strategies_router(engine._strategy_store, _active_strategy_ids),
+    prefix="/api",
+)
+
+
+@app.get("/api/live-strategy", tags=["strategies"])
+async def get_live_strategy():
+    return {"live_strategy_id": engine._live_designation.live_strategy_id}
+
+
+@app.post("/api/strategies/{strategy_id}/designate-live", tags=["strategies"])
+async def designate_live_strategy(strategy_id: str):
+    if await engine._strategy_store.get(strategy_id) is None:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    try:
+        engine._live_designation.designate(
+            strategy_id,
+            env=settings.T212_ENV,
+            live_confirmed=engine._live_confirmed,
+        )
+    except LiveConfirmationRequired as e:
+        # 409: caller must complete the live-confirmation ceremony first.
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return {"live_strategy_id": strategy_id}
+
+
+@app.get("/api/strategies/{strategy_id}/equity", tags=["strategies"])
+async def get_strategy_equity(strategy_id: str):
+    points = await engine._portfolio.equity_curve(strategy_id)
+    return [{"timestamp": p.timestamp.isoformat(), "balance": p.balance} for p in points]
 
 
 # ─── REST API ─────────────────────────────────────────────────────────────────

@@ -119,9 +119,19 @@ class PredictionEngine:
                         logger.error("Cycle error: %s", e, exc_info=True)
                 await asyncio.sleep(self.settings.SCAN_INTERVAL_SECONDS)
 
+    async def _refresh_active_strategies(self):
+        """Reload active strategies and seed any unseeded shadow bankroll so
+        strategies toggled or created in the UI take effect without a restart."""
+        self._active_strategies = await self._strategy_store.list("prediction", active_only=True)
+        for strategy in self._active_strategies:
+            if not await self._portfolio.equity_curve(strategy.id):
+                vb = float(strategy.params.get("VIRTUAL_BANKROLL", self.settings.VIRTUAL_BANKROLL))
+                await self._portfolio.seed_bankroll(strategy.id, vb)
+
     async def _cycle(self):
         logger.info("Starting scan cycle (%d strategies)...", len(self._active_strategies))
         await self._activity("Starting a new market scan.")
+        await self._refresh_active_strategies()
 
         # Settle/expire per strategy
         for strategy in self._active_strategies:

@@ -138,4 +138,5 @@ def _row_to_definition(row: aiosqlite.Row) -> StrategyDefinition:
         params=json.loads(row["params"] or "{}"),
         created_at=datetime.fromisoformat(row["created_at"]),
         archived=bool(row["archived"]),
+        active=bool(row["active"]) if "active" in row.keys() else True,
     )

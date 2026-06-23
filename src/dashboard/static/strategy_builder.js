@@ -202,21 +202,24 @@
   }
 
   function renderRow(s) {
-    var tags = [];
-    if (liveId === s.id) tags.push(el("span", { class: "sb-tag live" }, ["LIVE"]));
-    var name = el("div", {}, [
-      el("span", { class: "sb-name" }, [s.name]),
-    ]);
-    tags.forEach(function (t) { name.appendChild(t); });
+    var name = el("div", {}, [el("span", { class: "sb-name" }, [s.name])]);
+    if (s.active) name.appendChild(el("span", { class: "sb-tag active" }, ["RUNNING"]));
+    if (liveId === s.id) name.appendChild(el("span", { class: "sb-tag live" }, ["LIVE"]));
     var meta = el("div", { class: "sb-meta" }, [s.description || s.id.slice(0, 8)]);
 
     var actions = el("div", { class: "sb-row-actions" }, [
+      el("button", { class: "sb-btn" + (s.active ? "" : " primary"), onclick: function () { toggleActive(s); } }, [s.active ? "Pause" : "Run"]),
       el("button", { class: "sb-btn", onclick: function () { startBuilder(s); } }, ["Edit"]),
       liveSupported ? el("button", { class: "sb-btn", onclick: function () { designateLive(s); } }, [liveId === s.id ? "LIVE ✓" : "Go LIVE"]) : null,
       el("button", { class: "sb-btn", onclick: function () { exportStrategy(s); } }, ["Export"]),
       el("button", { class: "sb-btn", onclick: function () { archiveStrategy(s); } }, ["Archive"]),
     ]);
     return el("div", { class: "sb-row" }, [el("div", {}, [name, meta]), actions]);
+  }
+
+  function toggleActive(s) {
+    var path = "/strategies/" + s.id + (s.active ? "/deactivate" : "/activate");
+    api(path, { method: "POST", body: "{}" }).then(loadList).catch(function (e) { alert(e.message); });
   }
 
   function renderError(msg) {

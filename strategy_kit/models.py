@@ -53,3 +53,4 @@ class StrategyDefinition(BaseModel):
     params: dict = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     archived: bool = False
+    active: bool = True

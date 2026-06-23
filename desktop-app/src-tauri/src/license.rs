@@ -2,9 +2,16 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
-// Run `python scripts/keygen.py --generate` once, then paste the printed
-// byte array here before shipping.
+// Offline fallback signing key. Run `python scripts/keygen.py --generate` once,
+// then paste the printed byte array here before shipping. Used only when the
+// online license server is unreachable.
 const PUBLIC_KEY: [u8; 32] = [0x4f, 0x0e, 0x3a, 0xef, 0x5e, 0xe8, 0x73, 0x8f, 0x94, 0xfc, 0x11, 0xbd, 0x3b, 0x7b, 0x37, 0x76, 0x2e, 0x01, 0x6f, 0x82, 0x23, 0x86, 0x7b, 0x21, 0x69, 0x41, 0xf3, 0x16, 0x51, 0xd6, 0x82, 0x95];
+
+// Online license server (WordPress/WooCommerce). Overridable at runtime via the
+// LICENSE_SERVER_URL env var. A desktop app has no domain, so we send a stable
+// product identifier as the `domain` the server validates against.
+const LICENSE_SERVER_URL: &str = "https://wallstrdev.com/wp-json/wds-license/v1/validate";
+const PRODUCT_DOMAIN: &str = "pacekeeper-desktop";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LicenseInfo {
@@ -13,9 +20,86 @@ pub struct LicenseInfo {
     pub expires: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct ServerResponse {
+    #[serde(default)]
+    valid: bool,
+    #[serde(default)]
+    expires: Option<String>,
+    #[serde(default)]
+    email: Option<String>,
+    #[serde(default)]
+    reason: Option<String>,
+}
+
+enum OnlineError {
+    /// The server explicitly rejected the key — final, do not fall back.
+    Invalid(String),
+    /// Could not reach or parse the server — fall back to offline verification.
+    Unreachable,
+}
+
+/// Validate a license key. Tries the online license server first; on a network
+/// error it falls back to offline signature verification so the app still works
+/// without connectivity. A server *rejection* is final (no offline fallback).
 pub fn validate(key: &str) -> Result<LicenseInfo, String> {
     let key = key.trim();
-    let dot = key.find('.').ok_or("Invalid license key.")?;
+    if key.is_empty() {
+        return Err("Enter your license key.".to_string());
+    }
+    match validate_online(key) {
+        Ok(info) => Ok(info),
+        Err(OnlineError::Invalid(msg)) => Err(msg),
+        Err(OnlineError::Unreachable) => validate_offline(key),
+    }
+}
+
+fn validate_online(key: &str) -> Result<LicenseInfo, OnlineError> {
+    // Run the blocking HTTP call on a dedicated thread so it never collides with
+    // Tauri's async runtime (reqwest::blocking panics inside a running runtime).
+    let key = key.to_string();
+    std::thread::spawn(move || validate_online_blocking(&key))
+        .join()
+        .unwrap_or(Err(OnlineError::Unreachable))
+}
+
+fn validate_online_blocking(key: &str) -> Result<LicenseInfo, OnlineError> {
+    let url = std::env::var("LICENSE_SERVER_URL").unwrap_or_else(|_| LICENSE_SERVER_URL.to_string());
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|_| OnlineError::Unreachable)?;
+    let resp = client
+        .post(&url)
+        .json(&serde_json::json!({ "key": key, "domain": PRODUCT_DOMAIN }))
+        .send()
+        .map_err(|_| OnlineError::Unreachable)?;
+    let body: ServerResponse = resp.json().map_err(|_| OnlineError::Unreachable)?;
+
+    if !body.valid {
+        return Err(OnlineError::Invalid(body.reason.unwrap_or_else(|| {
+            "Invalid license key — contact khaninejad@gmail.com.".to_string()
+        })));
+    }
+    if let Some(ref exp) = body.expires {
+        if exp.as_str() < today_iso().as_str() {
+            return Err(OnlineError::Invalid(format!(
+                "License expired on {exp}. Renew at khaninejad@gmail.com."
+            )));
+        }
+    }
+    Ok(LicenseInfo {
+        email: body.email.unwrap_or_else(|| "Licensed".to_string()),
+        expires: body.expires,
+    })
+}
+
+/// Offline fallback: verify a locally-signed (ed25519) key. Used only when the
+/// license server is unreachable.
+fn validate_offline(key: &str) -> Result<LicenseInfo, String> {
+    let dot = key
+        .find('.')
+        .ok_or("Could not reach the license server. Check your connection and try again.")?;
     let payload_b64 = &key[..dot];
     let sig_b64 = &key[dot + 1..];
 

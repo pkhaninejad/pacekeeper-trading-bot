@@ -59,6 +59,9 @@
     <a onclick="location.href=location.protocol+'//'+location.hostname+':4000'">Trade Bot</a>
     <span class="active">Prediction Market</span>
   </span>
+  <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-left:6px">Viewing</span>
+  <select id="strategy-selector" onchange="onStrategyChange()" title="Which strategy's results to show"
+    style="font-family:var(--font-mono);font-size:12px;border:1.5px solid var(--ink);border-radius:var(--r-pill);padding:6px 12px;background:var(--paper);color:var(--ink);cursor:pointer"></select>
   <span class="spacer"></span>
   <button id="sb-open-btn" onclick="StrategyBuilder.open()">Strategies</button>
  </div>
@@ -183,6 +186,38 @@
 
 <script>
 let nextScanAt = null;
+let SELECTED_STRATEGY = "";
+function stratQS(prefix) { return SELECTED_STRATEGY ? (prefix + "strategy=" + encodeURIComponent(SELECTED_STRATEGY)) : ""; }
+async function loadStrategyOptions() {
+  try {
+    const list = await (await fetch('/api/strategies')).json();
+    const sel = document.getElementById('strategy-selector');
+    if (!sel) return;
+    sel.innerHTML = '';
+    list.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = s.name + (s.active ? ' • running' : '');
+      sel.appendChild(o);
+    });
+    if (!SELECTED_STRATEGY && opts.length) SELECTED_STRATEGY = opts[0].id;
+    sel.value = SELECTED_STRATEGY;
+  } catch (e) {}
+}
+function onStrategyChange() {
+  SELECTED_STRATEGY = document.getElementById('strategy-selector').value;
+  fetchStats(); fetchTrades(); fetchIfAllWin();
+}
+async function fetchStats() {
+  try {
+    const s = await (await fetch('/api/stats' + stratQS('?'))).json();
+    document.getElementById('bankroll').textContent = '$' + (s.bankroll || 0).toFixed(2);
+    const pnlEl = document.getElementById('pnl'); const pnl = s.total_pnl || 0;
+    pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+    pnlEl.className = 'value ' + (pnl >= 0 ? 'positive' : 'negative');
+    document.getElementById('open-trades').textContent = s.open_trades != null ? s.open_trades : '—';
+    document.getElementById('winrate').textContent = s.win_rate != null ? (s.win_rate * 100).toFixed(1) + '%' : '—';
+  } catch (e) {}
+}
 
 function formatActivityTime(ts) {
   if (!ts) return '';
@@ -201,7 +236,7 @@ function prependActivity(message, ts) {
 
 async function fetchTrades() {
   try {
-    const resp = await fetch('/api/trades?limit=50');
+    const resp = await fetch('/api/trades?limit=50' + stratQS('&'));
     const trades = await resp.json();
     const tbody = document.getElementById('trades-tbody');
     if (!trades.length) {
@@ -239,7 +274,7 @@ async function fetchTrades() {
 
 async function fetchIfAllWin() {
   try {
-    const resp = await fetch('/api/trades/open');
+    const resp = await fetch('/api/trades/open' + stratQS('?'));
     const trades = await resp.json();
     const total = trades.reduce((sum, t) => sum + (1.0 - t.entry_price) * t.quantity, 0);
     document.getElementById('if-all-win').textContent = '+$' + total.toFixed(2);
@@ -280,8 +315,7 @@ async function loadActivity() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  fetchTrades();
-  fetchIfAllWin();
+  loadStrategyOptions().then(() => { fetchStats(); fetchTrades(); fetchIfAllWin(); });
   loadSettings();
   loadActivity();
 
@@ -297,15 +331,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (data.type === 'cycle_complete') {
       const s = data.status;
-      document.getElementById('bankroll').textContent = '$' + s.bankroll.toFixed(2);
-      const pnlEl = document.getElementById('pnl');
-      pnlEl.textContent = (s.total_pnl >= 0 ? '+' : '') + '$' + s.total_pnl.toFixed(2);
-      pnlEl.className = 'value ' + (s.total_pnl >= 0 ? 'positive' : 'negative');
-      document.getElementById('open-trades').textContent = s.open_trades;
-      if (s.win_rate !== null) {
-        document.getElementById('winrate').textContent = (s.win_rate * 100).toFixed(1) + '%';
-      }
       if (s.next_scan) nextScanAt = new Date(s.next_scan);
+      loadStrategyOptions();   // active set may have changed
+      fetchStats();            // KPIs scoped to the selected strategy
       fetchTrades();
       fetchIfAllWin();
     }

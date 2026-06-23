@@ -83,8 +83,42 @@
     modal.appendChild(el("div", { class: "sb-footer" }, [
       el("button", { class: "sb-btn", onclick: triggerImport }, ["Import…"]),
       el("button", { class: "sb-btn", onclick: renderCompare }, ["Compare equity"]),
+      el("button", { class: "sb-btn", onclick: renderTemplates }, ["Templates"]),
       el("button", { class: "sb-btn primary", onclick: function () { startBuilder(null); } }, ["+ New strategy"]),
     ]));
+  }
+
+  // ── starter templates (issue #112) ───────────────────────────────────────
+  function renderTemplates() {
+    api("/strategies/templates").then(function (tpls) {
+      var modal = document.getElementById("sb-modal");
+      modal.innerHTML = "";
+      modal.appendChild(el("header", {}, [
+        el("h2", {}, ["Start from a template"]),
+        el("button", { class: "sb-close", onclick: loadList }, ["×"]),
+      ]));
+      var body = el("div", { class: "sb-body" });
+      if (!(tpls && tpls.length)) {
+        body.appendChild(el("div", { class: "sb-empty" }, ["No templates available."]));
+      } else {
+        var list = el("div", { class: "sb-list" });
+        tpls.forEach(function (t) {
+          var info = el("div", {}, [
+            el("div", { class: "sb-name" }, [t.name]),
+            el("div", { class: "sb-meta" }, [t.description || ""]),
+          ]);
+          var use = el("button", { class: "sb-btn primary", onclick: function () {
+            startBuilder({ name: t.name, params: t.params });
+          } }, ["Use"]);
+          list.appendChild(el("div", { class: "sb-row" }, [info, el("div", { class: "sb-row-actions" }, [use])]));
+        });
+        body.appendChild(list);
+      }
+      modal.appendChild(body);
+      modal.appendChild(el("div", { class: "sb-footer" }, [
+        el("button", { class: "sb-btn", onclick: loadList }, ["← Back"]),
+      ]));
+    }).catch(function (e) { renderError(e.message); });
   }
 
   // ── equity-curve comparison (issue #107) ─────────────────────────────────

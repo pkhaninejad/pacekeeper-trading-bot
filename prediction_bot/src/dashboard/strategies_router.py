@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from prediction_bot.src.bot.strategy_runner import PREDICTION_SCHEMA
+from prediction_bot.src.bot.strategy_runner import PREDICTION_SCHEMA, PREDICTION_STARTERS
 from strategy_kit.router import make_strategies_router as _make_router
 from strategy_kit.store import StrategyStore
 
@@ -22,4 +22,5 @@ def make_strategies_router(
         active_strategy_ids,
         schema=PREDICTION_SCHEMA,
         bot="prediction",
+        starters=PREDICTION_STARTERS,
     )

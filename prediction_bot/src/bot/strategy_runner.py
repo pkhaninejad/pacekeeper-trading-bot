@@ -59,6 +59,35 @@ PREDICTION_SCHEMA = ParamSchema(fields=[
 register("prediction", PREDICTION_SCHEMA)
 
 
+# Ready-made starter strategies users can instantiate from the builder (#112).
+PREDICTION_STARTERS = [
+    {
+        "name": "Safe Favorites",
+        "description": "Back strong favorites with a small edge, Kelly-sized.",
+        "params": {
+            "HIGH_PROB_MIN": 0.85, "HIGH_PROB_MAX": 0.97, "MIN_EDGE_PCT": 0.02,
+            "BET_STRATEGY": "kelly", "MAX_POSITION_PCT": 0.05,
+        },
+    },
+    {
+        "name": "Value Hunter",
+        "description": "Only take trades with a strong risk/reward ratio.",
+        "params": {
+            "HIGH_PROB_MIN": 0.55, "HIGH_PROB_MAX": 0.90, "MIN_EDGE_PCT": 0.05,
+            "BET_STRATEGY": "min_rr", "MIN_RR_RATIO": 2.5, "MAX_POSITION_PCT": 0.08,
+        },
+    },
+    {
+        "name": "Contrarian",
+        "description": "Bet against the crowd on mispriced markets.",
+        "params": {
+            "HIGH_PROB_MIN": 0.60, "HIGH_PROB_MAX": 0.95, "MIN_EDGE_PCT": 0.04,
+            "BET_STRATEGY": "contrarian", "MAX_POSITION_PCT": 0.05,
+        },
+    },
+]
+
+
 class StrategyRunner:
     """Apply a saved strategy's params to an already-evaluated candidate pool."""
 

@@ -65,6 +65,37 @@ STOCK_SCHEMA = ParamSchema(fields=[
 register("stock", STOCK_SCHEMA)
 
 
+# Ready-made starter strategies users can instantiate from the builder (#112).
+STOCK_STARTERS = [
+    {
+        "name": "Conservative Income",
+        "description": "High-conviction only, tight stops, small size. Blue chips.",
+        "params": {
+            "MIN_CONFIDENCE": 0.80, "MAX_POSITION_SIZE_PCT": 0.03,
+            "MAX_OPEN_POSITIONS": 6, "STOP_LOSS_PCT": 0.015, "TAKE_PROFIT_PCT": 0.03,
+            "WATCHLIST": "AAPL,MSFT,JPM,V,GOOGL,AMZN", "ENABLE_SCREENER": False,
+        },
+    },
+    {
+        "name": "Balanced Growth",
+        "description": "Sensible middle-of-the-road defaults across a broad watchlist.",
+        "params": {
+            "MIN_CONFIDENCE": 0.65, "MAX_POSITION_SIZE_PCT": 0.05,
+            "MAX_OPEN_POSITIONS": 10, "STOP_LOSS_PCT": 0.02, "TAKE_PROFIT_PCT": 0.04,
+        },
+    },
+    {
+        "name": "Aggressive Momentum",
+        "description": "Lower entry bar, larger size, wider stops/targets, screener on.",
+        "params": {
+            "MIN_CONFIDENCE": 0.55, "MAX_POSITION_SIZE_PCT": 0.10,
+            "MAX_OPEN_POSITIONS": 15, "STOP_LOSS_PCT": 0.04, "TAKE_PROFIT_PCT": 0.10,
+            "ENABLE_SCREENER": True, "MAX_SCREENER_ADDITIONS": 5,
+        },
+    },
+]
+
+
 def settings_to_stock_params(s) -> dict:
     """Map the global Settings object to a STOCK_SCHEMA param dict (for the
     auto-created Default strategy)."""

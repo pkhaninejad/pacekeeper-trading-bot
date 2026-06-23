@@ -37,6 +37,15 @@ def test_create_is_scoped_to_stock_bot(client):
     assert r.json()["params"]["STOP_LOSS_PCT"] == 0.03
 
 
+def test_stock_templates_listed_and_valid(client):
+    tpls = client.get("/strategies/templates").json()
+    names = {t["name"] for t in tpls}
+    assert {"Conservative Income", "Balanced Growth", "Aggressive Momentum"} <= names
+    for t in tpls:  # every starter's params must pass schema validation
+        r = client.post("/strategies", json={"name": t["name"], "params": t["params"]})
+        assert r.status_code == 201, t["name"]
+
+
 # ── LIVE-designation endpoints (call handlers directly with a stub engine) ──────
 
 class _StubEngine:

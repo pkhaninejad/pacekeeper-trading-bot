@@ -139,6 +139,19 @@ class TestExportImport:
         assert len(client.get("/strategies").json()) == 2
 
 
+class TestTemplates:
+    def test_templates_listed(self, client):
+        r = client.get("/strategies/templates")
+        assert r.status_code == 200
+        names = {t["name"] for t in r.json()}
+        assert "Safe Favorites" in names
+
+    def test_every_template_is_valid_and_creatable(self, client):
+        for t in client.get("/strategies/templates").json():
+            r = client.post("/strategies", json={"name": t["name"], "params": t["params"]})
+            assert r.status_code == 201, t["name"]
+
+
 class TestSchemaEndpoint:
     def test_get_schema_returns_param_fields(self, client):
         r = client.get("/strategies/schema")

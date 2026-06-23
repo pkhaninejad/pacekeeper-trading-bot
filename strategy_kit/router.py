@@ -44,13 +44,20 @@ def make_strategies_router(
     *,
     schema: ParamSchema,
     bot: str,
+    starters: list[dict] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/strategies", tags=["strategies"])
+    _starters = starters or []
 
     # Declared before /{strategy_id} so "schema" is never captured as an id.
     @router.get("/schema")
     async def get_schema():
         return schema.model_dump(mode="json")
+
+    @router.get("/templates")
+    async def list_templates():
+        # Ready-made starter strategies the user can instantiate (#112).
+        return _starters
 
     @router.get("")
     async def list_strategies():

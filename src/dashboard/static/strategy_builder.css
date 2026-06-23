@@ -102,3 +102,21 @@
 .botswitch .active { background: var(--chartreuse); color: var(--ink); cursor: default; }
 .botswitch a + a, .botswitch span + a, .botswitch a + span { border-left: 1.5px solid var(--ink); }
 .botswitch a:hover { background: var(--ink); color: var(--paper); }
+
+/* Shared app header bar — identical on both dashboards, sticky, no reflow jump. */
+.app-header {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 20px; min-height: 58px; box-sizing: border-box;
+  background: var(--paper); border-bottom: 1.5px solid var(--ink);
+  box-shadow: none; font-family: var(--font-display); margin: 0 0 16px;
+}
+.app-header h1 {
+  font-family: var(--font-display); font-weight: 800; font-size: 19px;
+  letter-spacing: -0.02em; color: var(--ink); margin: 0; display: inline-block;
+}
+.app-header h1 span { color: var(--navy); }
+.app-header .spacer { flex: 1 1 auto; }
+/* keep small status chips from collapsing/jumping as they populate async */
+.app-header .env-badge, .app-header .market-badge,
+.app-header .regime-badge, .app-header .acct-badge { min-width: 52px; text-align: center; }

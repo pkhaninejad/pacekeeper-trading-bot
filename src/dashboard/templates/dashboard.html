@@ -656,6 +656,7 @@
       font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--amber);
     }
   </style>
+  <link rel="stylesheet" href="/static/strategy_builder.css">
 </head>
 <body>
 <script>
@@ -679,6 +680,7 @@
       <button id="mode-btn-advanced" onclick="setMode('advanced')">Advanced</button>
     </div>
     <span class="status-dot" id="status-dot"></span>
+    <button id="sb-open-btn" onclick="StrategyBuilder.open()">Strategies</button>
     <button id="toggle-btn">Pause Bot</button>
     <button id="emergency-stop-btn" onclick="triggerEmergencyStop()">Emergency Stop</button>
   </header>
@@ -1665,5 +1667,6 @@
     if (!s.halted_reason) _lastHaltedReason = null;
   }
 </script>
+<script src="/static/strategy_builder.js"></script>
 </body>
 </html>

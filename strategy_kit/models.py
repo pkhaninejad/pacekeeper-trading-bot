@@ -17,6 +17,7 @@ class ParamField(BaseModel):
     help: str = ""
     step: float = 1
     options: list[str] | None = None
+    group: str = ""  # wizard step this field belongs to ("" = ungrouped)
 
 
 class ParamSchema(BaseModel):

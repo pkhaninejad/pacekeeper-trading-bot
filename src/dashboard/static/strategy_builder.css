@@ -103,13 +103,17 @@
 .botswitch a + a, .botswitch span + a, .botswitch a + span { border-left: 1.5px solid var(--ink); }
 .botswitch a:hover { background: var(--ink); color: var(--paper); }
 
-/* Shared app header bar — identical on both dashboards, sticky, no reflow jump. */
+/* Shared app header bar — full-bleed sticky bar, inner content aligned to the
+ * same 1400px column as the page body so the brand lines up with the cards. */
 .app-header {
-  position: sticky; top: 0; z-index: 50;
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 12px 20px; min-height: 58px; box-sizing: border-box;
+  position: sticky; top: 0; z-index: 50; margin: 0 0 16px;
   background: var(--paper); border-bottom: 1.5px solid var(--ink);
-  box-shadow: none; font-family: var(--font-display); margin: 0 0 16px;
+  box-shadow: none; font-family: var(--font-display);
+}
+.app-header-inner {
+  max-width: 1400px; margin: 0 auto; width: 100%; box-sizing: border-box;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 12px 24px; min-height: 58px;
 }
 .app-header h1 {
   font-family: var(--font-display); font-weight: 800; font-size: 19px;

@@ -6,7 +6,8 @@
 <title>Prediction Market Bot</title>
 <style>
   /* Pacekeeper "Trading Desk" — light canvas, cobalt primary, mono for numbers. */
-  body { font-family: var(--sans), -apple-system, BlinkMacSystemFont, sans-serif; background: var(--paper); color: var(--ink); margin: 0; padding: 24px; }
+  body { font-family: var(--sans), -apple-system, BlinkMacSystemFont, sans-serif; background: var(--paper); color: var(--ink); margin: 0; padding: 0; }
+  .app-main { max-width: 1400px; margin: 0 auto; padding: 8px 24px 36px; }
   h1 { color: var(--ink); font-size: 1.4em; font-weight: 700; letter-spacing: -0.01em; }
   .cards { display: flex; gap: 12px; margin: 16px 0 20px; flex-wrap: wrap; }
   .card { background: var(--paper-2); border: 1px solid var(--rule); padding: 16px; border-radius: 12px; min-width: 150px; }
@@ -52,14 +53,17 @@
 </head>
 <body>
 <header class="app-header">
+ <div class="app-header-inner">
   <h1>Pace<span>keeper</span></h1>
   <span class="botswitch">
     <a onclick="location.href=location.protocol+'//'+location.hostname+':4000'">Trade Bot</a>
     <span class="active">Prediction Market</span>
   </span>
   <span class="spacer"></span>
-  <button id="sb-open-btn" onclick="StrategyBuilder.open()" style="padding:8px 16px;font-family:var(--font-display);font-weight:600;border:1.5px solid var(--ink);border-radius:var(--r-pill);background:var(--chartreuse);color:var(--ink);cursor:pointer">Strategies</button>
+  <button id="sb-open-btn" onclick="StrategyBuilder.open()">Strategies</button>
+ </div>
 </header>
+<main class="app-main">
 
 <div class="cards">
   <div class="card">
@@ -175,6 +179,7 @@
     </tbody>
   </table>
 </div>
+</main>
 
 <script>
 let nextScanAt = null;

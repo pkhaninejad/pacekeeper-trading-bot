@@ -137,22 +137,15 @@ class TradingEngine:
         await self._strategy_store.initialize()
         await self._portfolio.initialize()
 
-        strategies = await self._strategy_store.list("stock", active_only=True)
-        if not strategies:
-            default = StrategyDefinition(
+        if not await self._strategy_store.list("stock", active_only=True):
+            await self._strategy_store.create(StrategyDefinition(
                 name="Default",
                 description="Auto-created from current settings",
                 bot="stock",
                 params=settings_to_stock_params(settings),
-            )
-            await self._strategy_store.create(default)
-            strategies = [default]
-        self._active_strategies = strategies
+            ))
 
-        for strategy in self._active_strategies:
-            if not await self._portfolio.equity_curve(strategy.id):
-                vb = float(strategy.params.get("VIRTUAL_BANKROLL", 10_000.0))
-                await self._portfolio.seed_bankroll(strategy.id, vb)
+        await self._refresh_active_strategies()
 
         # Default-designate the first active strategy as LIVE if nothing is set.
         if self._live_designation.live_strategy_id is None and self._active_strategies:
@@ -400,6 +393,9 @@ class TradingEngine:
                 "invested": round(cash.invested, 2),
             })
 
+            # Pick up strategies created/activated in the UI since last cycle.
+            await self._refresh_active_strategies()
+
             # Apply the LIVE strategy's params to the shared RiskManager so the
             # real path (exits + validation) uses its knobs rather than globals.
             live_strategy = self._real_trading_strategy()
@@ -626,6 +622,16 @@ class TradingEngine:
     # -------------------------------------------------------------------------
     # Strategy builder: LIVE designation + parallel shadows
     # -------------------------------------------------------------------------
+
+    async def _refresh_active_strategies(self) -> None:
+        """Reload active strategies from the store and seed any unseeded shadow
+        bankroll. Lets strategies built in the UI start shadowing on the next
+        cycle without a restart."""
+        self._active_strategies = await self._strategy_store.list("stock", active_only=True)
+        for strategy in self._active_strategies:
+            if not await self._portfolio.equity_curve(strategy.id):
+                vb = float(strategy.params.get("VIRTUAL_BANKROLL", 10_000.0))
+                await self._portfolio.seed_bankroll(strategy.id, vb)
 
     def _real_trading_strategy(self) -> StrategyDefinition | None:
         """The single active strategy that places real Trading212 orders, or

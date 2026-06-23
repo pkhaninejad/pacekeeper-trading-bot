@@ -6,7 +6,8 @@
   var state = {
     license_key: "", license_ok: false,
     t212_key: "", t212_secret: "", t212_env: "demo",
-    anthropic_key: "", risk_profile: "balanced",
+    risk_profile: "balanced",
+    llm_provider: "anthropic", llm_model: "", llm_api_key: "", llm_base_url: "", llm_providers: null,
   };
   var STEPS = ["welcome", "license", "broker", "ai", "risk", "done"];
 
@@ -132,9 +133,42 @@
   function renderAI(card) {
     card.appendChild(el("span", { class: "wds-eyebrow" }, ["Step 3 · AI"]));
     card.appendChild(el("h2", {}, ["Add your AI provider"]));
-    card.appendChild(el("p", { class: "lede" }, ["The bot uses Claude to read the market and generate signals. Paste your Anthropic API key."]));
-    card.appendChild(field("Anthropic API key", "", textInput("anthropic_key", "password", "sk-ant-…")));
+    card.appendChild(el("p", { class: "lede" }, ["The bot uses an LLM to read the market and generate signals. Pick a provider and paste its API key."]));
+    var provWrap = el("div", { class: "wds-field" }, [el("label", {}, ["Provider"])]);
+    var sel = el("select");
+    var modelWrap = el("div", { class: "wds-field" });
+    var keyWrap = el("div", { class: "wds-field" });
+    function current() { return (state.llm_providers || []).find(function (p) { return p.id === state.llm_provider; }) || {}; }
+    function buildKeyAndModel() {
+      var prov = current();
+      modelWrap.innerHTML = ""; keyWrap.innerHTML = "";
+      modelWrap.appendChild(el("label", {}, ["Model"]));
+      var mi = el("input", { type: "text", value: state.llm_model || prov.model || "", placeholder: prov.model || "" });
+      mi.addEventListener("input", function () { state.llm_model = mi.value; });
+      modelWrap.appendChild(mi);
+      if (prov.needs_key !== false) {
+        keyWrap.appendChild(el("label", {}, ["API key"]));
+        var ki = el("input", { type: "password", value: state.llm_api_key || "", placeholder: prov.id === "anthropic" ? "sk-ant-…" : "your API key" });
+        ki.addEventListener("input", function () { state.llm_api_key = ki.value; });
+        keyWrap.appendChild(ki);
+      } else {
+        keyWrap.appendChild(el("p", { class: "hint" }, ["No API key needed for a local Ollama model."]));
+      }
+    }
+    function fillSelect() {
+      sel.innerHTML = "";
+      (state.llm_providers || []).forEach(function (p) {
+        var o = el("option", { value: p.id }, [p.label]);
+        if (p.id === state.llm_provider) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+    sel.addEventListener("change", function () { state.llm_provider = sel.value; state.llm_model = ""; buildKeyAndModel(); });
+    provWrap.appendChild(sel);
+    card.appendChild(provWrap); card.appendChild(modelWrap); card.appendChild(keyWrap);
     card.appendChild(foot([backBtn(), nextBtn()]));
+    if (state.llm_providers) { fillSelect(); buildKeyAndModel(); }
+    else api("/setup/llm-providers").then(function (r) { state.llm_providers = (r && r.providers) || []; fillSelect(); buildKeyAndModel(); });
   }
 
   function renderRisk(card) {
@@ -165,7 +199,7 @@
       finish.disabled = true; finish.textContent = "Saving…";
       api("/setup/save", { method: "POST", body: JSON.stringify({
         t212_key: state.t212_key, t212_secret: state.t212_secret, t212_env: state.t212_env,
-        anthropic_key: state.anthropic_key, risk_profile: state.risk_profile,
+        risk_profile: state.risk_profile, llm_provider: state.llm_provider, llm_model: state.llm_model, llm_api_key: state.llm_api_key, llm_base_url: state.llm_base_url,
       }) }).then(function () { close(); });
     } }, ["Finish & open dashboard ", el("span", { class: "arrow" }, ["→"])]);
     card.appendChild(foot([backBtn(), finish]));

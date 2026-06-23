@@ -88,3 +88,17 @@
 .sb-row-actions .sb-btn { padding: 7px 12px; font-size: 0.78rem; }
 
 .sb-empty { color: var(--muted); font-size: 0.95rem; text-align: center; padding: 28px; }
+
+/* Bot switcher — segmented control to jump between Trade Bot and Prediction Market. */
+.botswitch {
+  display: inline-flex; border: 1.5px solid var(--ink); border-radius: var(--r-pill);
+  overflow: hidden; font-family: var(--font-display); font-weight: 600; font-size: 13px;
+  vertical-align: middle;
+}
+.botswitch a, .botswitch span {
+  padding: 7px 16px; cursor: pointer; color: var(--ink); text-decoration: none; background: var(--paper);
+  transition: background .15s ease, color .15s ease; white-space: nowrap;
+}
+.botswitch .active { background: var(--chartreuse); color: var(--ink); cursor: default; }
+.botswitch a + a, .botswitch span + a, .botswitch a + span { border-left: 1.5px solid var(--ink); }
+.botswitch a:hover { background: var(--ink); color: var(--paper); }

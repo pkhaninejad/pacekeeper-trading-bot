@@ -1,4 +1,4 @@
-"""aiosqlite persistence for paper trades and bankroll."""
+"""aiosqlite persistence for paper trades and bankroll — strategy_id aware."""
 from __future__ import annotations
 
 import logging
@@ -10,7 +10,7 @@ from prediction_bot.src.api.models import BankrollSnapshot, PaperTrade
 
 logger = logging.getLogger(__name__)
 
-_SCHEMA = """
+_SCHEMA_TABLES = """
 CREATE TABLE IF NOT EXISTS paper_trades (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     platform TEXT NOT NULL,
@@ -29,18 +29,25 @@ CREATE TABLE IF NOT EXISTS paper_trades (
     created_at TEXT NOT NULL,
     end_date TEXT,
     resolved_at TEXT,
-    resolution_source TEXT
+    resolution_source TEXT,
+    strategy_id TEXT NOT NULL DEFAULT 'default'
 );
 
 CREATE TABLE IF NOT EXISTS bankroll_snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     balance REAL NOT NULL,
     timestamp TEXT NOT NULL DEFAULT (datetime('now')),
-    trade_id INTEGER REFERENCES paper_trades(id)
+    trade_id INTEGER REFERENCES paper_trades(id),
+    strategy_id TEXT NOT NULL DEFAULT 'default'
 );
 
 CREATE INDEX IF NOT EXISTS idx_trades_status ON paper_trades(status);
 CREATE INDEX IF NOT EXISTS idx_trades_created ON paper_trades(created_at);
+"""
+
+_SCHEMA_INDEXES_STRATEGY = """
+CREATE INDEX IF NOT EXISTS idx_trades_strategy ON paper_trades(strategy_id);
+CREATE INDEX IF NOT EXISTS idx_snapshots_strategy ON bankroll_snapshots(strategy_id);
 """
 
 
@@ -50,58 +57,88 @@ class ResultStore:
 
     async def initialize(self):
         async with aiosqlite.connect(self.db_path) as db:
-            await db.executescript(_SCHEMA)
-            # migrate: add end_date if missing from older DB
+            # Check existing columns BEFORE running the schema (which includes strategy_id indexes)
             async with db.execute("PRAGMA table_info(paper_trades)") as cur:
-                cols = {row[1] async for row in cur}
-            if "end_date" not in cols:
+                trade_cols = {row[1] async for row in cur}
+            async with db.execute("PRAGMA table_info(bankroll_snapshots)") as cur:
+                snap_cols = {row[1] async for row in cur}
+
+            # Migrate older DBs before creating strategy_id indexes
+            if trade_cols and "end_date" not in trade_cols:
                 await db.execute("ALTER TABLE paper_trades ADD COLUMN end_date TEXT")
+            if trade_cols and "strategy_id" not in trade_cols:
+                await db.execute(
+                    "ALTER TABLE paper_trades ADD COLUMN strategy_id TEXT NOT NULL DEFAULT 'default'"
+                )
+            if snap_cols and "strategy_id" not in snap_cols:
+                await db.execute(
+                    "ALTER TABLE bankroll_snapshots ADD COLUMN strategy_id TEXT NOT NULL DEFAULT 'default'"
+                )
             await db.commit()
 
-    async def add_trade(self, trade: PaperTrade, initial_bankroll: float | None = None) -> int:
+            # Now create/update tables and indexes (strategy_id columns exist by now)
+            await db.executescript(_SCHEMA_TABLES)
+            await db.executescript(_SCHEMA_INDEXES_STRATEGY)
+            await db.commit()
+
+    async def add_trade(
+        self,
+        trade: PaperTrade,
+        initial_bankroll: float | None = None,
+        strategy_id: str = "default",
+    ) -> int:
         async with aiosqlite.connect(self.db_path) as db:
             cur = await db.execute(
                 """INSERT INTO paper_trades
                    (platform, market_id, market_question, category, side, entry_price,
-                    quantity, cost, confidence, reasoning, created_at, end_date)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    quantity, cost, confidence, reasoning, created_at, end_date, strategy_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     trade.platform, trade.market_id, trade.market_question,
                     trade.category, trade.side, trade.entry_price,
                     trade.quantity, trade.cost, trade.confidence,
                     trade.reasoning, trade.created_at.isoformat(),
                     trade.end_date.isoformat() if trade.end_date else None,
+                    strategy_id,
                 ),
             )
             trade_id = cur.lastrowid
-            current = await self._get_bankroll_tx(db, initial_bankroll)
+            current = await self._get_bankroll_tx(db, initial_bankroll, strategy_id)
             new_balance = current - trade.cost
             await db.execute(
-                "INSERT INTO bankroll_snapshots (balance, trade_id) VALUES (?, ?)",
-                (new_balance, trade_id),
+                "INSERT INTO bankroll_snapshots (balance, trade_id, strategy_id) VALUES (?, ?, ?)",
+                (new_balance, trade_id, strategy_id),
             )
             await db.commit()
         return trade_id
 
-    async def _get_bankroll_tx(self, db: aiosqlite.Connection, initial: float | None) -> float:
-        async with db.execute("SELECT balance FROM bankroll_snapshots ORDER BY id DESC LIMIT 1") as cur:
+    async def _get_bankroll_tx(
+        self, db: aiosqlite.Connection, initial: float | None, strategy_id: str = "default"
+    ) -> float:
+        async with db.execute(
+            "SELECT balance FROM bankroll_snapshots WHERE strategy_id = ? ORDER BY id DESC LIMIT 1",
+            (strategy_id,),
+        ) as cur:
             row = await cur.fetchone()
         if row:
             return row[0]
         return initial or 1000.0
 
-    async def get_open_trades(self) -> list[PaperTrade]:
-        return await self._fetch_trades("WHERE status = 'OPEN'")
+    async def get_open_trades(self, strategy_id: str = "default") -> list[PaperTrade]:
+        return await self._fetch_trades(
+            "WHERE status = 'OPEN' AND strategy_id = ?", (strategy_id,)
+        )
 
     async def settle_trade(self, trade_id: int, won: bool):
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                "SELECT entry_price, quantity, cost FROM paper_trades WHERE id=?", (trade_id,)
+                "SELECT entry_price, quantity, cost, strategy_id FROM paper_trades WHERE id=?",
+                (trade_id,),
             ) as cur:
                 row = await cur.fetchone()
             if not row:
                 return
-            entry_price, quantity, cost = row
+            entry_price, quantity, cost, strategy_id = row
             pnl = (1.0 - entry_price) * quantity if won else (-entry_price * quantity)
             status = "WON" if won else "LOST"
             exit_price = 1.0 if won else 0.0
@@ -109,66 +146,65 @@ class ResultStore:
                 "UPDATE paper_trades SET status=?, exit_price=?, pnl=?, resolved_at=? WHERE id=?",
                 (status, exit_price, pnl, datetime.now(UTC).isoformat(), trade_id),
             )
-            current = await self._get_bankroll_tx(db, None)
+            current = await self._get_bankroll_tx(db, None, strategy_id)
             await db.execute(
-                "INSERT INTO bankroll_snapshots (balance, trade_id) VALUES (?, ?)",
-                (current + cost + pnl, trade_id),
+                "INSERT INTO bankroll_snapshots (balance, trade_id, strategy_id) VALUES (?, ?, ?)",
+                (current + cost + pnl, trade_id, strategy_id),
             )
             await db.commit()
 
     async def re_settle_expired(self, trade_id: int, won: bool):
-        """Correct an EXPIRED trade to WON/LOST and adjust bankroll by the delta."""
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                "SELECT entry_price, quantity, cost FROM paper_trades WHERE id=? AND status='EXPIRED'",
+                "SELECT entry_price, quantity, cost, strategy_id FROM paper_trades WHERE id=? AND status='EXPIRED'",
                 (trade_id,),
             ) as cur:
                 row = await cur.fetchone()
             if not row:
                 return
-            entry_price, quantity, cost = row
+            entry_price, quantity, cost, strategy_id = row
             pnl = (1.0 - entry_price) * quantity if won else (-entry_price * quantity)
             status = "WON" if won else "LOST"
             await db.execute(
                 "UPDATE paper_trades SET status=?, exit_price=?, pnl=?, resolved_at=?, resolution_source=? WHERE id=?",
                 (status, 1.0 if won else 0.0, pnl, datetime.now(UTC).isoformat(), "re_settled", trade_id),
             )
-            # expire_trade already refunded cost into bankroll; now apply only the pnl delta
-            current = await self._get_bankroll_tx(db, None)
+            current = await self._get_bankroll_tx(db, None, strategy_id)
             await db.execute(
-                "INSERT INTO bankroll_snapshots (balance, trade_id) VALUES (?, ?)",
-                (current + pnl, trade_id),
+                "INSERT INTO bankroll_snapshots (balance, trade_id, strategy_id) VALUES (?, ?, ?)",
+                (current + pnl, trade_id, strategy_id),
             )
             await db.commit()
 
     async def expire_trade(self, trade_id: int):
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                "SELECT cost FROM paper_trades WHERE id=?", (trade_id,)
+                "SELECT cost, strategy_id FROM paper_trades WHERE id=?", (trade_id,)
             ) as cur:
                 row = await cur.fetchone()
             if not row:
                 return
-            cost = row[0]
+            cost, strategy_id = row
             await db.execute(
                 "UPDATE paper_trades SET status='EXPIRED', pnl=0, resolved_at=? WHERE id=?",
                 (datetime.now(UTC).isoformat(), trade_id),
             )
-            current = await self._get_bankroll_tx(db, None)
+            current = await self._get_bankroll_tx(db, None, strategy_id)
             await db.execute(
-                "INSERT INTO bankroll_snapshots (balance, trade_id) VALUES (?, ?)",
-                (current + cost, trade_id),
+                "INSERT INTO bankroll_snapshots (balance, trade_id, strategy_id) VALUES (?, ?, ?)",
+                (current + cost, trade_id, strategy_id),
             )
             await db.commit()
 
-    async def get_bankroll(self) -> float:
+    async def get_bankroll(self, strategy_id: str = "default") -> float:
         async with aiosqlite.connect(self.db_path) as db:
-            return await self._get_bankroll_tx(db, None)
+            return await self._get_bankroll_tx(db, None, strategy_id)
 
-    async def get_stats(self) -> dict:
+    async def get_stats(self, strategy_id: str = "default") -> dict:
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                "SELECT status, SUM(pnl), COUNT(*) FROM paper_trades GROUP BY status"
+                "SELECT status, SUM(pnl), COUNT(*) FROM paper_trades WHERE strategy_id = ? GROUP BY status",
+                (strategy_id,),
             ) as cur:
                 rows = await cur.fetchall()
 
@@ -182,7 +218,7 @@ class ResultStore:
         total = sum(counts.values())
         settled = counts["WON"] + counts["LOST"]
         win_rate = counts["WON"] / settled if settled > 0 else None
-        bankroll = await self.get_bankroll()
+        bankroll = await self.get_bankroll(strategy_id)
 
         return {
             "total_trades": total,
@@ -196,13 +232,21 @@ class ResultStore:
             "bankroll": bankroll,
         }
 
-    async def get_recent_trades(self, limit: int = 50) -> list[PaperTrade]:
-        return await self._fetch_trades(f"ORDER BY created_at DESC LIMIT {limit}")
+    async def get_recent_trades(self, limit: int = 50, strategy_id: str | None = None) -> list[PaperTrade]:
+        if strategy_id:
+            return await self._fetch_trades(
+                f"WHERE strategy_id = ? ORDER BY created_at DESC LIMIT {int(limit)}",
+                (strategy_id,),
+            )
+        return await self._fetch_trades(f"ORDER BY created_at DESC LIMIT {int(limit)}")
 
-    async def get_bankroll_history(self, limit: int = 100) -> list[BankrollSnapshot]:
+    async def get_bankroll_history(self, limit: int = 100, strategy_id: str | None = None) -> list[BankrollSnapshot]:
+        where = "WHERE strategy_id = ?" if strategy_id else ""
+        params: tuple = (strategy_id,) if strategy_id else ()
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                f"SELECT id, balance, timestamp, trade_id FROM bankroll_snapshots ORDER BY id DESC LIMIT {limit}"
+                f"SELECT id, balance, timestamp, trade_id FROM bankroll_snapshots {where} ORDER BY id DESC LIMIT {int(limit)}",
+                params,
             ) as cur:
                 rows = await cur.fetchall()
         return [
@@ -210,13 +254,15 @@ class ResultStore:
             for r in rows
         ]
 
-    async def _fetch_trades(self, where_clause: str) -> list[PaperTrade]:
+    async def _fetch_trades(self, where_clause: str, params: tuple = ()) -> list[PaperTrade]:
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
                 f"""SELECT id, platform, market_id, market_question, category, side,
                            entry_price, quantity, cost, confidence, reasoning,
-                           status, exit_price, pnl, created_at, end_date, resolved_at, resolution_source
-                    FROM paper_trades {where_clause}"""
+                           status, exit_price, pnl, created_at, end_date, resolved_at,
+                           resolution_source, strategy_id
+                    FROM paper_trades {where_clause}""",
+                params,
             ) as cur:
                 rows = await cur.fetchall()
         return [
@@ -229,6 +275,7 @@ class ResultStore:
                 end_date=datetime.fromisoformat(r[15]) if r[15] else None,
                 resolved_at=datetime.fromisoformat(r[16]) if r[16] else None,
                 resolution_source=r[17],
+                strategy_id=r[18] if len(r) > 18 else "default",
             )
             for r in rows
         ]

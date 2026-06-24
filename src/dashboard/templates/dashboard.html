@@ -656,6 +656,10 @@
       font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--amber);
     }
   </style>
+  <link rel="stylesheet" href="/static/wallstrdev-tokens.css">
+  <link rel="stylesheet" href="/static/strategy_builder.css">
+  <link rel="stylesheet" href="/static/wallstrdev_setup.css">
+  <link rel="stylesheet" href="/static/wallstrdev-skin.css">
 </head>
 <body>
 <script>
@@ -667,20 +671,29 @@
   <div id="live-banner">
     LIVE TRADING ACTIVE — Real money is at risk. Use Emergency Stop to halt immediately.
   </div>
-  <header>
+  <header class="app-header">
+   <div class="app-header-inner">
     <h1>Pace<span>keeper</span></h1>
+    <span class="botswitch">
+      <span class="active">Trade Bot</span>
+      <a onclick="location.href=location.protocol+'//'+location.hostname+':4001'">Prediction Market</a>
+    </span>
     <span class="env-badge" id="env-badge">DEMO</span>
     <span class="market-badge" id="market-badge">CLOSED</span>
     <span class="regime-badge" id="regime-badge" style="display:none"></span>
     <span class="acct-badge" id="acct-badge">INVEST</span>
     <span id="next-open-label" style="font-size:11px;color:var(--muted)"></span>
+    <span class="spacer"></span>
     <div id="mode-toggle">
       <button id="mode-btn-simple" onclick="setMode('simple')">Simple</button>
       <button id="mode-btn-advanced" onclick="setMode('advanced')">Advanced</button>
     </div>
     <span class="status-dot" id="status-dot"></span>
+    <button id="sb-open-btn" onclick="StrategyBuilder.open()">Strategies</button>
+    <button id="wds-setup-btn" onclick="WallstrdevSetup.open()">Setup</button>
     <button id="toggle-btn">Pause Bot</button>
     <button id="emergency-stop-btn" onclick="triggerEmergencyStop()">Emergency Stop</button>
+   </div>
   </header>
 
   <div id="mode-modal-backdrop" style="display:none" onclick="handleBackdropClick(event)">
@@ -1665,5 +1678,7 @@
     if (!s.halted_reason) _lastHaltedReason = null;
   }
 </script>
+<script src="/static/strategy_builder.js"></script>
+<script src="/static/wallstrdev_setup.js"></script>
 </body>
 </html>

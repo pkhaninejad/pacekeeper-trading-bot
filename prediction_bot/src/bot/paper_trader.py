@@ -5,6 +5,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from prediction_bot.src.api.models import MarketCandidate, PaperTrade
+from prediction_bot.src.bot.strategy_runner import TradeDecision
 from prediction_bot.src.config.settings import PredictionBotSettings
 from prediction_bot.src.data.result_store import ResultStore
 
@@ -33,9 +34,46 @@ class PaperTrader:
         logger.info("  Current bankroll: $%.2f", stats["bankroll"])
         logger.info("=" * 60)
 
-    async def place_paper_trade(self, candidate: MarketCandidate) -> PaperTrade | None:
-        bankroll = await self.store.get_bankroll()
-        open_trades = await self.store.get_open_trades()
+    async def place_decision(
+        self, decision: TradeDecision, strategy_id: str = "default"
+    ) -> PaperTrade | None:
+        bankroll = await self.store.get_bankroll(strategy_id)
+        open_trades = await self.store.get_open_trades(strategy_id)
+
+        if len(open_trades) >= self.settings.MAX_OPEN_POSITIONS:
+            return None
+        existing_ids = {t.market_id for t in open_trades}
+        if decision.candidate.market.id in existing_ids:
+            return None
+
+        trade = PaperTrade(
+            platform=decision.candidate.market.platform,
+            market_id=decision.candidate.market.id,
+            market_question=decision.candidate.market.question,
+            category=decision.candidate.market.category,
+            side=decision.side,
+            entry_price=decision.candidate.market_price,
+            quantity=float(decision.quantity),
+            cost=decision.cost,
+            confidence=decision.candidate.llm_confidence or 0.5,
+            reasoning=decision.candidate.llm_reasoning,
+            created_at=datetime.now(UTC),
+            end_date=decision.candidate.market.end_date,
+            strategy_id=strategy_id,
+        )
+        trade_id = await self.store.add_trade(trade, initial_bankroll=bankroll, strategy_id=strategy_id)
+        logger.info(
+            "[%s] Paper trade: %s '%s' @ $%.2f (qty=%d, cost=$%.2f)",
+            strategy_id, trade.side, trade.market_question[:60],
+            trade.entry_price, decision.quantity, decision.cost,
+        )
+        return trade.model_copy(update={"id": trade_id})
+
+    async def place_paper_trade(
+        self, candidate: MarketCandidate, strategy_id: str = "default"
+    ) -> PaperTrade | None:
+        bankroll = await self.store.get_bankroll(strategy_id)
+        open_trades = await self.store.get_open_trades(strategy_id)
 
         if len(open_trades) >= self.settings.MAX_OPEN_POSITIONS:
             logger.debug("Max positions reached, skipping %s", candidate.market.id)
@@ -70,17 +108,22 @@ class PaperTrader:
             reasoning=candidate.llm_reasoning,
             created_at=datetime.now(UTC),
             end_date=candidate.market.end_date,
+            strategy_id=strategy_id,
         )
-        trade_id = await self.store.add_trade(trade, initial_bankroll=bankroll)
+        trade_id = await self.store.add_trade(trade, initial_bankroll=bankroll, strategy_id=strategy_id)
         logger.info(
-            "Paper trade: %s '%s' @ $%.2f (qty=%d, cost=$%.2f)",
-            trade.side, trade.market_question[:60], trade.entry_price, quantity, cost,
+            "[%s] Paper trade: %s '%s' @ $%.2f (qty=%d, cost=$%.2f)",
+            strategy_id, trade.side, trade.market_question[:60],
+            entry_price, quantity, cost,
         )
         return trade.model_copy(update={"id": trade_id})
 
-    async def re_settle_expired_trades(self, clients: dict) -> int:
-        """Re-check EXPIRED trades against platform APIs and correct any that have since resolved."""
-        expired = await self.store._fetch_trades("WHERE status = 'EXPIRED'")
+    async def re_settle_expired_trades(
+        self, clients: dict, strategy_id: str = "default"
+    ) -> int:
+        expired = await self.store._fetch_trades(
+            "WHERE status = 'EXPIRED' AND strategy_id = ?", (strategy_id,)
+        )
         corrected = 0
         for trade in expired:
             client = clients.get(trade.platform)
@@ -92,14 +135,23 @@ class PaperTrader:
                     won = status["winner"] == trade.side
                     await self.store.re_settle_expired(trade.id, won=won)
                     result = "WON" if won else "LOST"
-                    logger.info("RE-SETTLED %s: '%s' → %s", trade.market_id, trade.market_question[:50], result)
+                    logger.info(
+                        "[%s] RE-SETTLED %s: '%s' → %s",
+                        strategy_id, trade.market_id, trade.market_question[:50], result,
+                    )
                     corrected += 1
             except Exception as e:
                 logger.warning("Re-settlement check failed for %s: %s", trade.market_id, e)
         return corrected
 
-    async def settle_open_trades(self, clients: dict):
-        open_trades = await self.store.get_open_trades()
+    async def settle_open_trades(
+        self, clients: dict | None = None, strategy_id: str = "default", **kwargs
+    ):
+        # Support legacy keyword-arg style: settle_open_trades(polymarket=..., kalshi=...)
+        if clients is None:
+            clients = {k: v for k, v in kwargs.items() if v is not None}
+
+        open_trades = await self.store.get_open_trades(strategy_id)
         now = datetime.now(UTC)
 
         for trade in open_trades:
@@ -113,11 +165,15 @@ class PaperTrader:
                     won = status["winner"] == trade.side
                     await self.store.settle_trade(trade.id, won=won)
                     result = "WON" if won else "LOST"
-                    logger.info("SETTLED %s: '%s' → %s", trade.market_id, trade.market_question[:50], result)
-
+                    logger.info(
+                        "[%s] SETTLED %s: '%s' → %s",
+                        strategy_id, trade.market_id, trade.market_question[:50], result,
+                    )
                 elif trade.end_date and now > trade.end_date + timedelta(hours=24):
                     await self.store.expire_trade(trade.id)
-                    logger.info("EXPIRED %s: '%s'", trade.market_id, trade.market_question[:50])
-
+                    logger.info(
+                        "[%s] EXPIRED %s: '%s'",
+                        strategy_id, trade.market_id, trade.market_question[:50],
+                    )
             except Exception as e:
                 logger.warning("Settlement check failed for %s: %s", trade.market_id, e)

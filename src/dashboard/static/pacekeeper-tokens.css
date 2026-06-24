@@ -1,0 +1,140 @@
+/* =============================================================
+   PACEKEEPER — Design Tokens
+   Trading Desk · v1.2 · Light-first
+   ============================================================= */
+
+:root {
+  /* ---- Surfaces (Wallstr-inspired · clean white) ----------- */
+  --paper:        #FFFFFF;
+  --paper-2:      #F5F7FA;
+  --paper-3:      #EDF1F6;
+  --paper-4:      #DFE5EE;
+  --paper-edge:   #C9D2DF;
+
+  /* tinted surfaces — reserved, used sparingly                */
+  --tint-blue:    #E8EEF8;
+  --tint-amber:   #FBF1DC;
+  --tint-sage:    #E8F1EC;
+  --tint-clay:    #F4ECE3;
+  --tint-ink:     #0A2540;
+
+  /* ---- Ink -------------------------------------------------- */
+  --ink:          #0A2540;   /* deep navy · Wallstr           */
+  --ink-2:        #2C3E5C;
+  --ink-3:        #5A6B82;
+  --ink-4:        #8A95A8;
+  --rule:         #E3E8EF;
+  --rule-2:       #C5CDD9;
+
+  /* ---- Conviction (vibrant, restrained) -------------------- */
+  --accent:       #1E5BFF;   /* electric cobalt · Wallstr CTA */
+  --accent-2:     #1146CC;
+  --accent-soft:  #E1EAFF;
+
+  --amber:        #B8730E;
+  --amber-soft:   #F7E8C8;
+
+  --crimson:      #C4302E;
+  --crimson-soft: #F5D9D7;
+  --crimson-2:    #9E1F1D;
+
+  --sage:         #2C7A4B;
+  --sage-soft:    #DCEBE2;
+  --sage-2:       #1F5C39;
+
+  --slate:        #1E5BFF;
+  --slate-soft:   #E1EAFF;
+
+  --plum:         #5C3D6E;
+  --plum-soft:    #E8DDEE;
+
+  --bull:         var(--sage);
+  --bear:         var(--crimson);
+
+  /* ---- Type ------------------------------------------------- */
+  --serif:    "Inter", "Helvetica Neue", Helvetica, sans-serif;
+  --sans:     "Inter", "Helvetica Neue", Helvetica, sans-serif;
+  --mono:     "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+
+  --t-display:   600 52px/1.05 var(--sans);
+  --t-h1:        600 34px/1.15 var(--sans);
+  --t-h2:        600 24px/1.25 var(--sans);
+  --t-h3:        600 16px/1.35 var(--sans);
+  --t-eyebrow:   600 11px/1   var(--mono);
+  --t-body:      400 14px/1.55 var(--sans);
+  --t-body-sm:   400 13px/1.50 var(--sans);
+  --t-label:     500 12px/1.4  var(--sans);
+  --t-mono-lg:   500 18px/1.2  var(--mono);
+  --t-mono:      500 13px/1.3  var(--mono);
+  --t-mono-sm:   500 11px/1.2  var(--mono);
+
+  /* ---- Spacing --------------------------------------------- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 40px;
+  --s-9: 48px; --s-10: 64px; --s-11: 80px; --s-12: 112px;
+
+  /* ---- Radii ----------------------------------------------- */
+  --r-0: 0;  --r-1: 3px; --r-2: 6px; --r-3: 8px; --r-4: 12px;
+
+  /* ---- Elevation (light) ----------------------------------- */
+  --elev-0: none;
+  --elev-1: 0 0 0 1px var(--rule);
+  --elev-2: 0 1px 2px rgba(15,20,30,0.06), 0 0 0 1px var(--rule);
+  --elev-3: 0 8px 24px -12px rgba(15,20,30,0.18), 0 0 0 1px var(--rule-2);
+  --elev-4: 0 24px 48px -16px rgba(15,20,30,0.22), 0 0 0 1px var(--rule-2);
+
+  /* ---- Motion ---------------------------------------------- */
+  --ease-out:  cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in:   cubic-bezier(0.6, 0, 0.8, 0.4);
+  --t-fast:    120ms;
+  --t-base:    220ms;
+  --t-slow:    420ms;
+}
+
+/* ---- Density -------------------------------------------------- */
+[data-density="cozy"]    { --row-h: 44px; --pad-y: 14px; }
+[data-density="standard"]{ --row-h: 36px; --pad-y: 10px; }
+[data-density="compact"] { --row-h: 28px; --pad-y: 6px;  }
+
+/* ---- Dark theme (opt-in via Tweaks) -------------------------- */
+[data-theme="dark"] {
+  --paper:        #0B0E13;
+  --paper-2:      #11151C;
+  --paper-3:      #161B24;
+  --paper-4:      #1C2230;
+  --paper-edge:   #232A38;
+
+  --ink:          #E8ECF3;
+  --ink-2:        #A8B0BD;
+  --ink-3:        #6D7689;
+  --ink-4:        #4A5365;
+  --rule:         #1F2532;
+  --rule-2:       #2B3344;
+
+  --accent:       #4D8DFF;
+  --accent-2:     #2F73E8;
+  --accent-soft:  #14223D;
+
+  --amber:        #F5A524;
+  --amber-soft:   #2A1F0A;
+  --crimson:      #EF4444;
+  --crimson-soft: #2A0E11;
+  --sage:         #22C55E;
+  --sage-soft:    #0B2418;
+  --slate:        #60A5FA;
+  --slate-soft:   #0E1B30;
+
+  --elev-2: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px var(--rule);
+  --elev-3: 0 12px 24px -12px rgba(0,0,0,0.6), 0 0 0 1px var(--rule-2);
+  --elev-4: 0 24px 48px -16px rgba(0,0,0,0.7), 0 0 0 1px var(--rule-2);
+}
+
+/* ---- Live mode (amber chrome) -------------------------------- */
+[data-mode="live"] {
+  --mode-bar: var(--amber);
+  --mode-tint: var(--amber-soft);
+}
+[data-mode="demo"] {
+  --mode-bar: var(--accent);
+  --mode-tint: var(--accent-soft);
+}

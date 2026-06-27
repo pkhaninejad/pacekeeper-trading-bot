@@ -84,10 +84,22 @@ class PaperTrader:
             logger.debug("Already holding %s, skipping", candidate.market.id)
             return None
 
-        max_allocation = bankroll * self.settings.MAX_POSITION_PCT
         entry_price = candidate.market_price
         if entry_price <= 0:
             return None
+
+        max_allocation = bankroll * self.settings.MAX_POSITION_PCT
+
+        if self.settings.BET_STRATEGY == "kelly":
+            confidence = candidate.llm_confidence or 0.5
+            kelly_frac = (confidence - entry_price) / (1.0 - entry_price) if entry_price < 1.0 else 0.0
+            if kelly_frac <= 0:
+                logger.debug(
+                    "No Kelly edge for %s (conf=%.2f, price=%.2f), skipping",
+                    candidate.market.id, confidence, entry_price,
+                )
+                return None
+            max_allocation = min(kelly_frac * bankroll, max_allocation)
 
         quantity = int(max_allocation / entry_price)
         if quantity < 1:

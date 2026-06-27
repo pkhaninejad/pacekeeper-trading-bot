@@ -44,6 +44,15 @@
   }
   .activity-list li { border-bottom:1px solid var(--rule); padding:9px 0; font-size:0.9em; }
   .activity-time { color:var(--ink-3); margin-right:8px; font-size:0.8em; font-family: var(--mono); }
+  .strategy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  .strategy-card { border: 1px solid #30363d; border-radius: 6px; padding: 12px; cursor: pointer; transition: border-color 0.15s; }
+  .strategy-card:hover { border-color: #58a6ff; }
+  .strategy-card.selected { border-color: #58a6ff; background: #161b22; }
+  .strategy-card .s-title { font-size: 0.85em; font-weight: 600; color: #c9d1d9; margin-bottom: 4px; }
+  .strategy-card .s-desc { font-size: 0.75em; color: #8b949e; line-height: 1.4; }
+  .strategy-card .s-math { font-size: 0.72em; color: #3fb950; font-family: monospace; margin-top: 6px; }
+  .rr-callout { background: #1a1200; border: 1px solid #b8730e; border-radius: 6px; padding: 10px 14px; font-size: 0.76em; color: #d4a237; margin-bottom: 12px; line-height: 1.5; }
+  #min-rr-row { display: none; margin-top: 8px; }
 </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -117,7 +126,38 @@
 
 <div class="section">
   <h2>Scanner Settings</h2>
-  <div class="settings-grid">
+  <div class="rr-callout">
+    <strong>Why does a high win rate not always mean profit?</strong><br>
+    When you buy the high-probability side at $0.94, a win returns only $0.06/share while a loss costs $0.94/share — a 15:1 loss-to-win ratio. You need a <em>94%</em> win rate just to break even. Pick a strategy below to control this trade-off.
+  </div>
+  <div class="strategy-grid">
+    <label class="strategy-card" id="card-contrarian" onclick="selectStrategy('contrarian')">
+      <input type="radio" name="bet_strategy" value="contrarian">
+      <div class="s-title">Contrarian</div>
+      <div class="s-desc">Buy the low-probability side when the market is overconfident. Small cost, large payout if correct.</div>
+      <div class="s-math">Buy: LOW side &nbsp;|&nbsp; Cost: $0.03–0.20 &nbsp;|&nbsp; Win: $0.80–0.97</div>
+    </label>
+    <label class="strategy-card" id="card-kelly" onclick="selectStrategy('kelly')">
+      <input type="radio" name="bet_strategy" value="kelly">
+      <div class="s-title">Kelly Sizing</div>
+      <div class="s-desc">Buy the high-probability side but size the bet proportionally to your edge over the market price. Zero edge = no trade.</div>
+      <div class="s-math">Size = (confidence − price) / (1 − price) × bankroll</div>
+    </label>
+    <label class="strategy-card" id="card-min_rr" onclick="selectStrategy('min_rr')">
+      <input type="radio" name="bet_strategy" value="min_rr">
+      <div class="s-title">Min Reward / Risk</div>
+      <div class="s-desc">Buy the high-probability side only when the upside ÷ downside ratio meets your minimum threshold.</div>
+      <div class="s-math">Filter: (1 − price) / price ≥ ratio</div>
+    </label>
+  </div>
+  <div id="min-rr-row">
+    <label style="font-size:0.75em;color:#8b949e">
+      Min R:R Ratio
+      <span class="hint" title="Minimum (win payout) / (loss cost) required. 0.25 means you must stand to win at least $0.25 per $1 risked. Effectively caps entries at ~$0.80.">?</span>
+    </label><br>
+    <input id="setting-min-rr-ratio" type="number" min="0.01" max="1" step="0.01" style="width:120px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:4px;font-family:monospace;">
+  </div>
+  <div class="settings-grid" style="margin-top:16px">
     <div>
       <label>Expiry Window (hours)<span class="hint" title="How far ahead to look for markets by end date. Larger values include markets expiring later.">?</span></label>
       <input id="setting-expiry-hours" type="number" min="1" step="1">
@@ -283,6 +323,16 @@ async function fetchIfAllWin() {
   }
 }
 
+function selectStrategy(value) {
+  document.querySelectorAll('.strategy-card').forEach(c => c.classList.remove('selected'));
+  const card = document.getElementById('card-' + value);
+  if (card) {
+    card.classList.add('selected');
+    card.querySelector('input[type=radio]').checked = true;
+  }
+  document.getElementById('min-rr-row').style.display = value === 'min_rr' ? 'block' : 'none';
+}
+
 async function loadSettings() {
   try {
     const resp = await fetch('/api/settings');
@@ -292,6 +342,8 @@ async function loadSettings() {
     document.getElementById('setting-high-prob-min').value = s.high_prob_min;
     document.getElementById('setting-high-prob-max').value = s.high_prob_max;
     document.getElementById('setting-categories').value = (s.enabled_categories || []).join(',');
+    selectStrategy(s.bet_strategy || 'contrarian');
+    document.getElementById('setting-min-rr-ratio').value = s.min_rr_ratio ?? 0.25;
   } catch {
     // keep defaults/blank values
   }
@@ -392,6 +444,8 @@ async function saveSettings() {
       .split(',')
       .map(x => x.trim())
       .filter(Boolean),
+    bet_strategy: document.querySelector('input[name="bet_strategy"]:checked')?.value || 'contrarian',
+    min_rr_ratio: parseFloat(document.getElementById('setting-min-rr-ratio').value) || 0.25,
   };
   btn.textContent = 'Saving…';
   btn.disabled = true;

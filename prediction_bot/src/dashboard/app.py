@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 
+from typing import Literal
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -59,6 +61,8 @@ class ScannerSettingsUpdate(BaseModel):
     high_prob_min: float = Field(ge=0.0, le=1.0)
     high_prob_max: float = Field(ge=0.0, le=1.0)
     enabled_categories: list[str]
+    bet_strategy: Literal["contrarian", "kelly", "min_rr"] = "contrarian"
+    min_rr_ratio: float = Field(default=0.25, ge=0.01, le=1.0)
 
 
 @app.get("/api/status")
@@ -161,6 +165,8 @@ async def get_settings():
         "high_prob_min": engine.settings.HIGH_PROB_MIN,
         "high_prob_max": engine.settings.HIGH_PROB_MAX,
         "enabled_categories": engine.settings.ENABLED_CATEGORIES,
+        "bet_strategy": engine.settings.BET_STRATEGY,
+        "min_rr_ratio": engine.settings.MIN_RR_RATIO,
     }
 
 
@@ -177,6 +183,8 @@ async def update_settings(payload: ScannerSettingsUpdate):
     engine.settings.HIGH_PROB_MIN = payload.high_prob_min
     engine.settings.HIGH_PROB_MAX = payload.high_prob_max
     engine.settings.ENABLED_CATEGORIES = cleaned_categories
+    engine.settings.BET_STRATEGY = payload.bet_strategy
+    engine.settings.MIN_RR_RATIO = payload.min_rr_ratio
 
     return {
         "updated": True,
@@ -186,6 +194,8 @@ async def update_settings(payload: ScannerSettingsUpdate):
             "high_prob_min": engine.settings.HIGH_PROB_MIN,
             "high_prob_max": engine.settings.HIGH_PROB_MAX,
             "enabled_categories": engine.settings.ENABLED_CATEGORIES,
+            "bet_strategy": engine.settings.BET_STRATEGY,
+            "min_rr_ratio": engine.settings.MIN_RR_RATIO,
         },
     }
 

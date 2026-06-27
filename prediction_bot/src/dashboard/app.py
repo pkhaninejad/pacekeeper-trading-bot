@@ -10,10 +10,12 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from prediction_bot.src.bot.engine import PredictionEngine
+from prediction_bot.src.dashboard.strategies_router import make_strategies_router
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,24 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Prediction Market Bot", lifespan=lifespan)
+
+# In-memory mirror of which strategies are active (DB `active` column is the
+# source of truth; the engine reads it each cycle via active_only=True).
+_active_strategy_ids: set[str] = set()
+app.include_router(
+    make_strategies_router(engine._strategy_store, _active_strategy_ids),
+    prefix="/api",
+)
+
+# Reuse the stock dashboard's shared static assets (strategy builder + tokens).
+_SHARED_STATIC = Path(__file__).resolve().parents[3] / "src" / "dashboard" / "static"
+app.mount("/static", StaticFiles(directory=str(_SHARED_STATIC)), name="static")
+
+
+@app.get("/api/strategies/{strategy_id}/equity")
+async def get_equity_curve(strategy_id: str):
+    points = await engine._portfolio.equity_curve(strategy_id)
+    return [{"timestamp": p.timestamp.isoformat(), "balance": p.balance} for p in points]
 
 
 class ScannerSettingsUpdate(BaseModel):
@@ -62,26 +82,40 @@ async def toggle_bot():
     return {"enabled": enabled}
 
 
+def _resolve_strategy(strategy: str | None) -> str:
+    """Resolve the strategy to show: an explicit id, else the first running
+    strategy, else the legacy 'default' bucket."""
+    if strategy:
+        return strategy
+    if engine._active_strategies:
+        return engine._active_strategies[0].id
+    return "default"
+
+
 @app.get("/api/stats")
-async def get_stats():
-    return await engine.paper_trader.store.get_stats()
+async def get_stats(strategy: str | None = None):
+    return await engine.paper_trader.store.get_stats(_resolve_strategy(strategy))
 
 
 @app.get("/api/trades")
-async def get_trades(limit: int = 50):
-    trades = await engine.paper_trader.store.get_recent_trades(limit=limit)
+async def get_trades(limit: int = 50, strategy: str | None = None):
+    trades = await engine.paper_trader.store.get_recent_trades(
+        limit=limit, strategy_id=_resolve_strategy(strategy)
+    )
     return [t.model_dump(mode="json") for t in trades]
 
 
 @app.get("/api/trades/open")
-async def get_open_trades():
-    trades = await engine.paper_trader.store.get_open_trades()
+async def get_open_trades(strategy: str | None = None):
+    trades = await engine.paper_trader.store.get_open_trades(_resolve_strategy(strategy))
     return [t.model_dump(mode="json") for t in trades]
 
 
 @app.get("/api/bankroll-history")
-async def get_bankroll_history():
-    history = await engine.paper_trader.store.get_bankroll_history()
+async def get_bankroll_history(strategy: str | None = None):
+    history = await engine.paper_trader.store.get_bankroll_history(
+        strategy_id=_resolve_strategy(strategy)
+    )
     return [s.model_dump(mode="json") for s in history]
 
 

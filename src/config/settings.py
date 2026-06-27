@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     KALSHI_API_KEY: str = ""               # required for Kalshi fetches; skip silently if absent
     PREDICTION_MARKETS_CACHE_TTL: int = 900  # seconds; shared for Polymarket + Kalshi
 
+    # Strategy builder (per-strategy persistence + shadow portfolios)
+    STOCK_DB_PATH: str = "data/stock_bot.db"
+
     # Dashboard
     DASHBOARD_HOST: str = "0.0.0.0"
     DASHBOARD_PORT: int = 4000

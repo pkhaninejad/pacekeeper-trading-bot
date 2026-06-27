@@ -1,0 +1,948 @@
+<!-- @dsCard group="Brand" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Wallstrdev — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* ── paper / ink ──────────────────────────────── */
+    --paper:        #FFFFFF;
+    --paper-warm:   #F6F5F0;
+    --paper-cool:   #F2F3F5;
+    --ink:          #0E0E10;
+    --ink-soft:     #1A1A1F;
+    --muted:        #6B6B72;
+    --muted-2:      #9A9AA1;
+    --rule:         #E6E6E2;
+    --rule-strong:  #0E0E10;
+
+    /* ── primary accents (the live site's energy) ─ */
+    --chartreuse:   #DCEE2A;   /* electric yellow-green CTA / hero panel */
+    --chartreuse-2: #C8D820;   /* hover / shadow */
+    --pink:         #F0BFE8;   /* soft lavender-pink CTA panel */
+    --pink-2:       #E89FDD;   /* hover / shadow */
+
+    /* ── secondary palette (from logo) ───────────── */
+    --navy:         #1B2A4E;
+    --navy-2:       #0F1A33;
+    --gold:         #B8945C;
+    --gold-2:       #8C6E3F;
+
+    /* ── type ─────────────────────────────────────── */
+    --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-body:    "Manrope", ui-sans-serif, system-ui, sans-serif;
+    --font-mono:    "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+    /* ── radii ────────────────────────────────────── */
+    --r-xs: 6px;
+    --r-sm: 10px;
+    --r-md: 16px;
+    --r-lg: 24px;
+    --r-xl: 32px;
+    --r-pill: 999px;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ── layout grid ─────────────────────────────── */
+  .page{ max-width: 1240px; margin: 0 auto; padding: 64px 40px 120px; }
+  .row{ display:grid; gap:32px; }
+  .cols-2{ grid-template-columns: 1fr 1fr; }
+  .cols-3{ grid-template-columns: repeat(3, 1fr); }
+  .cols-4{ grid-template-columns: repeat(4, 1fr); }
+  @media(max-width:900px){ .cols-2,.cols-3,.cols-4{ grid-template-columns: 1fr; } }
+
+  /* ── section chrome ──────────────────────────── */
+  section{ margin: 80px 0; scroll-margin-top: 80px; }
+  section + section{ border-top: 1px solid var(--rule); padding-top: 80px; }
+  .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+  h1,h2,h3,h4{ font-family: var(--font-display); margin:0; letter-spacing:-0.02em; }
+  h1{ font-weight: 800; font-size: clamp(48px, 7vw, 88px); line-height: 0.98; }
+  h2{ font-weight: 700; font-size: clamp(32px, 4vw, 48px); line-height: 1.05; margin-bottom: 32px; }
+  h3{ font-weight: 700; font-size: 22px; line-height: 1.2; }
+  h4{ font-weight: 600; font-size: 16px; line-height: 1.3; }
+  p{ margin: 0 0 12px; color: var(--ink); }
+  p.lede{ font-size: 18px; color: var(--muted); max-width: 60ch; }
+  code, .mono{ font-family: var(--font-mono); font-size: 13px; }
+
+  /* ── top masthead ────────────────────────────── */
+  .masthead{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:32px;
+    padding-bottom: 32px; border-bottom: 1px solid var(--rule);
+  }
+  .masthead .id{ font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .masthead h1{ max-width: 14ch; }
+  .masthead .meta{ text-align:right; }
+  .masthead .meta .stamp{
+    display:inline-block;
+    background: var(--chartreuse);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: var(--r-xs);
+  }
+
+  /* ── TOC ─────────────────────────────────────── */
+  .toc{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    margin-top: 40px; border: 1px solid var(--rule); border-radius: var(--r-md);
+    overflow:hidden;
+  }
+  .toc a{
+    display:block; padding: 18px 20px; text-decoration:none; color: var(--ink);
+    border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+    transition: background .15s ease;
+  }
+  .toc a:hover{ background: var(--chartreuse); }
+  .toc a .n{ display:block; color: var(--muted); margin-bottom: 4px; }
+  @media(max-width:900px){ .toc{ grid-template-columns: 1fr 1fr; } }
+
+  /* ── swatches ────────────────────────────────── */
+  .swatch-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  @media(max-width:900px){ .swatch-grid{ grid-template-columns: repeat(2,1fr); } }
+  .swatch{
+    border-radius: var(--r-md);
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+  }
+  .swatch .chip{ height: 140px; }
+  .swatch .info{ padding: 14px 16px; }
+  .swatch .info .name{ font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+  .swatch .info .hex{ font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .swatch .info .use{ font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .swatch.is-ink .info{ background: var(--paper); }
+
+  /* ── type specimen ───────────────────────────── */
+  .type-card{
+    border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 28px; background: var(--paper);
+  }
+  .type-card + .type-card{ margin-top: 20px; }
+  .type-card .label{
+    display:flex; gap: 16px; flex-wrap:wrap; align-items:baseline;
+    font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .type-card .label b{ color: var(--ink); }
+  .specimen-display{ font-family: var(--font-display); font-weight: 800; font-size: 72px; line-height: 0.95; letter-spacing: -0.025em; }
+  .specimen-h2{ font-family: var(--font-display); font-weight: 700; font-size: 40px; line-height: 1.05; letter-spacing: -0.02em; }
+  .specimen-h3{ font-family: var(--font-display); font-weight: 700; font-size: 22px; }
+  .specimen-body{ font-family: var(--font-body); font-weight: 400; font-size: 17px; line-height: 1.55; max-width: 60ch; color: var(--ink); }
+  .specimen-small{ font-family: var(--font-body); font-weight: 500; font-size: 14px; color: var(--muted); }
+  .specimen-mono{ font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.04em; color: var(--ink); }
+
+  .scale{ display:grid; grid-template-columns: 80px 1fr 1fr; gap: 12px 24px; align-items: baseline;
+          font-family: var(--font-mono); font-size: 12px; }
+  .scale .px{ color: var(--muted); }
+  .scale .ex{ font-family: var(--font-display); font-weight: 700; color: var(--ink); letter-spacing: -0.02em; line-height: 1; }
+  .scale .use{ color: var(--muted); }
+
+  /* ── spacing dots ────────────────────────────── */
+  .space-row{ display:flex; align-items:flex-end; gap: 24px; padding: 24px; border:1px solid var(--rule); border-radius: var(--r-md); flex-wrap: wrap; }
+  .space-row .unit{ text-align:center; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .space-row .bar{ background: var(--ink); width: 14px; border-radius: 3px; margin: 0 auto 8px; }
+
+  /* ── radius row ───────────────────────────────── */
+  .radius-row{ display:grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+  .radius-row .item{ border: 1px dashed var(--rule); padding: 14px; text-align:center; }
+  .radius-row .demo{ background: var(--ink); height: 64px; }
+  .radius-row .lbl{ font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 8px; }
+  @media(max-width:900px){ .radius-row{ grid-template-columns: repeat(3,1fr); } }
+
+  /* ── buttons ──────────────────────────────────── */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
+    font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.005em;
+    padding: 14px 22px; border-radius: var(--r-xs);
+    border: 1.5px solid transparent; cursor: pointer; text-decoration: none;
+    transition: transform .12s ease, background .12s ease, color .12s ease, border-color .12s ease;
+    line-height: 1;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn-primary{ background: var(--chartreuse); color: var(--ink); border-color: var(--ink); }
+  .btn-primary:hover{ background: var(--chartreuse-2); }
+  .btn-secondary{ background: transparent; color: var(--ink); border-color: var(--ink); }
+  .btn-secondary:hover{ background: var(--ink); color: var(--paper); }
+  .btn-ghost{ background: transparent; color: var(--ink); border-color: transparent; padding-left: 8px; padding-right: 8px; }
+  .btn-ghost:hover{ color: var(--muted); }
+  .btn-dark{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .btn-dark:hover{ background: var(--ink-soft); }
+  .btn-sm{ padding: 10px 16px; font-size: 13px; }
+  .btn-lg{ padding: 18px 28px; font-size: 16px; }
+  .btn .arrow{ display:inline-block; transition: transform .15s ease; }
+  .btn:hover .arrow{ transform: translateX(3px); }
+
+  /* ── cards & panels ──────────────────────────── */
+  .service-card{
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 28px;
+    display:flex; flex-direction:column; gap: 14px;
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .service-card:hover{ border-color: var(--ink); transform: translateY(-2px); }
+  .service-card .thumb{
+    height: 140px;
+    border-radius: var(--r-sm);
+    background:
+      repeating-linear-gradient(135deg, #EFEFEA 0 8px, #F6F6F1 8px 16px);
+    display:flex; align-items:center; justify-content:center;
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted-2);
+    letter-spacing: 0.04em;
+  }
+  .service-card h3{ margin-top: 6px; }
+  .service-card p{ color: var(--muted); font-size: 14px; }
+  .service-card .read{
+    margin-top:auto; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+    text-decoration: none; color: var(--ink);
+    display:inline-flex; gap:6px; align-items:center;
+  }
+  .service-card .read::after{ content:"→"; transition: transform .15s ease; }
+  .service-card:hover .read::after{ transform: translateX(3px); }
+
+  .panel{
+    border-radius: var(--r-xl);
+    padding: 64px 56px;
+    position: relative;
+  }
+  .panel-chartreuse{ background: var(--chartreuse); color: var(--ink); }
+  .panel-pink{ background: var(--pink); color: var(--ink); }
+  .panel-ink{ background: var(--ink); color: var(--paper); }
+  .panel-paper{ background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink); }
+  .panel h2{ max-width: 18ch; }
+  .panel .checklist{ list-style: none; padding: 0; margin: 24px 0 0; display:grid; gap: 14px; }
+  .panel .checklist li{ display:flex; gap: 12px; align-items:center; font-family: var(--font-display); font-weight: 600; font-size: 18px; }
+  .panel .checklist li::before{
+    content:"✓"; display:inline-flex; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--ink); color: var(--chartreuse);
+    align-items:center; justify-content:center; font-size: 14px; flex-shrink:0;
+  }
+  .panel-pink .checklist li::before{ background: var(--ink); color: var(--pink); }
+  .panel-ink .checklist li::before{ background: var(--chartreuse); color: var(--ink); }
+
+  /* ── section pattern previews (mini mocks) ─── */
+  .mock{
+    border: 1px solid var(--rule);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .mock-header{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 10px 14px; background: var(--paper-warm);
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    border-bottom: 1px solid var(--rule);
+  }
+  .mock-header .dots{ display:flex; gap: 4px; }
+  .mock-header .dots span{ width: 8px; height: 8px; border-radius: 50%; background: var(--rule); }
+  .mock-body{ padding: 36px; }
+
+  .mock-hero{ display:grid; grid-template-columns: 1.1fr 1fr; gap: 32px; align-items: center; }
+  .mock-hero h1{ font-size: 44px; line-height: 1; margin: 0 0 12px; }
+  .mock-hero p{ color: var(--muted); margin: 0 0 18px; font-size: 14px; max-width: 32ch; }
+  .mock-hero .art{
+    aspect-ratio: 4/3; border-radius: var(--r-md);
+    background:
+      repeating-linear-gradient(45deg, #F2F2EC 0 10px, #F8F8F2 10px 20px);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--muted-2); font-family: var(--font-mono); font-size: 11px;
+  }
+  @media(max-width:700px){ .mock-hero{ grid-template-columns: 1fr; } }
+
+  .mock-nav{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 14px 24px; border-bottom: 1px solid var(--rule);
+    font-family: var(--font-display); font-weight: 600; font-size: 13px;
+  }
+  .mock-nav .links{ display:flex; gap: 22px; }
+  .mock-nav .links a{ color: var(--ink); text-decoration: none; }
+  .mock-nav .logo{ font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; }
+  .mock-nav .logo span{ color: var(--gold); }
+
+  .mock-services{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .mini-card{
+    border: 1px solid var(--rule); border-radius: var(--r-sm); padding: 16px;
+    display:flex; flex-direction:column; gap: 8px;
+  }
+  .mini-card .thumb{
+    aspect-ratio: 4/3; border-radius: 6px;
+    background: repeating-linear-gradient(135deg, #EFEFEA 0 6px, #F6F6F1 6px 12px);
+  }
+  .mini-card h4{ font-size: 13px; margin: 4px 0 0; }
+  .mini-card p{ font-size: 11px; color: var(--muted); margin: 0; }
+  @media(max-width:700px){ .mock-services{ grid-template-columns: 1fr 1fr; } }
+
+  .mock-cta{ text-align:center; padding: 56px 24px; }
+  .mock-cta .rule{
+    width: 80px; height: 6px; border-bottom: 1.5px solid var(--ink); margin: 0 auto 16px;
+    border-radius: 50%;
+  }
+  .mock-cta h2{ font-size: 36px; margin: 0 0 10px; }
+  .mock-cta p{ color: var(--ink); margin: 0 auto 22px; max-width: 38ch; font-size: 14px; }
+
+  .mock-manifesto{
+    border: 1.5px solid var(--ink); border-radius: var(--r-lg);
+    padding: 56px 32px; text-align:center;
+  }
+  .mock-manifesto h2{ font-size: 44px; margin: 0 0 12px; }
+  .mock-manifesto p{ color: var(--ink); margin: 0 auto 22px; max-width: 42ch; font-size: 14px; }
+
+  .mock-footer{
+    background: var(--ink); color: var(--paper);
+    padding: 36px; display:grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 28px;
+  }
+  .mock-footer h4{ font-size: 12px; font-family: var(--font-mono); color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px; font-weight: 500; }
+  .mock-footer .links a{ display:block; color: var(--paper); text-decoration:none; font-size: 13px; margin-bottom: 6px; opacity: 0.85; }
+  .mock-footer .brand{ font-family: var(--font-display); font-weight: 800; font-size: 20px; }
+  .mock-footer .brand + p{ font-size: 12px; opacity: 0.7; max-width: 32ch; color: var(--paper); margin-top: 8px; }
+  @media(max-width:900px){ .mock-footer{ grid-template-columns: 1fr 1fr; } }
+
+  /* ── note callouts ────────────────────────────── */
+  .note{
+    border-left: 3px solid var(--chartreuse);
+    background: var(--paper-warm);
+    padding: 16px 20px;
+    font-size: 14px;
+    color: var(--ink);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  }
+  .note b{ font-family: var(--font-display); font-weight: 700; }
+
+  /* ── token table ─────────────────────────────── */
+  table.tokens{
+    width:100%; border-collapse: collapse; font-size: 13px;
+    border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden;
+  }
+  table.tokens th, table.tokens td{
+    text-align:left; padding: 12px 16px; border-bottom: 1px solid var(--rule);
+    font-family: var(--font-mono); font-weight: 400;
+  }
+  table.tokens th{ background: var(--paper-warm); font-weight: 500; color: var(--muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+  table.tokens tr:last-child td{ border-bottom: none; }
+  table.tokens td.swab{ width: 50px; }
+  table.tokens td.swab i{ display:block; width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--rule); }
+  table.tokens td.notes{ color: var(--muted); font-family: var(--font-body); }
+
+  /* ── voice block ─────────────────────────────── */
+  .voice{ display:grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .voice .col{ border: 1px solid var(--rule); border-radius: var(--r-md); padding: 24px; }
+  .voice .col.yes{ border-color: var(--ink); }
+  .voice .col h4{ font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  .voice .col ul{ margin: 0; padding-left: 18px; }
+  .voice .col li{ margin-bottom: 6px; font-size: 14px; }
+  .voice .col.yes li::marker{ color: var(--ink); }
+  .voice .col.no li::marker{ color: var(--muted-2); }
+  @media(max-width:700px){ .voice{ grid-template-columns: 1fr; } }
+
+  /* ── logo block ───────────────────────────────── */
+  .logo-block{ display:grid; grid-template-columns: 1.2fr 1fr; gap: 24px; align-items:stretch; }
+  .logo-block .card{ border: 1px solid var(--rule); border-radius: var(--r-md); padding: 32px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap: 14px; min-height: 220px; }
+  .logo-block .card.dark{ background: var(--ink); color: var(--paper); }
+  .logo-block .card.gold-tint{ background: var(--paper-warm); }
+  .lockup{ font-family: var(--font-display); font-weight: 800; font-size: 28px; letter-spacing: -0.02em; display:flex; align-items:center; gap: 10px; }
+  .lockup .mark{
+    width: 28px; height: 28px; display:inline-block;
+    background: conic-gradient(from 220deg at 50% 50%, var(--navy) 0 40%, var(--gold) 40% 100%);
+    clip-path: polygon(0 60%, 25% 60%, 25% 30%, 50% 0, 50% 30%, 75% 30%, 75% 60%, 100% 60%, 100% 100%, 0 100%);
+  }
+  .lockup .sub{ font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em; color: var(--gold); border-top: 1.5px solid var(--gold); padding-top: 4px; margin-top: 4px; display:block; font-weight: 500; }
+  .lockup-wrap{ display:flex; flex-direction:column; align-items:center; gap: 0; }
+  .lockup-wrap .sub{ font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.24em; color: var(--gold); margin-top: 4px; }
+  @media(max-width:900px){ .logo-block{ grid-template-columns: 1fr; } }
+
+  /* ── flag tag ─────────────────────────────────── */
+  .tag{
+    display:inline-block; padding: 3px 8px; border-radius: var(--r-xs);
+    background: var(--ink); color: var(--paper); font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.04em;
+  }
+  .tag.warn{ background: var(--chartreuse); color: var(--ink); }
+  .tag.soft{ background: var(--paper-warm); color: var(--ink); border: 1px solid var(--rule); }
+
+  /* ── footer of doc ───────────────────────────── */
+  .doc-foot{
+    margin-top: 120px; padding: 32px 0 0; border-top: 1px solid var(--rule);
+    display:flex; justify-content:space-between; font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<main class="page">
+
+  <!-- ══════════════════════════════════════════════════
+       MASTHEAD
+       ══════════════════════════════════════════════════ -->
+  <header class="masthead">
+    <div>
+      <p class="id">wallstrdev.de · design system v0.1</p>
+      <h1>Strategic.<br>Sharp.<br>Architectural.</h1>
+    </div>
+    <div class="meta">
+      <span class="stamp">extracted · May 2026</span>
+      <p class="mono" style="margin-top:14px; color:var(--muted);">Berlin · cloud &amp; tech consulting</p>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Sections">
+    <a href="#brand"><span class="n">01</span>Brand &amp; logo</a>
+    <a href="#color"><span class="n">02</span>Color</a>
+    <a href="#type"><span class="n">03</span>Typography</a>
+    <a href="#space"><span class="n">04</span>Space &amp; radii</a>
+    <a href="#buttons"><span class="n">05</span>Buttons</a>
+    <a href="#cards"><span class="n">06</span>Cards</a>
+    <a href="#panels"><span class="n">07</span>Panels</a>
+    <a href="#sections"><span class="n">08</span>Section patterns</a>
+    <a href="#imagery"><span class="n">09</span>Imagery</a>
+    <a href="#voice"><span class="n">10</span>Voice</a>
+    <a href="#tokens"><span class="n">11</span>Token reference</a>
+    <a href="#notes"><span class="n">12</span>Refinement notes</a>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════════
+       01 BRAND
+       ══════════════════════════════════════════════════ -->
+  <section id="brand">
+    <p class="eyebrow">01 · Brand &amp; logo</p>
+    <h2>One identity, two moods.</h2>
+    <p class="lede">The supplied logo is a navy-and-gold financial mark — formal, charted, slightly traditional. The live site is the opposite: white paper, near-black ink, and saturated chartreuse / pink panels. We carry <b>both</b> palettes: the website's energy as the primary system, the logo's navy / gold as a secondary register for serious contexts (audits, proposals, reports).</p>
+
+    <div class="logo-block" style="margin-top:28px;">
+      <div class="card gold-tint">
+        <div class="lockup-wrap">
+          <div class="lockup"><span class="mark"></span><span>Wall<span style="color:var(--gold)">str</span></span></div>
+          <span class="sub">DEVELOPMENT</span>
+        </div>
+        <p class="mono" style="color:var(--muted); margin: 16px 0 0;">primary lockup · navy + gold</p>
+      </div>
+      <div class="card dark">
+        <div class="lockup-wrap" style="color:var(--paper)">
+          <div class="lockup"><span class="mark" style="background:conic-gradient(from 220deg at 50% 50%, var(--paper) 0 40%, var(--gold) 40% 100%)"></span><span>Wall<span style="color:var(--gold)">str</span></span></div>
+          <span class="sub" style="color:var(--gold)">DEVELOPMENT</span>
+        </div>
+        <p class="mono" style="color:var(--muted-2); margin: 16px 0 0;">on ink · for footer / dark mode</p>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:24px;">
+      <b>Note:</b> the lockup shown here is a structural placeholder rendered in CSS. Drop the real PNG/SVG into <span class="mono">/brand/wallstr-logo.svg</span> when building landing pages.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       02 COLOR
+       ══════════════════════════════════════════════════ -->
+  <section id="color">
+    <p class="eyebrow">02 · Color</p>
+    <h2>Two paper, one ink, two loud accents.</h2>
+    <p class="lede">The system is built on a near-white paper and a near-black ink. Saturated <b>chartreuse</b> and soft <b>pink</b> carry the personality — used as full-bleed panel fills, never as text. Navy and gold are reserved for the wordmark and formal materials.</p>
+
+    <h3 style="margin-top:36px; margin-bottom:16px; font-size: 14px; font-family: var(--font-mono); text-transform:uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 500;">Primary — paper &amp; ink</h3>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:var(--paper); border-bottom:1px solid var(--rule);"></div><div class="info"><div class="name">Paper</div><div class="hex">#FFFFFF</div><div class="use">page background, card fill</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--paper-warm);"></div><div class="info"><div class="name">Paper · warm</div><div class="hex">#F6F5F0</div><div class="use">subtle sections, notes</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--ink);"></div><div class="info"><div class="name">Ink</div><div class="hex">#0E0E10</div><div class="use">headings, body, footer</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--muted);"></div><div class="info"><div class="name">Muted</div><div class="hex">#6B6B72</div><div class="use">supporting text, labels</div></div></div>
+    </div>
+
+    <h3 style="margin-top:36px; margin-bottom:16px; font-size: 14px; font-family: var(--font-mono); text-transform:uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 500;">Accents — panel fills only</h3>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:var(--chartreuse);"></div><div class="info"><div class="name">Chartreuse</div><div class="hex">#DCEE2A</div><div class="use">primary CTA, hero panels</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--chartreuse-2);"></div><div class="info"><div class="name">Chartreuse · deep</div><div class="hex">#C8D820</div><div class="use">hover, drop-shadow lip</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--pink);"></div><div class="info"><div class="name">Pink</div><div class="hex">#F0BFE8</div><div class="use">secondary CTA panel</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--pink-2);"></div><div class="info"><div class="name">Pink · deep</div><div class="hex">#E89FDD</div><div class="use">hover, accent line</div></div></div>
+    </div>
+
+    <h3 style="margin-top:36px; margin-bottom:16px; font-size: 14px; font-family: var(--font-mono); text-transform:uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 500;">Secondary — from the wordmark</h3>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:var(--navy);"></div><div class="info"><div class="name">Navy</div><div class="hex">#1B2A4E</div><div class="use">logo, formal docs</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--navy-2);"></div><div class="info"><div class="name">Navy · deep</div><div class="hex">#0F1A33</div><div class="use">long-form body on light</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--gold);"></div><div class="info"><div class="name">Gold</div><div class="hex">#B8945C</div><div class="use">logo rule, fine detail</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--rule);"></div><div class="info"><div class="name">Rule</div><div class="hex">#E6E6E2</div><div class="use">dividers, card borders</div></div></div>
+    </div>
+
+    <div class="note" style="margin-top:24px;">
+      <b>Pairing rule:</b> never set body text on chartreuse or pink panels in colored text — always ink on the panel. The accents are <span class="mono">backgrounds</span>, not <span class="mono">foregrounds</span>.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       03 TYPE
+       ══════════════════════════════════════════════════ -->
+  <section id="type">
+    <p class="eyebrow">03 · Typography</p>
+    <h2>Two sans, one mono. Bold display, soft body.</h2>
+    <p class="lede">Headlines are tight, heavy, and oversized — a confident architect's voice. Body sits softer in Manrope. Monospace earns its place in labels, ids, and the recurring "engineering signal" feel.</p>
+
+    <div class="type-card" style="margin-top:32px;">
+      <div class="label"><b>Display · Plus Jakarta Sans 800</b><span>headings, hero, panel titles</span><span class="tag soft">-2% tracking</span></div>
+      <div class="specimen-display">Stop&nbsp;reacting.<br>Start&nbsp;architecting.</div>
+    </div>
+
+    <div class="type-card">
+      <div class="label"><b>Section heading · Plus Jakarta Sans 700 / 48px</b></div>
+      <div class="specimen-h2">Strategic Tech &amp; Cloud Consulting in Berlin</div>
+    </div>
+
+    <div class="type-card">
+      <div class="label"><b>Card / sub-section · Plus Jakarta Sans 700 / 22px</b></div>
+      <div class="specimen-h3">Cloud &amp; AWS Architecture</div>
+    </div>
+
+    <div class="type-card">
+      <div class="label"><b>Body · Manrope 400 / 17px</b><span>line-height 1.55, max 60ch</span></div>
+      <div class="specimen-body">Expert guidance on AWS migration, infrastructure optimization, cost management, and designing highly available, secure cloud environments. We translate complex technical challenges into clear, sustainable architectural solutions.</div>
+    </div>
+
+    <div class="type-card">
+      <div class="label"><b>Small / label · Manrope 500 / 14px</b></div>
+      <div class="specimen-small">Senior-level freelance consulting · Berlin · since 2026</div>
+    </div>
+
+    <div class="type-card">
+      <div class="label"><b>Mono · JetBrains Mono 400 / 13px</b><span>eyebrows, ids, microcopy</span></div>
+      <div class="specimen-mono">01 · CLOUD &amp; AWS · arch.audit.q2-2026</div>
+    </div>
+
+    <h3 style="margin-top:36px; margin-bottom:14px; font-size: 14px; font-family: var(--font-mono); text-transform:uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 500;">Type scale</h3>
+    <div class="type-card">
+      <div class="scale">
+        <div class="px">88 / 0.98</div><div class="ex" style="font-size:48px">Hero</div><div class="use">page-defining headline · 1 per page</div>
+        <div class="px">64 / 1.0</div><div class="ex" style="font-size:40px">Display</div><div class="use">panel headlines, manifesto</div>
+        <div class="px">48 / 1.05</div><div class="ex" style="font-size:32px">H2</div><div class="use">section openers</div>
+        <div class="px">32 / 1.1</div><div class="ex" style="font-size:24px">H3</div><div class="use">card titles, sub-headers</div>
+        <div class="px">22 / 1.2</div><div class="ex" style="font-size:18px">H4</div><div class="use">in-card titles</div>
+        <div class="px">18 / 1.5</div><div class="ex" style="font-size:16px">Lede</div><div class="use">section intro paragraph</div>
+        <div class="px">17 / 1.55</div><div class="ex" style="font-size:15px">Body</div><div class="use">default paragraph</div>
+        <div class="px">14 / 1.45</div><div class="ex" style="font-size:13px">Small</div><div class="use">card body, captions</div>
+        <div class="px">12 / 1.4</div><div class="ex" style="font-size:11px">Mono</div><div class="use">eyebrows, labels, ids</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       04 SPACE & RADII
+       ══════════════════════════════════════════════════ -->
+  <section id="space">
+    <p class="eyebrow">04 · Space &amp; radii</p>
+    <h2>4-pt base. Generous vertical rhythm.</h2>
+    <p class="lede">The live site breathes — sections are separated by 100–160px on desktop. Inside panels, padding is 56–80px. Default gap between cards is 24–32px.</p>
+
+    <div class="space-row" style="margin-top:28px;">
+      <div class="unit"><div class="bar" style="height:4px"></div>4</div>
+      <div class="unit"><div class="bar" style="height:8px"></div>8</div>
+      <div class="unit"><div class="bar" style="height:12px"></div>12</div>
+      <div class="unit"><div class="bar" style="height:16px"></div>16</div>
+      <div class="unit"><div class="bar" style="height:24px"></div>24</div>
+      <div class="unit"><div class="bar" style="height:32px"></div>32</div>
+      <div class="unit"><div class="bar" style="height:48px"></div>48</div>
+      <div class="unit"><div class="bar" style="height:64px"></div>64</div>
+      <div class="unit"><div class="bar" style="height:96px"></div>96</div>
+      <div class="unit"><div class="bar" style="height:128px"></div>128</div>
+      <div class="unit"><div class="bar" style="height:160px"></div>160</div>
+    </div>
+
+    <h3 style="margin-top:36px; margin-bottom:14px; font-size: 14px; font-family: var(--font-mono); text-transform:uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 500;">Radii</h3>
+    <div class="radius-row">
+      <div class="item"><div class="demo" style="border-radius:6px"></div><div class="lbl">xs · 6 · buttons, tags</div></div>
+      <div class="item"><div class="demo" style="border-radius:10px"></div><div class="lbl">sm · 10 · thumbnails</div></div>
+      <div class="item"><div class="demo" style="border-radius:16px"></div><div class="lbl">md · 16 · cards</div></div>
+      <div class="item"><div class="demo" style="border-radius:24px"></div><div class="lbl">lg · 24 · large cards</div></div>
+      <div class="item"><div class="demo" style="border-radius:32px"></div><div class="lbl">xl · 32 · full panels</div></div>
+      <div class="item"><div class="demo" style="border-radius:999px"></div><div class="lbl">pill · chips</div></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       05 BUTTONS
+       ══════════════════════════════════════════════════ -->
+  <section id="buttons">
+    <p class="eyebrow">05 · Buttons &amp; links</p>
+    <h2>Sharp corners. Always an ink outline.</h2>
+    <p class="lede">The site's CTA — chartreuse fill with a thin black border — is the primary. Secondary is the same shape outlined. Both have a satisfying ink stroke that anchors them to the page.</p>
+
+    <div class="row cols-2" style="margin-top:32px;">
+      <div class="type-card">
+        <div class="label"><b>Primary</b><span>chartreuse · ink border</span></div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-primary">Book a Free Consultation</button>
+          <button class="btn btn-primary btn-sm">Contact Us</button>
+          <button class="btn btn-primary btn-lg">Schedule a Strategy Session <span class="arrow">→</span></button>
+        </div>
+      </div>
+      <div class="type-card">
+        <div class="label"><b>Secondary</b><span>outline · ink stroke</span></div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-secondary">Read more</button>
+          <button class="btn btn-secondary btn-sm">Read more</button>
+          <button class="btn btn-secondary btn-lg">View case study <span class="arrow">→</span></button>
+        </div>
+      </div>
+      <div class="type-card">
+        <div class="label"><b>Dark</b><span>on white sections</span></div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-dark">Contact</button>
+          <button class="btn btn-dark btn-lg">Book a call <span class="arrow">→</span></button>
+        </div>
+      </div>
+      <div class="type-card">
+        <div class="label"><b>Ghost / link</b><span>nav, in-flow</span></div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-ghost">About</button>
+          <button class="btn btn-ghost">Products <span style="font-size:10px">▾</span></button>
+          <a href="#" style="font-family:var(--font-mono); font-size:13px; color:var(--ink); text-decoration:underline; text-underline-offset:4px;">Read the audit playbook →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       06 CARDS
+       ══════════════════════════════════════════════════ -->
+  <section id="cards">
+    <p class="eyebrow">06 · Cards</p>
+    <h2>Quiet containers. Hairline border. Hover lifts.</h2>
+    <p class="lede">Service tiles use a soft border (no shadow), a stripe-pattern thumbnail placeholder, a heading, two lines of body, and a small mono "read" link. On hover, the border darkens to ink and the card rises 2px.</p>
+
+    <div class="row cols-4" style="margin-top:32px;">
+      <a href="#" class="service-card" style="text-decoration:none;">
+        <div class="thumb">cloud-aws.placeholder</div>
+        <h3>Cloud &amp; AWS</h3>
+        <p>Migration, infrastructure optimization, cost management, secure cloud environments.</p>
+        <span class="read">Read more</span>
+      </a>
+      <a href="#" class="service-card" style="text-decoration:none;">
+        <div class="thumb">system-arch.placeholder</div>
+        <h3>System Architecture</h3>
+        <p>Robust, scalable systems. Microservices, databases, API strategy.</p>
+        <span class="read">Read more</span>
+      </a>
+      <a href="#" class="service-card" style="text-decoration:none;">
+        <div class="thumb">software-dev.placeholder</div>
+        <h3>Software Development</h3>
+        <p>Code quality, CI/CD, DevOps automation, modern tech stack selection.</p>
+        <span class="read">Read more</span>
+      </a>
+      <a href="#" class="service-card" style="text-decoration:none;">
+        <div class="thumb">tech-audit.placeholder</div>
+        <h3>Tech Strategy &amp; Audits</h3>
+        <p>Holistic stack assessment. Clear, actionable roadmap aligned to business goals.</p>
+        <span class="read">Read more</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       07 PANELS
+       ══════════════════════════════════════════════════ -->
+  <section id="panels">
+    <p class="eyebrow">07 · Panels</p>
+    <h2>The signature move: big colored slabs.</h2>
+    <p class="lede">Full-bleed (well, container-bleed) rounded panels carry chartreuse or pink. They hold short manifestos, value props, or checklist content. 32px radius. 56–80px inner padding. Headline maxes around 18 characters per line.</p>
+
+    <div style="display:grid; gap: 28px; margin-top: 32px;">
+      <div class="panel panel-chartreuse">
+        <p class="eyebrow" style="color:var(--ink); opacity:0.6;">Why work with us</p>
+        <h2 style="margin-bottom: 0;">Senior-level. Berlin-local. No agency overhead.</h2>
+        <ul class="checklist">
+          <li>Senior-level expertise · 12+ years shipping</li>
+          <li>Local Berlin focus · same time zone</li>
+          <li>Rapid impact &amp; flexibility · weeks, not quarters</li>
+          <li>Technology-agnostic advice · no vendor bias</li>
+        </ul>
+      </div>
+
+      <div class="panel panel-pink" style="text-align:center;">
+        <div style="width:80px; height:1.5px; background:var(--ink); border-radius: 50%; margin: 0 auto 16px; opacity:0.6;"></div>
+        <h2 style="margin: 0 auto 14px; max-width: 16ch;">Let's build something great.</h2>
+        <p style="max-width: 42ch; margin: 0 auto 28px;">Stop reacting to technical debt and start building your future architecture. Your first step towards clarity and scalability starts here.</p>
+        <a href="#" class="btn btn-secondary btn-lg">Schedule a Strategy Session <span class="arrow">→</span></a>
+      </div>
+
+      <div class="panel panel-paper" style="text-align:center;">
+        <h2 style="margin: 0 auto 14px; max-width: 14ch; font-size: clamp(40px, 5vw, 64px);">Stop Reacting.<br>Start Architecting.</h2>
+        <p class="lede" style="margin: 0 auto 28px;">We translate complex technical challenges into clear, sustainable architectural solutions — ensuring your technology propels, not impedes, your growth.</p>
+        <a href="#" class="btn btn-primary btn-lg">Contact <span class="arrow">→</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       08 SECTION PATTERNS
+       ══════════════════════════════════════════════════ -->
+  <section id="sections">
+    <p class="eyebrow">08 · Section patterns</p>
+    <h2>The page rhythm.</h2>
+    <p class="lede">A standard wallstrdev landing page strings together five recurring blocks. Use them in this order for a service page; remix freely for product / case pages.</p>
+
+    <div style="display:grid; gap: 28px; margin-top: 32px;">
+
+      <!-- Nav + Hero -->
+      <div class="mock">
+        <div class="mock-header"><span class="dots"><span></span><span></span><span></span></span><span>01 · Nav + hero</span></div>
+        <div class="mock-nav">
+          <span class="logo">Wall<span>str</span></span>
+          <span class="links"><a>Blog</a><a>About</a><a>Products</a><a>Contact</a></span>
+          <button class="btn btn-primary btn-sm">Contact Us</button>
+        </div>
+        <div class="mock-body">
+          <div class="mock-hero">
+            <div>
+              <p class="eyebrow">Cloud strategy · Berlin</p>
+              <h1>Strategic Tech &amp; Cloud Consulting in Berlin</h1>
+              <p>Empowering businesses with expert freelance consulting in Cloud Architecture (AWS), Software Development, and Technology Strategy.</p>
+              <button class="btn btn-primary">Book a Free Consultation</button>
+            </div>
+            <div class="art">hero.illustration · 4:3</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Services grid -->
+      <div class="mock">
+        <div class="mock-header"><span class="dots"><span></span><span></span><span></span></span><span>02 · Service grid (4 tiles)</span></div>
+        <div class="mock-body">
+          <div class="mock-services">
+            <div class="mini-card"><div class="thumb"></div><h4>Cloud &amp; AWS Architecture</h4><p>Migration, optimization, cost management.</p></div>
+            <div class="mini-card"><div class="thumb"></div><h4>System Architecture Design</h4><p>Scalable systems, microservices, APIs.</p></div>
+            <div class="mini-card"><div class="thumb"></div><h4>Software Development</h4><p>CI/CD, DevOps, modern stacks.</p></div>
+            <div class="mini-card"><div class="thumb"></div><h4>Tech Strategy &amp; Audits</h4><p>Stack assessment, actionable roadmap.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Why us panel -->
+      <div class="mock">
+        <div class="mock-header"><span class="dots"><span></span><span></span><span></span></span><span>03 · Why-us · chartreuse panel</span></div>
+        <div class="mock-body" style="padding: 24px;">
+          <div class="panel panel-chartreuse" style="padding: 40px;">
+            <h2 style="margin: 0 0 16px; font-size: 32px;">Why Choose Wallstr Dev?</h2>
+            <p style="max-width: 50ch; margin: 0 0 18px;">As a senior consultant based in Berlin, Wallstr Dev offers unbiased, high-impact technical expertise with the agility and focused commitment an agency can't match.</p>
+            <ul class="checklist" style="grid-template-columns: 1fr 1fr; display: grid;">
+              <li>Senior-Level Expertise</li>
+              <li>Local Berlin Focus</li>
+              <li>Rapid Impact &amp; Flexibility</li>
+              <li>Technology Agnostic Advice</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA panel -->
+      <div class="mock">
+        <div class="mock-header"><span class="dots"><span></span><span></span><span></span></span><span>04 · CTA · pink panel</span></div>
+        <div class="mock-body" style="padding: 24px;">
+          <div class="panel panel-pink mock-cta" style="padding: 48px 24px;">
+            <div class="rule"></div>
+            <h2>Let's Build Something Great</h2>
+            <p>Stop reacting to technical debt and start building your future architecture.</p>
+            <a href="#" class="btn btn-secondary">Schedule a Strategy Session</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manifesto -->
+      <div class="mock">
+        <div class="mock-header"><span class="dots"><span></span><span></span><span></span></span><span>05 · Manifesto · bordered card</span></div>
+        <div class="mock-body" style="padding: 24px;">
+          <div class="mock-manifesto">
+            <h2>Stop Reacting.<br>Start Architecting.</h2>
+            <p>We translate complex technical challenges into clear, sustainable architectural solutions, ensuring your technology propels — not impedes — your growth.</p>
+            <a href="#" class="btn btn-primary">Contact</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="mock">
+        <div class="mock-header"><span class="dots"><span></span><span></span><span></span></span><span>06 · Footer · ink slab</span></div>
+        <div class="mock-footer">
+          <div>
+            <div class="brand">Wall<span style="color:var(--gold)">str</span>dev</div>
+            <p>Strategic tech and cloud consulting in Berlin. Expert guidance on AWS, system architecture, and high-impact software development.</p>
+          </div>
+          <div>
+            <h4>Quick links</h4>
+            <div class="links"><a>English</a><a>Deutsch</a><a>Terms &amp; Conditions</a></div>
+          </div>
+          <div>
+            <h4>Follow</h4>
+            <div class="links"><a>X / Twitter</a><a>LinkedIn</a></div>
+          </div>
+          <div>
+            <h4>Get in touch</h4>
+            <div class="links"><a>Wallstr 18, 10179 Berlin</a><a>+49 155 65697874</a><a>hello@wallstrdev.de</a></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       09 IMAGERY
+       ══════════════════════════════════════════════════ -->
+  <section id="imagery">
+    <p class="eyebrow">09 · Imagery &amp; iconography</p>
+    <h2>Replace the AI illustrations.</h2>
+    <p class="lede">The current site uses Gemini-generated 3D cartoons and a flock of unrelated SVG icons (tap, pay, go) that have nothing to do with cloud consulting. <b>This is the weakest part of the existing system.</b> Refined approach below.</p>
+
+    <div class="row cols-3" style="margin-top:28px;">
+      <div class="type-card">
+        <div class="label"><b>Option A · Diagram-as-hero</b></div>
+        <div class="thumb" style="height: 160px; border-radius: var(--r-sm); background: var(--paper-warm); display:flex; align-items:center; justify-content:center; font-family: var(--font-mono); font-size: 11px; color: var(--muted); padding: 16px; line-height: 1.4; text-align:center;">
+          [ AWS-ish line diagram<br>flat · ink-on-paper<br>1 chartreuse highlight ]
+        </div>
+        <p style="font-size:13px; color:var(--muted); margin-top: 12px;">Hand-drawn-feel architecture diagrams. Strictly two-color: ink lines, chartreuse highlight on the part being discussed.</p>
+      </div>
+      <div class="type-card">
+        <div class="label"><b>Option B · Photographic</b></div>
+        <div class="thumb" style="height: 160px; border-radius: var(--r-sm); background: repeating-linear-gradient(135deg, #EFEFEA 0 8px, #F6F6F1 8px 16px); display:flex; align-items:center; justify-content:center; font-family: var(--font-mono); font-size: 11px; color: var(--muted-2);">photo · berlin · ws.placeholder</div>
+        <p style="font-size:13px; color:var(--muted); margin-top: 12px;">Berlin-textured photography. Brutalist concrete, server rooms, whiteboards. Desaturated, ink-graded.</p>
+      </div>
+      <div class="type-card">
+        <div class="label"><b>Option C · Numbered chips</b></div>
+        <div style="display:flex; gap: 8px; flex-wrap: wrap; height: 160px; align-items:center; justify-content:center; background: var(--paper-warm); border-radius: var(--r-sm); padding: 16px;">
+          <span style="font-family: var(--font-mono); font-size: 12px; padding: 6px 10px; background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-xs);">01 AUDIT</span>
+          <span style="font-family: var(--font-mono); font-size: 12px; padding: 6px 10px; background: var(--chartreuse); border: 1px solid var(--ink); border-radius: var(--r-xs);">02 BLUEPRINT</span>
+          <span style="font-family: var(--font-mono); font-size: 12px; padding: 6px 10px; background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-xs);">03 BUILD</span>
+          <span style="font-family: var(--font-mono); font-size: 12px; padding: 6px 10px; background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-xs);">04 HAND-OFF</span>
+        </div>
+        <p style="font-size:13px; color:var(--muted); margin-top: 12px;">No imagery at all — let typography &amp; numbered chips carry the page. Most disciplined option.</p>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:24px;">
+      <b>Recommendation:</b> default to <b>Option C</b> for service pages (no imagery), use <b>Option A</b> diagrams sparingly for one hero illustration per page. Drop the Gemini cartoons entirely.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       10 VOICE
+       ══════════════════════════════════════════════════ -->
+  <section id="voice">
+    <p class="eyebrow">10 · Copy voice</p>
+    <h2>Architect, not vendor.</h2>
+    <p class="lede">The site already has a strong voice: short imperatives, no jargon-stuffing, German-engineering directness with a Berlin-startup edge. "Stop reacting. Start architecting." is the model line.</p>
+
+    <div class="voice" style="margin-top:32px;">
+      <div class="col yes">
+        <h4>↑ Yes</h4>
+        <ul>
+          <li>Short, declarative sentences. Verbs first.</li>
+          <li>Imperatives: "Stop reacting." "Schedule a session." "Architect for scale."</li>
+          <li>Specific words: AWS, microservices, CI/CD, technical debt, audit.</li>
+          <li>Outcomes, not features: "weeks, not quarters" beats "fast turnaround".</li>
+          <li>One claim per line. Whitespace does the rest.</li>
+        </ul>
+      </div>
+      <div class="col no">
+        <h4>↓ No</h4>
+        <ul>
+          <li>"Synergy", "leverage", "unlock", "empower" (already in hero — fix it).</li>
+          <li>Three-adjective stacks: "robust, scalable, maintainable" — pick one.</li>
+          <li>Emoji and exclamation marks. Ever.</li>
+          <li>"We help you" framing. Be the architect, not the helper.</li>
+          <li>Stock tech metaphors (rocket ships, journeys, ecosystems).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="type-card" style="margin-top:24px;">
+      <div class="label"><b>Sample lines</b><span>reuse / remix</span></div>
+      <div style="display:grid; gap: 14px;">
+        <p class="specimen-h3" style="margin:0;">"Stop reacting to technical debt."</p>
+        <p class="specimen-h3" style="margin:0;">"Senior-level expertise. Berlin time zone. No agency tax."</p>
+        <p class="specimen-h3" style="margin:0;">"Your AWS bill, halved. Your architecture, clarified."</p>
+        <p class="specimen-h3" style="margin:0;">"Audit in two weeks. Roadmap in three."</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       11 TOKENS
+       ══════════════════════════════════════════════════ -->
+  <section id="tokens">
+    <p class="eyebrow">11 · Token reference</p>
+    <h2>Copy-paste tokens.</h2>
+    <p class="lede">Drop these straight into a landing-page CSS file.</p>
+
+    <table class="tokens" style="margin-top: 32px;">
+      <thead><tr><th></th><th>Token</th><th>Value</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td class="swab"><i style="background:#FFFFFF"></i></td><td>--paper</td><td>#FFFFFF</td><td class="notes">page bg</td></tr>
+        <tr><td class="swab"><i style="background:#F6F5F0"></i></td><td>--paper-warm</td><td>#F6F5F0</td><td class="notes">subtle sections, notes</td></tr>
+        <tr><td class="swab"><i style="background:#0E0E10"></i></td><td>--ink</td><td>#0E0E10</td><td class="notes">text, footer</td></tr>
+        <tr><td class="swab"><i style="background:#6B6B72"></i></td><td>--muted</td><td>#6B6B72</td><td class="notes">supporting text</td></tr>
+        <tr><td class="swab"><i style="background:#E6E6E2"></i></td><td>--rule</td><td>#E6E6E2</td><td class="notes">borders, dividers</td></tr>
+        <tr><td class="swab"><i style="background:#DCEE2A"></i></td><td>--chartreuse</td><td>#DCEE2A</td><td class="notes">primary CTA, hero panel</td></tr>
+        <tr><td class="swab"><i style="background:#F0BFE8"></i></td><td>--pink</td><td>#F0BFE8</td><td class="notes">secondary CTA panel</td></tr>
+        <tr><td class="swab"><i style="background:#1B2A4E"></i></td><td>--navy</td><td>#1B2A4E</td><td class="notes">wordmark, formal contexts</td></tr>
+        <tr><td class="swab"><i style="background:#B8945C"></i></td><td>--gold</td><td>#B8945C</td><td class="notes">wordmark rule, fine detail</td></tr>
+        <tr><td></td><td>--font-display</td><td>"Plus Jakarta Sans", 800/700</td><td class="notes">headings, hero</td></tr>
+        <tr><td></td><td>--font-body</td><td>"Manrope", 400/500/600</td><td class="notes">paragraph, ui</td></tr>
+        <tr><td></td><td>--font-mono</td><td>"JetBrains Mono", 400/500</td><td class="notes">eyebrows, labels</td></tr>
+        <tr><td></td><td>--r-xs / sm / md / lg / xl</td><td>6 · 10 · 16 · 24 · 32</td><td class="notes">radii ladder</td></tr>
+        <tr><td></td><td>space scale</td><td>4 8 12 16 24 32 48 64 96 128 160</td><td class="notes">multiples of 4</td></tr>
+        <tr><td></td><td>container max-width</td><td>1240px · 40px gutter</td><td class="notes">page wrap</td></tr>
+        <tr><td></td><td>section spacing</td><td>96–128px (mobile 64)</td><td class="notes">between major blocks</td></tr>
+        <tr><td></td><td>panel padding</td><td>56–80px (mobile 32)</td><td class="notes">inside colored panels</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════
+       12 REFINEMENT NOTES
+       ══════════════════════════════════════════════════ -->
+  <section id="notes">
+    <p class="eyebrow">12 · Refinement notes</p>
+    <h2>What I cleaned up.</h2>
+    <p class="lede">You asked for "same vibe, refined where weak." Here is what I changed and why — so the future landing pages can deviate intentionally.</p>
+
+    <ol style="padding-left: 22px; margin-top: 28px; font-size: 15px; line-height: 1.7;">
+      <li><b>Logo / palette tension.</b> The live site (chartreuse + pink) doesn't match the supplied logo (navy + gold). I made chartreuse/pink the primary energy and demoted navy/gold to a secondary register, because the site's color is what's actually working.</li>
+      <li><b>Imagery.</b> The site's Gemini-generated 3D cartoons feel temporary and undermine the senior-consultant positioning. Replaced with three disciplined options (line diagrams, photography, no imagery).</li>
+      <li><b>Random icon flock.</b> The "tap-pay-go" SVGs in the CTA section appear to be stock leftovers unrelated to consulting. Removed entirely.</li>
+      <li><b>Type scale.</b> Hero on the live site is around 56px; bumped to a confident 88px display. Body sized up to 17px from ~15px for readability.</li>
+      <li><b>Button shape.</b> Standardized on a 6px-radius rectangle with a 1.5px ink border (the live site mixes radii and border weights).</li>
+      <li><b>Typo: "Conatct".</b> Live site footer button reads "Conatct" — flagged for fix.</li>
+      <li><b>Hero copy.</b> Live subheading ends with a stray "1": "…and Technology Strategy.1". Cleaned in the system examples.</li>
+      <li><b>Voice.</b> Replaced "Empowering businesses with expert…" hero with the imperative model already used elsewhere on the site ("Stop reacting…"). Consistency.</li>
+    </ol>
+  </section>
+
+  <footer class="doc-foot">
+    <span>wallstrdev.de · design system v0.1</span>
+    <span>compiled · May 2026</span>
+  </footer>
+
+</main>
+
+</body>
+</html>

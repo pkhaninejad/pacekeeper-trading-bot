@@ -1,0 +1,121 @@
+/* Wallstrdev component skin — restyles dashboard components to the editorial
+ * ink-outline look. Loaded AFTER each dashboard's own styles so it overrides.
+ * Modal styles (.sb-*, .wds-*) win on their own higher specificity. */
+
+/* ── Cards & panels: the signature 1.5px ink outline ─────────────────────── */
+body .card,
+body .status-card,
+body .section {
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--r-md);
+  box-shadow: 4px 4px 0 rgba(14, 14, 16, 0.05);
+}
+body .section { box-shadow: none; }
+body .card:hover, body .status-card:hover { transform: none; }
+
+/* tinted status cards keep a hint of color but gain the ink outline */
+body .status-card.card-health { background: var(--gain-soft); }
+body .status-card.card-bot,
+body .status-card.card-next { background: var(--paper-warm); }
+
+/* Labels / values typography */
+body .label, body .status-card-label,
+body .gr-label, body .ind-label {
+  font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+}
+body .value, body .status-card-value, body .ind-val { font-family: var(--font-mono); }
+body .section > h2, body .section > h3 { font-family: var(--font-display); }
+
+/* ── Buttons → consistent Wallstrdev pills ───────────────────────────────── */
+body #toggle-btn, body #sb-open-btn, body #wds-setup-btn,
+body .toggle-btn, body .sell-btn, body .sell-all-btn,
+body #save-settings-btn, body #emergency-stop-btn {
+  font-family: var(--font-display); font-weight: 600; font-size: 13px;
+  border: 1.5px solid var(--ink); border-radius: var(--r-pill);
+  background: var(--paper); color: var(--ink); padding: 9px 16px; cursor: pointer;
+  transition: background .15s ease, color .15s ease, transform .1s ease;
+  box-shadow: none;
+}
+body #toggle-btn:hover, body #sb-open-btn:hover, body #wds-setup-btn:hover,
+body .toggle-btn:hover, body .sell-btn:hover, body .sell-all-btn:hover,
+body #save-settings-btn:hover { background: var(--ink); color: var(--paper); }
+body #toggle-btn:active, body #sb-open-btn:active, body .toggle-btn:active { transform: translateY(1px); }
+
+/* primary CTA */
+body #sb-open-btn { background: var(--chartreuse); color: var(--ink); }
+body #sb-open-btn:hover { background: var(--chartreuse-2); color: var(--ink); }
+/* danger stays red, gains the ink outline */
+body #emergency-stop-btn { background: var(--loss); color: #fff; border-color: var(--ink); }
+body #emergency-stop-btn:hover { background: #9e2624; color: #fff; }
+
+/* Simple/Advanced segmented control */
+body #mode-toggle {
+  display: inline-flex; border: 1.5px solid var(--ink); border-radius: var(--r-pill); overflow: hidden;
+}
+body #mode-toggle button {
+  border: none; background: var(--paper); color: var(--ink); padding: 7px 14px;
+  font-family: var(--font-display); font-weight: 600; font-size: 13px; cursor: pointer;
+}
+body #mode-toggle button.active { background: var(--chartreuse); color: var(--ink); }
+
+/* ── Badges → ink-outline pills ──────────────────────────────────────────── */
+body .env-badge, body .market-badge, body .regime-badge, body .acct-badge, body .badge {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+  border: 1.5px solid var(--ink); border-radius: var(--r-pill); padding: 4px 10px; background: var(--paper); color: var(--ink);
+}
+body .env-badge.live { background: var(--gold); color: var(--ink); }
+body .market-badge.open { background: var(--gain-soft); color: var(--gain); }
+body .badge-won { background: var(--gain-soft); color: var(--gain); border-color: var(--gain); }
+body .badge-lost { background: var(--loss-soft); color: var(--loss); border-color: var(--loss); }
+body .badge-open { background: var(--paper-warm); }
+
+/* P&L tags */
+body .tag.bull { color: var(--gain); }
+body .tag.bear { color: var(--loss); }
+
+/* Guardrail / progress bars */
+body .gr-bar-wrap, body .rsi-bar-wrap { background: var(--paper-cool); border: 1.5px solid var(--ink); border-radius: var(--r-pill); overflow: hidden; }
+body .gr-bar { background: var(--ink); }
+
+/* Tables (prediction) — ink-outline container */
+body table { border: 1.5px solid var(--ink); border-radius: var(--r-md); overflow: hidden; border-collapse: separate; border-spacing: 0; }
+body table th { background: var(--paper-warm); font-family: var(--font-mono); }
+
+/* ── Compact the header so it stays on one line (no Emergency-Stop wrap) ──── */
+.app-header { gap: 8px; }
+.app-header #toggle-btn, .app-header #sb-open-btn,
+.app-header #wds-setup-btn, .app-header #emergency-stop-btn { padding: 7px 12px; font-size: 12px; }
+.app-header #mode-toggle button { padding: 6px 11px; font-size: 12px; }
+.app-header .env-badge, .app-header .market-badge,
+.app-header .regime-badge, .app-header .acct-badge { padding: 3px 8px; font-size: 10px; min-width: 0; }
+.app-header .botswitch { font-size: 12px; }
+.app-header .botswitch a, .app-header .botswitch span { padding: 6px 12px; }
+
+/* ── Style the pre-existing Simple/Advanced "Welcome" modal to Wallstrdev ─── */
+#mode-modal, #live-confirm-modal {
+  background: var(--paper); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: var(--r-xl);
+  box-shadow: 14px 14px 0 rgba(14,14,16,0.10); font-family: var(--font-body);
+}
+#mode-modal h2, #live-confirm-modal h2 {
+  font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em;
+}
+#mode-modal .modal-card {
+  border: 1.5px solid var(--rule); border-radius: var(--r-md); background: var(--paper);
+  transition: border-color .15s ease, transform .15s ease;
+}
+#mode-modal .modal-card:hover { border-color: var(--ink); transform: translateY(-2px); }
+#mode-modal .modal-card.selected { border-color: var(--ink); background: var(--chartreuse); }
+#mode-modal .modal-card-title { font-family: var(--font-display); font-weight: 700; }
+#mode-modal .modal-badge {
+  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  background: var(--ink); color: var(--paper); border-radius: var(--r-pill); padding: 3px 9px;
+}
+#modal-cta, #live-confirm-cta {
+  font-family: var(--font-display); font-weight: 600;
+  background: var(--chartreuse); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: var(--r-pill); padding: 12px 22px; cursor: pointer;
+}
+#modal-cta:hover, #live-confirm-cta:hover { background: var(--chartreuse-2); }
+#live-confirm-cta:disabled { opacity: .45; cursor: not-allowed; }

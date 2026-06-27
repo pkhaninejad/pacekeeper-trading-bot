@@ -1,0 +1,120 @@
+name: Deploy Pacekeeper Web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Install Docker
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            if ! command -v docker &> /dev/null; then
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sudo sh get-docker.sh
+              sudo usermod -aG docker ubuntu
+              rm get-docker.sh
+            fi
+            if ! command -v docker compose &> /dev/null; then
+              sudo apt-get update && sudo apt-get install -y docker-compose-plugin
+            fi
+            if ! command -v git &> /dev/null; then
+              sudo apt-get update && sudo apt-get install -y git
+            fi
+
+      - name: 2. Clone / Pull Repo
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.GH_DEPLOY_KEY }}" > ~/.ssh/github_deploy_key
+            chmod 600 ~/.ssh/github_deploy_key
+            cat > ~/.ssh/config << 'SSH_CONFIG'
+            Host github.com
+              HostName github.com
+              User git
+              IdentityFile ~/.ssh/github_deploy_key
+              StrictHostKeyChecking no
+            SSH_CONFIG
+
+            if [ -d "/home/ubuntu/Claude-trade-bot" ]; then
+              cd /home/ubuntu/Claude-trade-bot
+              git fetch origin main
+              git reset --hard origin/main
+            else
+              git clone git@github.com:pkhaninejad/Claude-trade-bot.git /home/ubuntu/Claude-trade-bot
+            fi
+
+      - name: 3. Write Secrets
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/Claude-trade-bot/web
+
+            cat > .env << EOF
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+            DOWNLOAD_URL_MACOS=${{ vars.DOWNLOAD_URL_MACOS }}
+            DOWNLOAD_URL_WINDOWS=${{ vars.DOWNLOAD_URL_WINDOWS }}
+            FROM_EMAIL=${{ vars.FROM_EMAIL }}
+            LICENSE_EXPIRES_DAYS=${{ vars.LICENSE_EXPIRES_DAYS }}
+            NODE_ENV=production
+            EOF
+
+            # Decode the base64 private key and write it to the server
+            echo "${{ secrets.PACEKEEPER_PRIVATE_KEY_B64 }}" | base64 -d > /home/ubuntu/.pacekeeper-private.key
+            chmod 600 /home/ubuntu/.pacekeeper-private.key
+
+      - name: 4. Free Disk Space
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker stop pacekeeper-web || true
+            docker rm pacekeeper-web || true
+            docker image prune -af || true
+            docker builder prune -af || true
+            echo "=== Disk space after cleanup ===" && df -h
+
+      - name: 5. Build and Start
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            cd /home/ubuntu/Claude-trade-bot/web
+            docker compose up --build -d
+            docker compose ps
+            docker compose logs --tail=30 web
+
+      - name: 6. Verify
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sleep 5
+            curl -f http://localhost:3001/api/health && echo "Health check passed" || echo "Warning: health check failed"
+            docker compose -f /home/ubuntu/Claude-trade-bot/web/docker-compose.yml ps

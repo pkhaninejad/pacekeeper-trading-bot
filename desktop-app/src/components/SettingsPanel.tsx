@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { Config, AI_PROVIDERS, AI_PROVIDER_MODELS, defaultModel } from "../types/config";
 
 interface Props {
@@ -37,6 +37,7 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
   }
 
   async function validateLicense() {
+    if (!isTauri()) { setLicState("error"); setLicMsg("Validation needs the desktop app."); return; }
     setLicState("checking");
     setLicMsg("Validating…");
     try {
@@ -66,7 +67,7 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
       max_position_size_pct: maxSize    / 100,
       watchlist:             watchlist.split(",").map(s => s.trim().toUpperCase()).filter(Boolean),
     };
-    await invoke("save_config", { config: updated });
+    if (isTauri()) await invoke("save_config", { config: updated });
     setSaving(false);
     onSave(updated);
   }

@@ -12,6 +12,9 @@ const PUBLIC_KEY: [u8; 32] = [0x4f, 0x0e, 0x3a, 0xef, 0x5e, 0xe8, 0x73, 0x8f, 0x
 // product identifier as the `domain` the server validates against.
 const LICENSE_SERVER_URL: &str = "https://wallstrdev.com/wp-json/wds-license/v1/validate";
 const PRODUCT_DOMAIN: &str = "pacekeeper-desktop";
+// Product slug the license server validates against (must match the catalog
+// entry created in wds-license-server). Mismatched products are rejected.
+const PRODUCT_SLUG: &str = "pacekeeper";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LicenseInfo {
@@ -71,7 +74,7 @@ fn validate_online_blocking(key: &str) -> Result<LicenseInfo, OnlineError> {
         .map_err(|_| OnlineError::Unreachable)?;
     let resp = client
         .post(&url)
-        .json(&serde_json::json!({ "key": key, "domain": PRODUCT_DOMAIN }))
+        .json(&serde_json::json!({ "key": key, "domain": PRODUCT_DOMAIN, "product": PRODUCT_SLUG }))
         .send()
         .map_err(|_| OnlineError::Unreachable)?;
     let body: ServerResponse = resp.json().map_err(|_| OnlineError::Unreachable)?;

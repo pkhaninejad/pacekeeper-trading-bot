@@ -46,3 +46,15 @@ desktop-app/src-tauri/target/
 
 .env_backup
 Cargo.lock
+
+# Runtime confirmation state (machine-local, not a secret)
+data/live_confirmed.json
+# Strategy builder runtime state (machine-local)
+data/stock_bot.db
+data/stock_bot.db-wal
+data/stock_bot.db-shm
+data/stock_live_strategy.json
+# Visual brainstorming companion
+.superpowers/
+data/setup.json
+data/license_cache.json

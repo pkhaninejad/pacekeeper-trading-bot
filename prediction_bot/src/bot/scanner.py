@@ -36,20 +36,41 @@ async def scan_markets(
         if market.liquidity < settings.MIN_LIQUIDITY:
             continue
 
-        best_side = "YES" if market.yes_price >= market.no_price else "NO"
-        best_price = market.yes_price if best_side == "YES" else market.no_price
-
-        if not (settings.HIGH_PROB_MIN <= best_price <= settings.HIGH_PROB_MAX):
-            continue
-
-        candidates.append(MarketCandidate(
-            market=market,
-            best_side=best_side,
-            market_price=best_price,
-        ))
+        candidate = _apply_strategy(market, settings)
+        if candidate is not None:
+            candidates.append(candidate)
 
     def _score(c: MarketCandidate) -> float:
         return (1.0 - c.market_price) * math.log(c.market.liquidity + 1)
 
     candidates.sort(key=_score, reverse=True)
     return candidates[:50]
+
+
+def _apply_strategy(
+    market: PredictionMarket,
+    settings: PredictionBotSettings,
+) -> MarketCandidate | None:
+    """Return a MarketCandidate for this market under the active strategy, or None to skip."""
+    high_side = "YES" if market.yes_price >= market.no_price else "NO"
+    high_price = market.yes_price if high_side == "YES" else market.no_price
+
+    if not (settings.HIGH_PROB_MIN <= high_price <= settings.HIGH_PROB_MAX):
+        return None
+
+    if settings.BET_STRATEGY == "contrarian":
+        best_side = "NO" if high_side == "YES" else "YES"
+        best_price = market.no_price if best_side == "NO" else market.yes_price
+    else:
+        best_side = high_side
+        best_price = high_price
+        if settings.BET_STRATEGY == "min_rr":
+            rr = (1.0 - best_price) / best_price if best_price > 0 else 0.0
+            if rr < settings.MIN_RR_RATIO:
+                return None
+
+    return MarketCandidate(
+        market=market,
+        best_side=best_side,
+        market_price=best_price,
+    )

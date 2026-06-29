@@ -1,0 +1,82 @@
+/* First-run setup + license onboarding — Wallstrdev Design System. */
+
+#wds-setup {
+  position: fixed; inset: 0; z-index: 1100;
+  background: var(--paper-warm);
+  display: none; align-items: center; justify-content: center; padding: 24px;
+  font-family: var(--font-body); color: var(--ink);
+}
+#wds-setup.open { display: flex; }
+
+.wds-card {
+  background: var(--paper); width: min(560px, 96vw); max-height: 92vh; overflow-y: auto;
+  border: 1.5px solid var(--ink); border-radius: var(--r-xl);
+  box-shadow: 14px 14px 0 rgba(14,14,16,0.10);
+  padding: 40px 44px;
+}
+
+.wds-eyebrow {
+  display: inline-block; font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; background: var(--chartreuse); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: var(--r-pill); padding: 6px 14px; margin-bottom: 22px;
+}
+.wds-card h1 {
+  font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em;
+  font-size: clamp(34px, 6vw, 52px); line-height: 1.0; margin: 0 0 14px;
+}
+.wds-card h2 {
+  font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em;
+  font-size: 26px; margin: 0 0 8px;
+}
+.wds-card p.lede { color: var(--muted); font-size: 16px; line-height: 1.5; margin: 0 0 28px; max-width: 46ch; }
+
+/* progress dots */
+.wds-progress { display: flex; gap: 7px; margin-bottom: 26px; }
+.wds-progress i {
+  height: 6px; flex: 1; border-radius: var(--r-pill); background: var(--rule); border: 1px solid var(--rule);
+}
+.wds-progress i.on { background: var(--chartreuse); border-color: var(--ink); }
+.wds-progress i.done { background: var(--ink); border-color: var(--ink); }
+
+/* fields */
+.wds-field { margin-bottom: 18px; }
+.wds-field label { display: block; font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; margin-bottom: 6px; }
+.wds-field .hint { font-size: 0.82rem; color: var(--muted); margin: 0 0 8px; }
+.wds-field input, .wds-field select {
+  width: 100%; box-sizing: border-box; padding: 13px 14px; font-family: var(--font-mono); font-size: 0.92rem;
+  border: 1.5px solid var(--ink); border-radius: var(--r-sm); background: var(--paper); color: var(--ink);
+}
+.wds-field input:focus, .wds-field select:focus { outline: none; box-shadow: 4px 4px 0 var(--chartreuse); }
+
+/* risk cards */
+.wds-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
+.wds-rcard {
+  border: 1.5px solid var(--rule); border-radius: var(--r-md); padding: 16px 14px; cursor: pointer;
+  text-align: center; transition: all .15s ease; background: var(--paper);
+}
+.wds-rcard:hover { border-color: var(--ink); transform: translateY(-2px); }
+.wds-rcard.sel { border-color: var(--ink); background: var(--chartreuse); }
+.wds-rcard .emoji { font-size: 26px; }
+.wds-rcard .t { font-family: var(--font-display); font-weight: 700; margin-top: 6px; }
+.wds-rcard .d { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.wds-rcard.sel .d { color: var(--ink-soft); }
+
+/* footer + buttons */
+.wds-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 30px; }
+.wds-btn {
+  font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; cursor: pointer;
+  padding: 13px 22px; border-radius: var(--r-pill); border: 1.5px solid var(--ink);
+  background: var(--paper); color: var(--ink); transition: all .15s ease;
+}
+.wds-btn:hover { background: var(--ink); color: var(--paper); }
+.wds-btn.primary { background: var(--chartreuse); color: var(--ink); }
+.wds-btn.primary:hover { background: var(--chartreuse-2); color: var(--ink); }
+.wds-btn:disabled { opacity: .45; cursor: not-allowed; }
+.wds-btn .arrow { display: inline-block; transition: transform .15s ease; }
+.wds-btn:hover .arrow { transform: translateX(3px); }
+
+.wds-status { font-family: var(--font-mono); font-size: 0.82rem; margin-top: 10px; }
+.wds-status.ok { color: var(--gain); }
+.wds-status.err { color: var(--loss); }
+.wds-status.busy { color: var(--muted); }
+.wds-skip { background: none; border: none; color: var(--muted); font-size: 0.82rem; cursor: pointer; text-decoration: underline; }

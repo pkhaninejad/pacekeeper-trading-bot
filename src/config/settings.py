@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     MAX_OPEN_POSITIONS: int = 10
     STOP_LOSS_PCT: float = 0.02             # 2% stop-loss
     TAKE_PROFIT_PCT: float = 0.04           # 4% take-profit
+    MAX_DAILY_LOSS_PCT: float = 0.02        # 2% daily portfolio loss triggers auto-halt (live only)
     WATCHLIST: list[str] = [
         "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "NFLX",
         "AMD", "JPM", "V", "UBER", "PLTR"
@@ -58,6 +59,9 @@ class Settings(BaseSettings):
     # Prediction markets
     KALSHI_API_KEY: str = ""               # required for Kalshi fetches; skip silently if absent
     PREDICTION_MARKETS_CACHE_TTL: int = 900  # seconds; shared for Polymarket + Kalshi
+
+    # Strategy builder (per-strategy persistence + shadow portfolios)
+    STOCK_DB_PATH: str = "data/stock_bot.db"
 
     # Dashboard
     DASHBOARD_HOST: str = "0.0.0.0"

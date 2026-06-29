@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +22,8 @@ class PredictionBotSettings(BaseSettings):
     MAX_OPEN_POSITIONS: int = 20
     PM_DB_PATH: str = "prediction_bot/data/paper_trades.db"
     PM_DASHBOARD_PORT: int = 4001
+    BET_STRATEGY: Literal["contrarian", "kelly", "min_rr"] = "contrarian"
+    MIN_RR_RATIO: float = 0.25
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

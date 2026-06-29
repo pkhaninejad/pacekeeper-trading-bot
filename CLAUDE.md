@@ -80,30 +80,28 @@ This keeps token consumption low and each file easy to reason about in context.
 
 ## Design System
 
-All UI work **must** follow the Pacekeeper design system. Read the full spec before touching any frontend file:
+All UI work **must** follow the **Wallstrdev design system** (the product name stays as-is — only the visual system changed from Pacekeeper). Read the spec before touching any frontend file:
 
-- **`design/Pacekeeper Design Document.html`** — canonical 29-section spec (open in a browser to view)
-- **`design/pacekeeper-tokens.css`** — design tokens (colors, type, spacing, radii, motion)
-- **`design/pacekeeper-doc.css`** — full component library stylesheet
+- **`design/Wallstrdev Design System.html`** — canonical spec (open in a browser to view)
+- **`src/dashboard/static/wallstrdev-tokens.css`** — design tokens (colors, type, radii) + Google Fonts; served to both dashboards and includes back-compat aliases for the old token names.
+- Legacy Pacekeeper files remain in `design/` for reference only; do not use them.
 
 ### Key principles
-- **Trading Desk aesthetic**: white/light canvas, electric-cobalt primary (`#1E5BFF`), market-standard sage/crimson for P&L.
-- **Typography**: Inter for all UI text; JetBrains Mono for every number, timestamp, ticker symbol, and label.
-- **Color roles**: sage (`#2C7A4B`) = gain/success only; crimson (`#C4302E`) = loss/danger only; amber (`#B8730E`) = live-mode chrome and caution; never use these as decoration.
-- **No dark backgrounds** unless explicitly implementing the dark theme toggle.
-- **Motion**: 120ms fast (hover/press), 220ms base (panels), 420ms slow (route changes). `cubic-bezier(.2,.8,.2,1)` ease-out. No springs, parallax, or confetti.
-- **Spacing**: 4-point grid. Use the `--s-*` tokens.
+- **Editorial / "drawn" aesthetic**: warm light canvas (`--paper #FFFFFF` / `--paper-warm #F6F5F0`), near-black ink text and **1.5px ink outlines** on panels, cards, inputs, and buttons.
+- **Signature accent — chartreuse `#DCEE2A`**: used as a **CTA/panel background with ink text on top**, never as a text color. Secondary accent pink `#F0BFE8`; brand navy `#1B2A4E`; gold `#B8945C`.
+- **Typography**: Plus Jakarta Sans (display/headings/buttons, weights 600–800, tight `-0.02em` tracking); Manrope (body); JetBrains Mono (labels, numbers, eyebrows — uppercase with letter-spacing).
+- **P&L**: green = gain, crimson = loss (market convention) — `--gain` / `--loss`.
+- **Motion**: ~150ms ease; hover lifts (`translateY(-2px)`), arrows nudge (`translateX(3px)`), buttons press (`translateY(1px)`). No springs/parallax/confetti.
+- **Radii**: `--r-xs 6 / --r-sm 10 / --r-md 16 / --r-lg 24 / --r-xl 32 / --r-pill`.
 
 ### Token quick reference
 ```css
-/* Surfaces */    --paper / --paper-2 / --paper-3
-/* Ink */         --ink / --ink-2 / --ink-3 / --ink-4
-/* Separators */  --rule / --rule-2
-/* Actions */     --accent (#1E5BFF) / --accent-soft
-/* P&L */         --sage / --sage-soft   (bull / gain)
-/*               --crimson / --crimson-soft  (bear / loss)
-/* Live mode */   --amber / --amber-soft
-/* Type */        --sans (Inter) / --mono (JetBrains Mono)
+/* Surfaces */  --paper / --paper-warm / --paper-cool
+/* Ink/text */  --ink / --ink-soft / --muted / --muted-2 / --rule
+/* CTA */       --chartreuse (#DCEE2A, bg only) / --pink / --navy / --gold
+/* P&L */       --gain / --gain-soft · --loss / --loss-soft
+/* Type */      --font-display (Plus Jakarta Sans) / --font-body (Manrope) / --font-mono (JetBrains Mono)
+/* Compat */    old names (--accent→navy, --sans, --mono, --sage, --crimson, --amber) still resolve
 ```
 
 ## Trading212 API Notes

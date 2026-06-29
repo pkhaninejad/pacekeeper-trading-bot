@@ -47,6 +47,7 @@ class PaperTrade(BaseModel):
     end_date: datetime | None = None
     resolved_at: datetime | None = None
     resolution_source: str | None = None
+    strategy_id: str = "default"
 
 
 class BankrollSnapshot(BaseModel):
@@ -57,7 +58,7 @@ class BankrollSnapshot(BaseModel):
 
 
 class PMBotStatus(BaseModel):
-    enabled: bool = True
+    enabled: bool = False
     platforms: dict = {"polymarket": True, "kalshi": False}
     categories: list[str] = ["crypto", "sports", "politics"]
     open_trades: int = 0

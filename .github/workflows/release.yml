@@ -61,4 +61,3 @@ jobs:
           prerelease: false
           projectPath: desktop-app
           tauriScript: pnpm tauri
-          updaterJsonKeepUniversal: true

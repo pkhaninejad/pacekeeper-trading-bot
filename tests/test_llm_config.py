@@ -7,9 +7,14 @@ from src.bot.llm_config import ProviderConfig, load_provider_config, save_provid
 
 @pytest.fixture(autouse=True)
 def patch_credentials_file(tmp_path, monkeypatch):
-    """Redirect CREDENTIALS_FILE to a temp path for every test."""
+    """Redirect CREDENTIALS_FILE to a temp path for every test.
+
+    Also redirect _PB_LLM_CONFIG to a non-existent path so the
+    prediction_bot provider file is never read during unit tests.
+    """
     creds = tmp_path / "credentials.json"
     monkeypatch.setattr("src.bot.llm_config.CREDENTIALS_FILE", creds)
+    monkeypatch.setattr("src.bot.llm_config._PB_LLM_CONFIG", tmp_path / "llm_providers.json")
     return creds
 
 

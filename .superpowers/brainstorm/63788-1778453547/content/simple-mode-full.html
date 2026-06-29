@@ -1,0 +1,111 @@
+<h2>Simple mode — full page layout</h2>
+<p class="subtitle">Everything below the header when Simple view is active. KPI numbers and P&L chart are shared with Advanced mode and always visible.</p>
+
+<div class="mockup" style="max-width:780px;margin:0 auto">
+  <div class="mockup-header">Simple mode · main content</div>
+  <div class="mockup-body" style="font-size:13px;font-family:'Inter',sans-serif;line-height:1.5;padding:20px;background:#fff">
+
+    <!-- KPI row (shared, always shown) -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:#F5F7FA;border:1px solid #E3E8EF;border-radius:6px;padding:12px">
+        <div style="font-size:10px;color:#5A6B82;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Available Cash</div>
+        <div style="font-size:22px;font-weight:600;font-family:monospace;color:#0A2540">$4,820.00</div>
+      </div>
+      <div style="background:#F5F7FA;border:1px solid #E3E8EF;border-radius:6px;padding:12px">
+        <div style="font-size:10px;color:#5A6B82;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Portfolio Value</div>
+        <div style="font-size:22px;font-weight:600;font-family:monospace;color:#0A2540">$12,340.00</div>
+      </div>
+      <div style="background:#F5F7FA;border:1px solid #E3E8EF;border-radius:6px;padding:12px">
+        <div style="font-size:10px;color:#5A6B82;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Today's Gain / Loss</div>
+        <div style="font-size:22px;font-weight:600;font-family:monospace;color:#2C7A4B">+$142.30</div>
+      </div>
+    </div>
+
+    <!-- Status cards (Simple only) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">
+      <div style="background:#E1EAFF;border:1px solid #1E5BFF;border-radius:8px;padding:14px">
+        <div style="font-size:10px;color:#1E5BFF;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">What is the bot doing?</div>
+        <div style="font-weight:600;color:#0A2540;font-size:13px">Watching markets</div>
+        <div style="font-size:11px;color:#2C3E5C;margin-top:3px">Next check in 4 min</div>
+      </div>
+      <div style="background:#DCEBE2;border:1px solid #2C7A4B;border-radius:8px;padding:14px">
+        <div style="font-size:10px;color:#2C7A4B;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Is everything healthy?</div>
+        <div style="font-weight:600;color:#0A2540;font-size:13px">✓ All systems running</div>
+        <div style="font-size:11px;color:#2C3E5C;margin-top:3px">2 positions open · $4,820 cash</div>
+      </div>
+      <div style="background:#F5F7FA;border:1px solid #E3E8EF;border-radius:8px;padding:14px">
+        <div style="font-size:10px;color:#5A6B82;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">What happens next?</div>
+        <div style="font-weight:600;color:#0A2540;font-size:13px">Market opens Mon 9:30 AM</div>
+        <div style="font-size:11px;color:#5A6B82;margin-top:3px">Bot will scan 8 stocks</div>
+      </div>
+    </div>
+
+    <!-- P&L chart placeholder (shared) -->
+    <div style="background:#F5F7FA;border:1px solid #E3E8EF;border-radius:6px;padding:14px 18px;margin-bottom:20px">
+      <div style="font-size:11px;font-weight:600;color:#5A6B82;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Session P&amp;L</div>
+      <div style="height:80px;background:linear-gradient(90deg,#DCEBE2 0%,#E1EAFF 100%);border-radius:4px;display:flex;align-items:center;justify-content:center;color:#5A6B82;font-size:11px">P&amp;L chart (unchanged)</div>
+    </div>
+
+    <!-- My Investments (Simple only) -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#5A6B82;letter-spacing:.06em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #E3E8EF">My Investments</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F5F7FA;border:1px solid #E3E8EF;border-radius:6px;margin-bottom:6px">
+        <div>
+          <span style="font-weight:700;color:#0A2540">NVDA</span>
+          <span style="font-size:11px;color:#5A6B82;margin-left:8px">NVIDIA · 3 shares</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-weight:600;color:#2C7A4B;font-family:monospace">+$42.10 <span style="font-size:11px">(+2.1%)</span></span>
+          <button style="font-size:11px;background:#fff;border:1px solid #C9D2DF;border-radius:4px;padding:3px 10px;cursor:pointer;font-weight:500">Sell</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F5F7FA;border:1px solid #E3E8EF;border-radius:6px;margin-bottom:6px">
+        <div>
+          <span style="font-weight:700;color:#0A2540">AAPL</span>
+          <span style="font-size:11px;color:#5A6B82;margin-left:8px">Apple · 5 shares</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-weight:600;color:#C4302E;font-family:monospace">−$12.30 <span style="font-size:11px">(−0.6%)</span></span>
+          <button style="font-size:11px;background:#fff;border:1px solid #C9D2DF;border-radius:4px;padding:3px 10px;cursor:pointer;font-weight:500">Sell</button>
+        </div>
+      </div>
+      <div style="text-align:right;margin-top:6px">
+        <button style="font-size:11px;background:#F5D9D7;border:1px solid #C4302E;color:#C4302E;border-radius:4px;padding:4px 12px;cursor:pointer;font-weight:600">Sell everything</button>
+      </div>
+    </div>
+
+    <!-- Recent Activity (Simple only) -->
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#5A6B82;letter-spacing:.06em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #E3E8EF">Recent Activity</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#DCEBE2;border:1px solid #2C7A4B;border-radius:6px">
+          <span style="font-size:16px;flex-shrink:0">🟢</span>
+          <div>
+            <div style="font-weight:600;color:#0A2540;font-size:13px">Bought 3 shares of NVDA · $487.20 each</div>
+            <div style="font-size:11px;color:#5A6B82;margin-top:2px">AI spotted strong upward momentum · today 10:32 AM</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#F5D9D7;border:1px solid #C4302E;border-radius:6px">
+          <span style="font-size:16px;flex-shrink:0">🔴</span>
+          <div>
+            <div style="font-weight:600;color:#0A2540;font-size:13px">Sold TSLA · took profit</div>
+            <div style="font-size:11px;color:#5A6B82;margin-top:2px">Reached +4% gain target · today 9:47 AM</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#F5F7FA;border:1px solid #E3E8EF;border-radius:6px">
+          <span style="font-size:16px;flex-shrink:0">⏸</span>
+          <div>
+            <div style="font-weight:600;color:#0A2540;font-size:13px">Decided to hold AAPL</div>
+            <div style="font-size:11px;color:#5A6B82;margin-top:2px">Market conditions uncertain right now · today 9:47 AM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div style="background:#F5F7FA;border:1px solid #E3E8EF;border-radius:6px;padding:14px;font-size:12px;color:#5A6B82;max-width:780px;margin:16px auto 0">
+  <strong style="color:#0A2540">What is hidden in Simple mode:</strong> Market Indicators grid · Recent Signals table · Trade Log table · LLM Settings panel<br>
+  <strong style="color:#0A2540">What is shared (always visible):</strong> Header · KPI cards (renamed) · P&amp;L chart
+</div>

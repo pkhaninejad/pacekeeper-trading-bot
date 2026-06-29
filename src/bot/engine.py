@@ -3,8 +3,10 @@ Main trading engine — orchestrates strategy, risk management, and order execut
 """
 
 import asyncio
+import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -17,8 +19,17 @@ from src.api.models import (
 from src.bot.strategy import AIStrategy
 from src.bot.llm_config import ProviderConfig, load_provider_config
 from src.bot.risk_manager import RiskManager
+from src.bot.strategy_runner import (
+    STOCK_SCHEMA, StockStrategyRunner, settings_to_stock_params,
+)
+from src.bot.live_designation import LiveConfirmationRequired, LiveDesignation
+from src.bot.shadow_book import ShadowHolding, run_shadow_strategy
 from src.bot.market_hours import is_market_open, next_open
 from src.bot.position_utils import is_closable_quantity, resolve_close_quantity
+from src.bot.price_feed import get_price_summary
+from strategy_kit import StrategyDefinition
+from strategy_kit.portfolio import ShadowPortfolio
+from strategy_kit.store import StrategyStore
 from src.data.earnings_calendar import EarningsCalendar
 from src.data.macro_calendar import MacroCalendar
 from src.data.market_regime import get_regime
@@ -27,6 +38,16 @@ from src.data.screener import ScreenCandidate
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+CONFIRMED_FILE = Path("data/live_confirmed.json")
+LIVE_STRATEGY_FILE = Path("data/stock_live_strategy.json")
+
+
+def _load_live_confirmed() -> bool:
+    try:
+        return json.loads(CONFIRMED_FILE.read_text()).get("confirmed", False)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return False
 
 
 class TradingEngine:
@@ -52,11 +73,30 @@ class TradingEngine:
             environment=settings.T212_ENV,
             account_type=settings.T212_ACCOUNT_TYPE,
         )
+        self._live_confirmed: bool = _load_live_confirmed()
+        self.status.live_confirmed = self._live_confirmed
+        self.status.daily_loss_limit_pct = settings.MAX_DAILY_LOSS_PCT
+
+        # In live mode, block the bot until the user completes the confirmation flow
+        if settings.T212_ENV == "live" and not self._live_confirmed:
+            self.status.enabled = False
+            logger.warning("Live mode detected but not confirmed — bot paused until confirmation")
+
+        # Strategy builder: per-strategy persistence + parallel shadow portfolios.
+        self._strategy_store = StrategyStore(settings.STOCK_DB_PATH)
+        self._portfolio = ShadowPortfolio(settings.STOCK_DB_PATH)
+        self._live_designation = LiveDesignation(LIVE_STRATEGY_FILE)
+        self._active_strategies: list[StrategyDefinition] = []
+        # strategy_id → {ticker → ShadowHolding} for non-LIVE strategies
+        self._shadow_holdings: dict[str, dict[str, ShadowHolding]] = {}
+
         self._running = False
         self._signals_history: list[TradeSignal] = []
         self._trade_log: list[dict] = []
         self._instruments_cache: list = []
         self._pnl_history: list[dict] = []   # [{t, ppl, total, invested}]
+        self._day_start_ppl: float = 0.0      # PPL at start of current trading day
+        self._day_start_total: float = 0.0    # Portfolio total at start of current trading day
         self._outcome_log: list[TradeOutcome] = []
         self._session_date: str = ""          # YYYY-MM-DD; resets history each new day
         self._last_regime: RegimeResult | None = None
@@ -78,6 +118,7 @@ class TradingEngine:
 
     async def start(self):
         """Start the bot loop."""
+        await self._init_strategies()
         self._running = True
         logger.info("Trading engine started (env=%s)", settings.T212_ENV)
         while self._running:
@@ -90,6 +131,33 @@ class TradingEngine:
             )
             await asyncio.sleep(settings.TRADE_INTERVAL_SECONDS)
 
+    async def _init_strategies(self):
+        """Load active strategies (creating a Default from settings if none),
+        seed each shadow bankroll once, and ensure exactly one LIVE designation."""
+        await self._strategy_store.initialize()
+        await self._portfolio.initialize()
+
+        if not await self._strategy_store.list("stock", active_only=True):
+            await self._strategy_store.create(StrategyDefinition(
+                name="Default",
+                description="Auto-created from current settings",
+                bot="stock",
+                params=settings_to_stock_params(settings),
+            ))
+
+        await self._refresh_active_strategies()
+
+        # Default-designate the first active strategy as LIVE if nothing is set.
+        if self._live_designation.live_strategy_id is None and self._active_strategies:
+            try:
+                self._live_designation.designate(
+                    self._active_strategies[0].id,
+                    env=settings.T212_ENV,
+                    live_confirmed=self._live_confirmed,
+                )
+            except LiveConfirmationRequired:
+                logger.info("Live not confirmed — no LIVE strategy designated yet")
+
     def stop(self):
         self._running = False
         self.status.enabled = False
@@ -98,6 +166,14 @@ class TradingEngine:
     def toggle(self) -> bool:
         self.status.enabled = not self.status.enabled
         return self.status.enabled
+
+    async def emergency_stop(self) -> dict:
+        self.status.enabled = False
+        self.status.halted_reason = "emergency_stop"
+        results = await self.close_all_positions()
+        closed = sum(1 for r in results if r.get("status") == "closed")
+        logger.warning("Emergency stop triggered — %d position(s) closed", closed)
+        return {"halted": True, "positions_closed": closed}
 
     def update_provider_config(self, config: ProviderConfig) -> None:
         """Hot-swap the LLM provider. Takes effect on the next trading cycle."""
@@ -290,12 +366,41 @@ class TradingEngine:
             if today != self._session_date:
                 self._session_date = today
                 self._pnl_history = []
+                self._day_start_ppl = cash.ppl
+                self._day_start_total = cash.total
+
+            self.status.daily_loss_pct = round(self._compute_daily_loss_pct(cash.ppl), 4)
+
+            # Daily loss circuit-breaker (live mode only)
+            if (
+                settings.T212_ENV == "live"
+                and self.status.daily_loss_pct >= settings.MAX_DAILY_LOSS_PCT
+                and self.status.enabled
+            ):
+                self.status.enabled = False
+                self.status.halted_reason = "daily_loss_limit"
+                logger.warning(
+                    "Daily loss limit hit (%.2f%% >= %.2f%%) — bot auto-halted",
+                    self.status.daily_loss_pct * 100,
+                    settings.MAX_DAILY_LOSS_PCT * 100,
+                )
+                return
+
             self._pnl_history.append({
                 "t": datetime.now(UTC).isoformat(),
                 "ppl": round(cash.ppl, 2),
                 "total": round(cash.total, 2),
                 "invested": round(cash.invested, 2),
             })
+
+            # Pick up strategies created/activated in the UI since last cycle.
+            await self._refresh_active_strategies()
+
+            # Apply the LIVE strategy's params to the shared RiskManager so the
+            # real path (exits + validation) uses its knobs rather than globals.
+            live_strategy = self._real_trading_strategy()
+            if live_strategy:
+                self._apply_params_to_risk(live_strategy.params)
 
             # 1. Check stop-loss / take-profit on existing positions
             await self._manage_exits(client, positions)
@@ -368,6 +473,11 @@ class TradingEngine:
                         p for p in positions
                         if self._normalize_ticker(p.ticker) != normalized_signal_ticker
                     ]
+
+            # 4. Run every non-LIVE active strategy as a paper shadow.
+            await self._run_shadow_strategies(
+                signals, exclude_id=live_strategy.id if live_strategy else None
+            )
 
         logger.info("=== Trading cycle complete ===")
 
@@ -502,6 +612,78 @@ class TradingEngine:
                 logger.info("Skip order for %s: position already closed", signal.ticker)
                 return
             logger.error("Order execution failed for %s: %s", signal.ticker, e)
+
+    def _compute_daily_loss_pct(self, ppl: float) -> float:
+        if self._day_start_total <= 0:
+            return 0.0
+        loss = self._day_start_ppl - ppl
+        return max(0.0, loss / self._day_start_total)
+
+    # -------------------------------------------------------------------------
+    # Strategy builder: LIVE designation + parallel shadows
+    # -------------------------------------------------------------------------
+
+    async def _refresh_active_strategies(self) -> None:
+        """Reload active strategies from the store and seed any unseeded shadow
+        bankroll. Lets strategies built in the UI start shadowing on the next
+        cycle without a restart."""
+        self._active_strategies = await self._strategy_store.list("stock", active_only=True)
+        for strategy in self._active_strategies:
+            if not await self._portfolio.equity_curve(strategy.id):
+                vb = float(strategy.params.get("VIRTUAL_BANKROLL", 10_000.0))
+                await self._portfolio.seed_bankroll(strategy.id, vb)
+
+    def _real_trading_strategy(self) -> StrategyDefinition | None:
+        """The single active strategy that places real Trading212 orders, or
+        None. Exactly one by construction (LiveDesignation is single-valued)."""
+        live_id = self._live_designation.live_strategy_id
+        if live_id is None:
+            return None
+        return next((s for s in self._active_strategies if s.id == live_id), None)
+
+    def _apply_params_to_risk(self, params: dict) -> None:
+        """Drive the shared RiskManager from a strategy's params for the real path."""
+        p = STOCK_SCHEMA.fill_defaults(params)
+        self.risk.max_position_pct = float(p["MAX_POSITION_SIZE_PCT"])
+        self.risk.max_open_positions = int(p["MAX_OPEN_POSITIONS"])
+        self.risk.stop_loss_pct = float(p["STOP_LOSS_PCT"])
+        self.risk.take_profit_pct = float(p["TAKE_PROFIT_PCT"])
+        self.risk.min_confidence = float(p["MIN_CONFIDENCE"])
+
+    async def _run_shadow_strategies(
+        self, signals: list[TradeSignal], *, exclude_id: str | None
+    ) -> None:
+        """Apply the same signal set to every non-LIVE strategy as paper trades."""
+        shadows = [s for s in self._active_strategies if s.id != exclude_id]
+        if not shadows:
+            return
+
+        tickers: set[str] = {self._normalize_ticker(t) for t in settings.WATCHLIST}
+        tickers.update(self._normalize_ticker(s.ticker) for s in signals)
+        for holdings in self._shadow_holdings.values():
+            tickers.update(holdings.keys())
+
+        prices: dict[str, float] = {}
+        try:
+            summary = get_price_summary(sorted(tickers))
+            prices = {t: d["current_price"] for t, d in summary.items() if d.get("current_price")}
+        except Exception as e:
+            logger.warning("Shadow price fetch failed: %s", e)
+
+        for strategy in shadows:
+            runner = StockStrategyRunner(strategy.params)
+            holdings = self._shadow_holdings.setdefault(strategy.id, {})
+            try:
+                await run_shadow_strategy(
+                    portfolio=self._portfolio,
+                    strategy_id=strategy.id,
+                    runner=runner,
+                    signals=signals,
+                    prices=prices,
+                    holdings=holdings,
+                )
+            except Exception as e:
+                logger.error("Shadow strategy %s failed: %s", strategy.id, e, exc_info=True)
 
     @staticmethod
     def _normalize_ticker(ticker: str) -> str:

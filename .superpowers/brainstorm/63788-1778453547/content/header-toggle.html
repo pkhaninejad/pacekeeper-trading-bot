@@ -1,0 +1,60 @@
+<h2>Header toggle — two states</h2>
+<p class="subtitle">A pill toggle sits between the existing badges and the status dot. One click switches modes and saves to localStorage.</p>
+
+<div class="mockup" style="max-width:900px;margin:0 auto 24px">
+  <div class="mockup-header">State A — Simple view active</div>
+  <div class="mockup-body" style="padding:0">
+    <div style="background:#fff;border-bottom:1px solid #E3E8EF;padding:12px 24px;display:flex;align-items:center;gap:12px;font-family:'Inter',sans-serif;flex-wrap:wrap">
+      <span style="font-size:16px;font-weight:700;color:#0A2540;letter-spacing:-0.02em">Pace<span style="color:#1E5BFF">keeper</span></span>
+      <span style="font-family:monospace;font-size:10px;padding:2px 8px;border-radius:3px;background:#F7E8C8;color:#B8730E;font-weight:600;border:1px solid #B8730E;letter-spacing:.06em;text-transform:uppercase">DEMO</span>
+      <span style="font-family:monospace;font-size:10px;padding:2px 8px;border-radius:3px;background:#F5D9D7;color:#C4302E;font-weight:600;border:1px solid #C4302E;letter-spacing:.06em;text-transform:uppercase">MARKET CLOSED</span>
+      <span style="font-family:monospace;font-size:10px;padding:2px 8px;border-radius:3px;background:#E1EAFF;color:#1E5BFF;font-weight:600;border:1px solid #1E5BFF;letter-spacing:.06em;text-transform:uppercase">INVEST</span>
+
+      <!-- spacer -->
+      <span style="flex:1"></span>
+
+      <!-- Mode toggle pill -->
+      <span style="display:inline-flex;border:1px solid #E3E8EF;border-radius:20px;background:#F5F7FA;padding:2px;gap:0">
+        <span style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:16px;background:#1E5BFF;color:#fff;cursor:pointer">Simple</span>
+        <span style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:16px;color:#5A6B82;cursor:pointer">Advanced</span>
+      </span>
+
+      <!-- status dot -->
+      <span style="width:8px;height:8px;border-radius:50%;background:#2C7A4B;box-shadow:0 0 0 3px #DCEBE2;display:inline-block"></span>
+      <button style="background:#fff;border:1px solid #C9D2DF;color:#0A2540;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">Pause Bot</button>
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="max-width:900px;margin:0 auto 24px">
+  <div class="mockup-header">State B — Advanced view active</div>
+  <div class="mockup-body" style="padding:0">
+    <div style="background:#fff;border-bottom:1px solid #E3E8EF;padding:12px 24px;display:flex;align-items:center;gap:12px;font-family:'Inter',sans-serif;flex-wrap:wrap">
+      <span style="font-size:16px;font-weight:700;color:#0A2540;letter-spacing:-0.02em">Pace<span style="color:#1E5BFF">keeper</span></span>
+      <span style="font-family:monospace;font-size:10px;padding:2px 8px;border-radius:3px;background:#F7E8C8;color:#B8730E;font-weight:600;border:1px solid #B8730E;letter-spacing:.06em;text-transform:uppercase">DEMO</span>
+      <span style="font-family:monospace;font-size:10px;padding:2px 8px;border-radius:3px;background:#F5D9D7;color:#C4302E;font-weight:600;border:1px solid #C4302E;letter-spacing:.06em;text-transform:uppercase">MARKET CLOSED</span>
+      <span style="font-family:monospace;font-size:10px;padding:2px 8px;border-radius:3px;background:#E1EAFF;color:#1E5BFF;font-weight:600;border:1px solid #1E5BFF;letter-spacing:.06em;text-transform:uppercase">INVEST</span>
+
+      <span style="flex:1"></span>
+
+      <!-- Mode toggle pill — advanced active -->
+      <span style="display:inline-flex;border:1px solid #E3E8EF;border-radius:20px;background:#F5F7FA;padding:2px;gap:0">
+        <span style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:16px;color:#5A6B82;cursor:pointer">Simple</span>
+        <span style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:16px;background:#0A2540;color:#fff;cursor:pointer">Advanced</span>
+      </span>
+
+      <span style="width:8px;height:8px;border-radius:50%;background:#2C7A4B;box-shadow:0 0 0 3px #DCEBE2;display:inline-block"></span>
+      <button style="background:#fff;border:1px solid #C9D2DF;color:#0A2540;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">Pause Bot</button>
+    </div>
+  </div>
+</div>
+
+<div style="background:#F5F7FA;border:1px solid #E3E8EF;border-radius:6px;padding:14px;font-size:12px;color:#5A6B82;max-width:900px;margin:0 auto">
+  <strong style="color:#0A2540">Behaviour notes:</strong>
+  <ul style="margin-top:6px;padding-left:16px;line-height:1.8">
+    <li>Active segment: <strong>Simple</strong> = cobalt fill (#1E5BFF white text), <strong>Advanced</strong> = ink fill (#0A2540 white text)</li>
+    <li>Clicking either segment switches immediately — no page reload</li>
+    <li>Toggle uses 120ms transition (Pacekeeper fast timing) on the active pill position</li>
+    <li>Sits between INVEST badge and the status dot — keeps the left side clean for env/market info</li>
+  </ul>
+</div>

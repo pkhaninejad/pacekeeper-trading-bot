@@ -42,7 +42,9 @@ export default function StepLicense({ config, setConfig, onNext, onBack }: Props
       <h2>Activate Your License</h2>
       <p className="subtitle">
         Enter the license key you received after purchase. No key yet?{" "}
-        <a href="mailto:khaninejad@gmail.com">Contact us</a> to get one.
+        <a href="https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/"
+          target="_blank" rel="noreferrer">Get your license</a>{" "}
+        — free during launch.
       </p>
 
       <div className="field">

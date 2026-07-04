@@ -90,7 +90,8 @@
   function renderLicense(card) {
     card.appendChild(el("span", { class: "wds-eyebrow" }, ["Step 1 · License"]));
     card.appendChild(el("h2", {}, ["Activate your license"]));
-    card.appendChild(el("p", { class: "lede" }, ["Paste the key from your purchase email. We'll verify it instantly."]));
+    var buy = el("a", { href: "https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/", target: "_blank", rel: "noreferrer" }, ["Get your license"]);
+    card.appendChild(el("p", { class: "lede" }, ["Paste the key from your purchase email. We'll verify it instantly. No key yet? ", buy, " — free during launch."]));
     var input = textInput("license_key", "text", "WDS-XXXX-XXXX-XXXX");
     card.appendChild(field("License key", "", input));
     var status = el("div", { class: "wds-status" });

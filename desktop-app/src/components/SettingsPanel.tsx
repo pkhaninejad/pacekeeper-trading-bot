@@ -42,6 +42,8 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
     setLicMsg("Validating…");
     try {
       const result = await invoke<string>("check_license", { key: license.trim() });
+      // Persist immediately — a validated key that isn't saved still blocks bot start.
+      await invoke("save_config", { config: { ...config, license_key: license.trim() } });
       setLicMsg(result); setLicState("ok");
     } catch (err) {
       setLicMsg(String(err)); setLicState("error");

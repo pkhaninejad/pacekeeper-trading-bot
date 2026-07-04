@@ -2,7 +2,17 @@
 
 AI-powered trading bots for Trading212 and prediction markets, with a web dashboard and a desktop app.
 
-A license key from [wallstrdev.com](https://wallstrdev.com) is required to run the bots — see [License](#license).
+One license covers both bots. Get your key from the [Pacekeeper product page](https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/) — free during launch. See [License](#license).
+
+## Screenshots
+
+**Trade Bot** — risk guardrails, session P&L, plain-English status:
+
+![Pacekeeper Trade Bot dashboard](docs/screenshots/tradebot-dashboard.png)
+
+**Prediction Market Bot** — scanner strategies, bankroll, live activity:
+
+![Pacekeeper Prediction Market bot dashboard](docs/screenshots/prediction-dashboard.png)
 
 ## Easiest way: Desktop App
 

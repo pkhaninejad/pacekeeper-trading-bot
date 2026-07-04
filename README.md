@@ -182,3 +182,8 @@ Use this only for internal testing. Public releases should be signed + notarized
 ## Warning
 
 Use `T212_ENV=live` only when you intentionally want real-money trading.
+
+## License
+
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+Free for personal, noncommercial use. **Commercial use requires a paid license** — contact khaninejad@gmail.com or purchase at [wallstrdev.com](https://wallstrdev.com).

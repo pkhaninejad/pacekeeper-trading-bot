@@ -56,7 +56,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Pacekeeper ${{ github.ref_name }}'
-          releaseBody: 'See the [release notes](https://github.com/pkhaninejad/Claude-trade-bot/releases/tag/${{ github.ref_name }}) for details.'
+          releaseBody: 'See the [release notes](https://github.com/pkhaninejad/pacekeeper-trading-bot/releases/tag/${{ github.ref_name }}) for details.'
           releaseDraft: false
           prerelease: false
           projectPath: desktop-app

@@ -4,7 +4,6 @@ import { Config, DEFAULT_CONFIG } from "./types/config";
 import SetupWizard from "./components/wizard/SetupWizard";
 import SettingsPanel from "./components/SettingsPanel";
 import { getVersion } from "@tauri-apps/api/app";
-import UpdateBanner from "./components/UpdateBanner";
 
 type BotKey = "stock" | "prediction";
 type BotState = "running" | "stopped";
@@ -20,6 +19,27 @@ type AppView = "loading" | "wizard" | "launcher";
 interface LicenseInfo {
   email: string;
   expires?: string;
+}
+
+function BotPanel({ name, running, busy, onToggle, onDashboard }: {
+  name: string; running: boolean; busy: boolean;
+  onToggle: () => void; onDashboard: () => void;
+}) {
+  return (
+    <section className="panel">
+      <h2>{name}</h2>
+      <div className="actions">
+        <button className={running ? "btn-stop" : "btn-start"} disabled={busy} onClick={onToggle}>
+          {running ? "Stop" : "Start"}
+        </button>
+        {running && (
+          <button className="btn-dashboard" disabled={busy} onClick={onDashboard}>
+            Open Dashboard
+          </button>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export default function App() {
@@ -136,7 +156,7 @@ export default function App() {
   }, [tauriMode]);
 
   if (view === "loading") {
-    return <div className="app" style={{ textAlign: "center", paddingTop: 80, color: "#9fb2c7" }}>Loading…</div>;
+    return <div className="app" style={{ textAlign: "center", paddingTop: 80, color: "var(--muted)" }}>Loading…</div>;
   }
 
   if (view === "wizard") {
@@ -145,7 +165,6 @@ export default function App() {
 
   return (
     <main className="app">
-      <UpdateBanner />
       <header className="top launcher-header">
         <div>
           <h1>Pacekeeper</h1>
@@ -186,23 +205,13 @@ export default function App() {
         )}
       </section>
 
-      <section className="panel">
-        <h2>Stock Bot</h2>
-        <div className="actions">
-          <button disabled={busy} onClick={() => startBot("stock")}>Start</button>
-          <button disabled={busy} onClick={() => stopBot("stock")}>Stop</button>
-          <button disabled={busy} onClick={() => openDashboard("stock")}>Open Dashboard</button>
-        </div>
-      </section>
+      <BotPanel name="Stock Bot" running={status.stock === "running"} busy={busy}
+        onToggle={() => (status.stock === "running" ? stopBot("stock") : startBot("stock"))}
+        onDashboard={() => openDashboard("stock")} />
 
-      <section className="panel">
-        <h2>Prediction Bot</h2>
-        <div className="actions">
-          <button disabled={busy} onClick={() => startBot("prediction")}>Start</button>
-          <button disabled={busy} onClick={() => stopBot("prediction")}>Stop</button>
-          <button disabled={busy} onClick={() => openDashboard("prediction")}>Open Dashboard</button>
-        </div>
-      </section>
+      <BotPanel name="Prediction Bot" running={status.prediction === "running"} busy={busy}
+        onToggle={() => (status.prediction === "running" ? stopBot("prediction") : startBot("prediction"))}
+        onDashboard={() => openDashboard("prediction")} />
 
       <section className="panel">
         <h2>Quick Controls</h2>

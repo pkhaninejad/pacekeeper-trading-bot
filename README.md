@@ -1,29 +1,30 @@
-# Claude Trade Bot
+# Pacekeeper
 
-AI-powered prediction + execution bot for Trading212, with a FastAPI dashboard.
+AI-powered trading bots for Trading212 and prediction markets, with a web dashboard and a desktop app.
+
+A license key from [wallstrdev.com](https://wallstrdev.com) is required to run the bots — see [License](#license).
+
+## Easiest way: Desktop App
+
+Download the latest installer from [Releases](https://github.com/pkhaninejad/pacekeeper-trading-bot/releases) — `.dmg` for macOS, `.msi` for Windows. The app walks you through license activation, broker connection, and AI provider setup; no terminal needed.
 
 ## Which bot is which
 
-- `stock_bot.py` = stock trading bot (Trading212 + dashboard)
-- `prediction_bot/main.py` = prediction market bot
+- `stock_bot.py` — stock trading bot (Trading212), dashboard at [http://localhost:4000](http://localhost:4000)
+- `prediction_bot/main.py` — prediction market bot, dashboard at [http://localhost:4001](http://localhost:4001)
 
-## Quick Start (Local)
+## Quick Start (from source)
 
-### 1. Create the virtual environment
+### 1. Create the virtual environment and install dependencies
 
 ```bash
 python3 -m venv .venv
-```
-
-### 2. Install dependencies (important)
-
-Always use the project venv binaries:
-
-```bash
 .venv/bin/pip install -r requirements.txt
 ```
 
-### 3. Configure environment
+Always use the project venv binaries (`.venv/bin/python` / `.venv/bin/pip`), not system Python.
+
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
@@ -33,34 +34,36 @@ Set these required values in `.env`:
 
 - `T212_API_KEY`
 - `T212_API_SECRET`
-- `ANTHROPIC_API_KEY`
+- `ANTHROPIC_API_KEY` (or configure another AI provider in the dashboard's Setup wizard)
 
 Recommended while testing:
 
 - `T212_ENV=demo` (paper trading)
 - `BOT_ENABLED=false` (start in safe/manual mode)
 
-### 4. Start the stock trading bot app
+### 3. Start the stock trading bot
 
 ```bash
 .venv/bin/python stock_bot.py
 ```
 
-### 5. Open the dashboard
+Open [http://localhost:4000](http://localhost:4000). The first-run Setup wizard handles license activation, broker credentials, AI provider (Anthropic, OpenAI, Gemini, DeepSeek, Qwen, or local Ollama), and risk profile — it is the single place to configure these.
 
-- [http://localhost:4000](http://localhost:4000)
+### 4. Run the prediction bot
+
+```bash
+.venv/bin/python -m prediction_bot.main
+```
+
+Dashboard: [http://localhost:4001](http://localhost:4001)
 
 ## Verify the bot is running
-
-Check status directly:
 
 ```bash
 curl http://localhost:4000/api/status
 ```
 
-If running correctly, you should get JSON with bot status fields.
-
-You can manually trigger one prediction/trading cycle from the dashboard or:
+You should get JSON with bot status fields. Trigger one manual cycle from the dashboard or:
 
 ```bash
 curl -X POST http://localhost:4000/api/cycle
@@ -70,9 +73,9 @@ curl -X POST http://localhost:4000/api/cycle
 
 1. Keep `T212_ENV=demo`
 2. Keep `BOT_ENABLED=false`
-3. Start app and confirm dashboard loads
+3. Start the app and confirm the dashboard loads
 4. Trigger one manual cycle (`POST /api/cycle`)
-5. Review signals/trades in dashboard
+5. Review signals/trades in the dashboard
 6. Only then set `BOT_ENABLED=true` if behavior looks correct
 
 ## Run With Docker
@@ -85,31 +88,10 @@ docker-compose up --build
 
 Dashboard: [http://localhost:4000](http://localhost:4000)
 
-## Run The Prediction Bot
+## Desktop App development
 
-From the repo root:
-
-```bash
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python -m prediction_bot.main
-.venv/bin/python prediction_bot/main.py
-```
-
-Prefer `-m prediction_bot.main` as the default form; it is the most reliable import path setup.
-
-Prediction bot dashboard: [http://localhost:4001](http://localhost:4001)
-
-## Desktop App (Tauri + TypeScript) (Issue #80)
-
-This repo includes a Tauri desktop app so non-technical users can start bots without terminal commands.
-
-- Desktop source: `desktop-app/`
-- UI stack: React + TypeScript
-- Native bridge: Rust (Tauri commands)
-- Stock bot URL: `http://localhost:4000`
-- Prediction bot URL: `http://localhost:4001`
-
-Run desktop app in dev mode:
+- Source: `desktop-app/` — React + TypeScript UI, Rust (Tauri) native bridge.
+- Prerequisite: Rust toolchain via [rustup](https://rustup.rs/).
 
 ```bash
 cd desktop-app
@@ -117,71 +99,41 @@ pnpm install
 pnpm tauri:dev
 ```
 
-Prerequisite: install Rust toolchain once via [rustup](https://rustup.rs/).
+Note: `pnpm dev` runs a browser preview only; process controls (start/stop bots) require the Tauri runtime via `pnpm tauri:dev`.
 
-Note: `pnpm dev` runs browser preview only. Process controls (start/stop bots) require Tauri runtime via `pnpm tauri:dev`.
+Local builds: `./scripts/build_desktop_macos.sh` / `./scripts/build_desktop_windows.ps1`. CI builds artifacts via `.github/workflows/desktop-build.yml`; tagged `v*.*.*` pushes publish signed installers via `.github/workflows/release.yml`.
 
-### Build macOS binary
+### macOS signing / notarization
 
-```bash
-./scripts/build_desktop_macos.sh
-```
+If macOS shows `"<App> is damaged and can't be opened"`, the build was not signed/notarized. Tagged releases need these repository secrets: `APPLE_CERTIFICATE` (base64 `.p12`), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD` (app-specific), `APPLE_TEAM_ID`.
 
-### Build Windows binary
-
-```powershell
-./scripts/build_desktop_windows.ps1
-```
-
-CI builds Tauri desktop artifacts on GitHub Actions via `.github/workflows/desktop-build.yml`.
-
-## macOS Release Signing and Notarization
-
-If macOS shows `"<App> is damaged and can't be opened"`, the app was not properly signed/notarized.
-
-For tagged releases (`.github/workflows/release.yml`), configure these GitHub repository secrets:
-
-- `APPLE_CERTIFICATE` (base64-encoded `.p12` Developer ID Application certificate)
-- `APPLE_CERTIFICATE_PASSWORD`
-- `APPLE_SIGNING_IDENTITY` (for example `Developer ID Application: Your Name (TEAMID)`)
-- `APPLE_ID` (Apple account email)
-- `APPLE_PASSWORD` (app-specific password)
-- `APPLE_TEAM_ID`
-
-Temporary local unblock for a previously downloaded build:
+Temporary local unblock for internal testing only:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Pacekeeper.app
 ```
 
-Use this only for internal testing. Public releases should be signed + notarized.
-
 ## Common Issues
 
-- `ModuleNotFoundError` or missing packages:
-  - You likely used system Python. Re-run with `.venv/bin/python` and `.venv/bin/pip`.
-- Dashboard not reachable:
-  - Confirm server is running and check `DASHBOARD_PORT` in `.env` (default `4000`).
-- No trades/signals appear:
-  - Ensure API keys are valid and market/account constraints allow orders.
-  - Try manual cycle endpoint and inspect logs.
+- `ModuleNotFoundError`: you used system Python — re-run with `.venv/bin/python` / `.venv/bin/pip`.
+- Dashboard not reachable: confirm the server is running and check `DASHBOARD_PORT` in `.env` (default `4000`).
+- No trades/signals: check API keys, market hours, and account constraints; trigger a manual cycle and inspect logs.
+- "License error" on bot start: activate a valid license key in the desktop app Settings or the dashboard Setup wizard.
 
 ## Key Environment Variables
 
-- `T212_API_KEY`, `T212_API_SECRET`
-- `T212_ENV` (`demo` or `live`)
+- `T212_API_KEY`, `T212_API_SECRET`, `T212_ENV` (`demo` or `live`)
 - `ANTHROPIC_API_KEY`
-- `BOT_ENABLED`
-- `TRADE_INTERVAL_SECONDS`
-- `MAX_OPEN_POSITIONS`
-- `MAX_POSITION_SIZE_PCT`
+- `BOT_ENABLED`, `TRADE_INTERVAL_SECONDS`
+- `MAX_OPEN_POSITIONS`, `MAX_POSITION_SIZE_PCT`
 - `STOP_LOSS_PCT`, `TAKE_PROFIT_PCT`
-- `WATCHLIST`
-- `DASHBOARD_PORT`
+- `WATCHLIST`, `DASHBOARD_PORT`
 
-## Warning
+See `src/config/settings.py` for the full list and defaults.
 
-Use `T212_ENV=live` only when you intentionally want real-money trading.
+## Disclaimer
+
+Trading involves substantial risk of loss. This software is provided as a tool, not financial advice; you are solely responsible for any trades it executes on your account. Use `T212_ENV=live` only when you intentionally want real-money trading.
 
 ## License
 

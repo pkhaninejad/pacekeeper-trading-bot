@@ -43,7 +43,7 @@ class TestSchema:
         keys = {f.key for f in STOCK_SCHEMA.fields}
         required = {
             "MIN_CONFIDENCE", "MAX_POSITION_SIZE_PCT", "MAX_OPEN_POSITIONS",
-            "STOP_LOSS_PCT", "TAKE_PROFIT_PCT", "WATCHLIST", "CLAUDE_MODEL",
+            "STOP_LOSS_PCT", "TAKE_PROFIT_PCT", "WATCHLIST",
             "ENABLE_SCREENER", "BLOCK_NEW_POSITIONS_ON_EARNINGS",
             "BLOCK_NEW_POSITIONS_ON_MACRO",
         }

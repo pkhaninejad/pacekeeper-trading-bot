@@ -392,78 +392,6 @@
     }
     #last-update { color: var(--accent); }
 
-    /* ── LLM Settings panel ── */
-    .llm-panel {
-      background: var(--paper-2);
-      border: 1px solid var(--rule);
-      border-radius: var(--r-2);
-      padding: 16px 20px;
-      margin-bottom: 24px;
-    }
-    .llm-panel h2 {
-      font-size: 11px; font-weight: 600;
-      margin-bottom: 12px;
-      color: var(--ink-3);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-family: var(--mono);
-    }
-    .llm-form {
-      display: flex;
-      gap: 10px;
-      align-items: flex-end;
-      flex-wrap: wrap;
-    }
-    .llm-form label {
-      font-size: 11px;
-      color: var(--ink-3);
-      display: block;
-      margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-family: var(--mono);
-      font-weight: 600;
-    }
-    .llm-form select, .llm-form input[type="text"] {
-      background: var(--paper);
-      border: 1px solid var(--rule-2);
-      color: var(--ink);
-      padding: 6px 10px;
-      border-radius: var(--r-1);
-      font-size: 13px;
-      font-family: var(--sans);
-      min-width: 160px;
-      outline: none;
-      transition: border-color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out);
-    }
-    .llm-form select:focus, .llm-form input[type="text"]:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-soft);
-    }
-    .llm-form input[type="text"] { min-width: 220px; }
-    #llm-save-btn {
-      background: var(--ink);
-      border: none;
-      color: var(--paper);
-      padding: 7px 16px;
-      border-radius: var(--r-2);
-      cursor: pointer;
-      font-size: 13px;
-      font-family: var(--sans);
-      font-weight: 500;
-      transition: opacity var(--t-fast) var(--ease-out);
-    }
-    #llm-save-btn:hover { opacity: 0.85; }
-    #llm-toast {
-      font-size: 12px;
-      padding: 4px 10px;
-      border-radius: var(--r-1);
-      display: none;
-      font-family: var(--mono);
-    }
-    #llm-toast.ok  { background: var(--sage-soft);   color: var(--sage);    display: inline-block; border: 1px solid var(--sage); }
-    #llm-toast.err { background: var(--crimson-soft); color: var(--crimson); display: inline-block; border: 1px solid var(--crimson); }
-
     /* ── Mode visibility ── */
     html.mode-simple   [data-mode="advanced"] { display: none; }
     html.mode-advanced [data-mode="simple"]   { display: none; }
@@ -803,35 +731,7 @@
       </div>
     </div>
 
-    <!-- LLM Settings -->
-    <div data-mode="advanced">
-    <div class="llm-panel">
-      <h2>LLM Settings</h2>
-      <div class="llm-form">
-        <div>
-          <label for="llm-provider">Provider</label>
-          <select id="llm-provider">
-            <option value="anthropic">Anthropic</option>
-            <option value="openai">OpenAI</option>
-            <option value="gemini">Gemini</option>
-            <option value="ollama">Ollama</option>
-            <option value="deepseek">DeepSeek</option>
-            <option value="qwen">Qwen</option>
-          </select>
-        </div>
-        <div>
-          <label for="llm-model">Model</label>
-          <input type="text" id="llm-model" placeholder="model name" />
-        </div>
-        <div id="llm-cred-wrap">
-          <label for="llm-credential" id="llm-cred-label">API Key</label>
-          <input type="text" id="llm-credential" placeholder="enter key" />
-        </div>
-        <button id="llm-save-btn">Save</button>
-        <span id="llm-toast"></span>
-      </div>
-    </div>
-    </div>
+    <!-- LLM settings live in the Setup wizard (header → Setup) — single source. -->
 
     <!-- P&L Chart -->
     <div class="chart-wrap">
@@ -1515,74 +1415,6 @@
   refresh();
   setInterval(refresh, 15000);
   connectSSE();
-
-  // ── LLM Settings ─────────────────────────────────────────────────────────
-  const PROVIDER_USES_URL = new Set(['ollama', 'qwen']);
-
-  async function loadLLMConfig() {
-    try {
-      const cfg = await fetchJSON('/api/llm/config');
-      const providerDefaults = cfg.provider_defaults || {};
-      document.getElementById('llm-provider').value = cfg.provider;
-      document.getElementById('llm-model').value = cfg.model;
-      updateLLMCredField(cfg.provider, cfg.api_key, cfg.base_url);
-      window._llmDefaults = providerDefaults;
-    } catch(e) { console.warn('llm config load failed', e); }
-  }
-
-  function updateLLMCredField(provider, apiKey, baseUrl) {
-    const label = document.getElementById('llm-cred-label');
-    const input = document.getElementById('llm-credential');
-    if (PROVIDER_USES_URL.has(provider)) {
-      label.textContent = 'Base URL';
-      input.placeholder = 'http://localhost:11434';
-      input.value = baseUrl || '';
-    } else {
-      label.textContent = 'API Key';
-      input.placeholder = 'enter API key';
-      input.value = apiKey || '';
-    }
-  }
-
-  document.getElementById('llm-provider').addEventListener('change', function() {
-    const provider = this.value;
-    const defaults = (window._llmDefaults || {})[provider] || {};
-    document.getElementById('llm-model').value = defaults.model || '';
-    updateLLMCredField(provider, '', defaults.base_url || '');
-  });
-
-  document.getElementById('llm-save-btn').addEventListener('click', async () => {
-    const provider = document.getElementById('llm-provider').value;
-    const model = document.getElementById('llm-model').value.trim();
-    const credVal = document.getElementById('llm-credential').value.trim();
-    const isUrl = PROVIDER_USES_URL.has(provider);
-    const body = {
-      provider,
-      model,
-      api_key: isUrl ? '' : credVal,
-      base_url: isUrl ? credVal : '',
-    };
-    const toast = document.getElementById('llm-toast');
-    try {
-      const res = await fetch('/api/llm/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || res.statusText);
-      }
-      toast.textContent = 'Saved';
-      toast.className = 'ok';
-    } catch(e) {
-      toast.textContent = `Error: ${e.message}`;
-      toast.className = 'err';
-    }
-    setTimeout(() => { toast.className = ''; toast.textContent = ''; }, 3000);
-  });
-
-  loadLLMConfig();
 
   // ── Guardrails helpers ────────────────────────────────────────────────────
 

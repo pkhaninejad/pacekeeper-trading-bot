@@ -90,7 +90,8 @@
   function renderLicense(card) {
     card.appendChild(el("span", { class: "wds-eyebrow" }, ["Step 1 · License"]));
     card.appendChild(el("h2", {}, ["Activate your license"]));
-    card.appendChild(el("p", { class: "lede" }, ["Paste the key from your purchase email. We'll verify it instantly."]));
+    var buy = el("a", { href: "https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/", target: "_blank", rel: "noreferrer" }, ["Get your license"]);
+    card.appendChild(el("p", { class: "lede" }, ["Paste the key from your purchase email. We'll verify it instantly. No key yet? ", buy, " — free during launch."]));
     var input = textInput("license_key", "text", "WDS-XXXX-XXXX-XXXX");
     card.appendChild(field("License key", "", input));
     var status = el("div", { class: "wds-status" });
@@ -122,6 +123,8 @@
     card.appendChild(el("span", { class: "wds-eyebrow" }, ["Step 2 · Broker"]));
     card.appendChild(el("h2", {}, ["Connect Trading212"]));
     card.appendChild(el("p", { class: "lede" }, ["Your keys stay on this machine. Start in Demo (paper money) — switch to Live later."]));
+    var invite = el("a", { href: "https://www.trading212.com/invite/11Ql6LHLjl", target: "_blank", rel: "noreferrer" }, ["Sign up with our invite link"]);
+    card.appendChild(el("p", { class: "lede" }, ["No Trading212 account yet? ", invite, " — you may get up to €100 worth of free stocks."]));
     card.appendChild(field("API key", "", textInput("t212_key", "text", "your Trading212 API key")));
     card.appendChild(field("API secret", "", textInput("t212_secret", "password", "your Trading212 API secret")));
     var env = el("select", {}, [el("option", { value: "demo" }, ["Demo — paper money (recommended)"]), el("option", { value: "live" }, ["Live — real money"])]);

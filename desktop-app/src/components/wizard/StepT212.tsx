@@ -44,6 +44,13 @@ export default function StepT212({ config, setConfig, onNext, onBack }: Props) {
       <WizardProgress current={3} total={6} />
       <h2>Connect Trading 212</h2>
       <p className="subtitle">Enter your Trading 212 API credentials. Find them in the T212 app under Settings → API.</p>
+      <p className="subtitle">
+        No Trading 212 account yet?{" "}
+        <a href="https://www.trading212.com/invite/11Ql6LHLjl" target="_blank" rel="noreferrer">
+          Sign up with our invite link
+        </a>{" "}
+        — you may get up to €100 worth of free stocks.
+      </p>
 
       <div className="field">
         <label>API Key</label>

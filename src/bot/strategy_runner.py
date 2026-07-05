@@ -11,13 +11,6 @@ from src.api.models import CashInfo, Position, TradeSignal
 from src.bot.risk_manager import RiskManager
 from strategy_kit import ParamField, ParamSchema, register
 
-# Model ids the wizard offers for the strategy's Claude model.
-_MODEL_OPTIONS = [
-    "claude-sonnet-4-6",
-    "claude-opus-4-8",
-    "claude-haiku-4-5-20251001",
-]
-
 _G_ENTRY = "Entry filters"
 _G_SIZING = "Sizing"
 _G_EXITS = "Exits"
@@ -45,9 +38,6 @@ STOCK_SCHEMA = ParamSchema(fields=[
     ParamField(key="TAKE_PROFIT_PCT", label="Take profit", type="percent", group=_G_EXITS,
                default=0.04, min=0.005, max=1.0, step=0.005,
                help="Close a position once it gains this far from entry."),
-    ParamField(key="CLAUDE_MODEL", label="Claude model", type="select", group=_G_UNIVERSE,
-               default="claude-sonnet-4-6", options=_MODEL_OPTIONS,
-               help="Which Claude model generates signals for this strategy."),
     ParamField(key="ENABLE_SCREENER", label="Enable dynamic screener", type="bool", group=_G_UNIVERSE,
                default=False,
                help="Let the bot add screener-discovered tickers beyond the watchlist."),
@@ -107,7 +97,6 @@ def settings_to_stock_params(s) -> dict:
         "VIRTUAL_BANKROLL": 10_000.0,
         "STOP_LOSS_PCT": s.STOP_LOSS_PCT,
         "TAKE_PROFIT_PCT": s.TAKE_PROFIT_PCT,
-        "CLAUDE_MODEL": s.CLAUDE_MODEL,
         "ENABLE_SCREENER": s.ENABLE_SCREENER,
         "MAX_SCREENER_ADDITIONS": float(s.MAX_SCREENER_ADDITIONS),
         "BLOCK_NEW_POSITIONS_ON_EARNINGS": s.BLOCK_NEW_POSITIONS_ON_EARNINGS,

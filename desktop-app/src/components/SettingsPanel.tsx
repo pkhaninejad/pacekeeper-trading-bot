@@ -90,6 +90,12 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
               placeholder="Paste your license key"
               style={{ fontFamily: "var(--mono)", fontSize: "0.85rem" }}
             />
+            <div className="hint">
+              No key yet?{" "}
+              <a href="https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/"
+                target="_blank" rel="noreferrer">Get your license</a>{" "}
+              — free during launch.
+            </div>
           </div>
           <div className="test-row">
             <button className="btn-primary" onClick={validateLicense}

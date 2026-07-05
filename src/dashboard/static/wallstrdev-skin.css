@@ -11,7 +11,7 @@ body .section {
   border-radius: var(--r-md);
   box-shadow: 4px 4px 0 rgba(14, 14, 16, 0.05);
 }
-body .section { box-shadow: none; }
+body .section { box-shadow: none; padding: 14px 18px; }
 body .card:hover, body .status-card:hover { transform: none; }
 
 /* tinted status cards keep a hint of color but gain the ink outline */

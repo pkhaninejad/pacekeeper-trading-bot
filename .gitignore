@@ -58,3 +58,9 @@ data/stock_live_strategy.json
 .superpowers/
 data/setup.json
 data/license_cache.json
+
+# Paper trading runtime db (machine-local)
+prediction_bot/data/paper_trades.db*
+
+# Playwright MCP session files
+.playwright-mcp/

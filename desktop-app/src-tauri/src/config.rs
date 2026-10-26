@@ -324,6 +324,7 @@ mod tests {
             max_position_size_pct: 0.05,
             watchlist: vec!["AAPL".to_string(), "TSLA".to_string()],
             project_root: String::new(),
+            license_key: String::new(),
         }
     }
 

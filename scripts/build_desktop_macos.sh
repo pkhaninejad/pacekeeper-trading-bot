@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+"$ROOT_DIR/.venv/bin/python" "$ROOT_DIR/scripts/build_bots.py"
 cd "$ROOT_DIR/desktop-app"
 
 if ! command -v rustc >/dev/null 2>&1; then

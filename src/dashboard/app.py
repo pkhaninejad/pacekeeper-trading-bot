@@ -104,9 +104,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-templates = Jinja2Templates(directory="src/dashboard/templates")
+_HERE = Path(__file__).parent
+templates = Jinja2Templates(directory=str(_HERE / "templates"))
 templates.env.cache = None  # workaround for Jinja2 cache bug on Python 3.14
-app.mount("/static", StaticFiles(directory="src/dashboard/static"), name="static")
+app.mount("/static", StaticFiles(directory=str(_HERE / "static")), name="static")
 
 # Strategy builder: shared CRUD/activate router + stock-only LIVE designation.
 _active_strategy_ids: set[str] = set()

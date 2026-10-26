@@ -1,9 +1,11 @@
+mod bots;
 mod config;
 mod license;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
+use std::fs::File;
+use std::process::{Child, Command};
+use std::time::Duration;
 use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
@@ -21,69 +23,6 @@ impl AppState {
     }
 }
 
-fn project_root() -> Result<PathBuf, String> {
-    let exe_dir = std::env::current_exe()
-        .map_err(|e| format!("failed to resolve executable path: {e}"))?
-        .parent()
-        .ok_or("failed to resolve executable directory".to_string())?
-        .to_path_buf();
-
-    let mut cursor = exe_dir.as_path();
-    for _ in 0..6 {
-        if cursor.join("stock_bot.py").exists() && cursor.join("prediction_bot").exists() {
-            return Ok(cursor.to_path_buf());
-        }
-        cursor = cursor
-            .parent()
-            .ok_or("could not find project root from executable location".to_string())?;
-    }
-    Err("could not find project root with stock_bot.py".to_string())
-}
-
-fn python_executable(root: &PathBuf) -> PathBuf {
-    let unix = root.join(".venv/bin/python");
-    if unix.exists() {
-        return unix;
-    }
-    let win = root.join(".venv/Scripts/python.exe");
-    if win.exists() {
-        return win;
-    }
-    PathBuf::from("python")
-}
-
-fn bot_command(bot: &str, root: &PathBuf) -> Result<(PathBuf, Vec<String>), String> {
-    let python = python_executable(root);
-    match bot {
-        "stock" => Ok((python, vec!["stock_bot.py".to_string()])),
-        "prediction" => Ok((python, vec!["-m".to_string(), "prediction_bot.main".to_string()])),
-        _ => Err(format!("unsupported bot: {bot}")),
-    }
-}
-
-fn bot_port(bot: &str) -> u16 {
-    match bot {
-        "stock" => 4000,
-        "prediction" => 4001,
-        _ => 0,
-    }
-}
-
-// Kill any process holding the given port so we can spawn fresh.
-fn kill_port(port: u16) {
-    if port == 0 { return; }
-    #[cfg(unix)]
-    let _ = Command::new("sh")
-        .args(["-c", &format!("lsof -ti:{port} | xargs kill -9 2>/dev/null; true")])
-        .status();
-    #[cfg(windows)]
-    let _ = Command::new("cmd")
-        .args(["/C", &format!(
-            "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr \":{port} \"') do @taskkill /f /pid %a >nul 2>&1"
-        )])
-        .status();
-}
-
 #[tauri::command]
 fn load_config(app: tauri::AppHandle) -> Result<Option<config::Config>, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -92,10 +31,9 @@ fn load_config(app: tauri::AppHandle) -> Result<Option<config::Config>, String> 
 
 #[tauri::command]
 fn save_config(app: tauri::AppHandle, mut config: config::Config) -> Result<(), String> {
-    // Auto-detect project root when first completing setup so the installed
-    // app can find the Python project even outside the source tree.
+    // Remember the source checkout in dev mode; installed apps use the bundled sidecar.
     if config.project_root.is_empty() {
-        if let Ok(root) = project_root() {
+        if let Some(root) = bots::project_root() {
             config.project_root = root.to_string_lossy().to_string();
         }
     }
@@ -137,26 +75,17 @@ fn start_bot(bot: String, state: tauri::State<AppState>, app: tauri::AppHandle) 
     let license_key = saved_cfg.as_ref().map(|c| c.license_key.as_str()).unwrap_or("");
     license::validate(license_key).map_err(|e| format!("License error: {e}"))?;
 
-    // Prefer the project_root saved in config (works for installed apps outside
-    // the source tree); fall back to walking up from the executable (dev mode).
-    let root = saved_cfg
-        .as_ref()
-        .filter(|c| !c.project_root.is_empty())
-        .and_then(|c| {
-            let p = PathBuf::from(&c.project_root);
-            if p.join("stock_bot.py").exists() { Some(p) } else { None }
-        })
-        .map(Ok)
-        .unwrap_or_else(project_root)?;
+    let saved_root = saved_cfg.as_ref().map(|c| c.project_root.as_str());
+    let launch = bots::resolve(&bot, saved_root, &data_dir)?;
 
-    if let Some(cfg) = saved_cfg {
+    if let Some(cfg) = &saved_cfg {
         if cfg.setup_complete {
-            config::write_env_to_path(&root.join(".env"), &cfg)?;
+            config::write_env_to_path(&launch.workdir.join(".env"), cfg)?;
         }
     }
 
     // Kill anything holding the port (handles stale processes from prior sessions)
-    kill_port(bot_port(&bot));
+    bots::kill_port(bots::port(&bot));
 
     let mut map = state
         .processes
@@ -166,12 +95,13 @@ fn start_bot(bot: String, state: tauri::State<AppState>, app: tauri::AppHandle) 
     // Drop any tracked handle — port is already freed above
     map.remove(&bot);
 
-    let (program, args) = bot_command(&bot, &root)?;
-    let child = Command::new(program)
-        .args(args)
-        .current_dir(root)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+    let log = File::create(launch.workdir.join(format!("{bot}.log")))
+        .map_err(|e| format!("failed to create log file: {e}"))?;
+    let log_err = log.try_clone().map_err(|e| e.to_string())?;
+    let child = bots::hide_console(Command::new(&launch.program).args(&launch.args))
+        .current_dir(&launch.workdir)
+        .stdout(log)
+        .stderr(log_err)
         .spawn()
         .map_err(|e| format!("failed to start {bot}: {e}"))?;
 
@@ -189,6 +119,7 @@ fn stop_bot(bot: String, state: tauri::State<AppState>) -> Result<(), String> {
     if let Some(mut child) = map.remove(&bot) {
         child.kill().map_err(|e| format!("failed to stop {bot}: {e}"))?;
     }
+    bots::kill_port(bots::port(&bot));
     Ok(())
 }
 
@@ -217,7 +148,7 @@ fn get_status(state: tauri::State<AppState>) -> Result<HashMap<String, String>, 
 }
 
 #[tauri::command]
-fn open_dashboard(bot: String, app: tauri::AppHandle) -> Result<(), String> {
+async fn open_dashboard(bot: String, app: tauri::AppHandle) -> Result<(), String> {
     let (url_str, label, title) = match bot.as_str() {
         "stock"      => ("http://localhost:4000", "stock-dashboard",      "Pacekeeper — Stock Bot"),
         "prediction" => ("http://localhost:4001", "prediction-dashboard", "Pacekeeper — Prediction Bot"),
@@ -229,6 +160,11 @@ fn open_dashboard(bot: String, app: tauri::AppHandle) -> Result<(), String> {
         win.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }
+
+    let port = bots::port(&bot);
+    tauri::async_runtime::spawn_blocking(move || bots::wait_for_port(port, Duration::from_secs(90)))
+        .await
+        .map_err(|e| e.to_string())??;
 
     let url: url::Url = url_str.parse().map_err(|e: url::ParseError| e.to_string())?;
 
@@ -265,8 +201,9 @@ fn main() {
                     Ok(guard) => guard,
                     Err(_) => return,
                 };
-                for (_, mut child) in map.drain() {
+                for (bot, mut child) in map.drain() {
                     let _ = child.kill();
+                    bots::kill_port(bots::port(&bot));
                 }
             }
         });

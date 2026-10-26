@@ -64,3 +64,5 @@ prediction_bot/data/paper_trades.db*
 
 # Playwright MCP session files
 .playwright-mcp/
+pacekeeper-bots.spec
+desktop-app/src-tauri/binaries/

@@ -3,7 +3,7 @@ Provider configuration for the LLM strategy layer.
 
 Priority order:
 1. prediction_bot/config/llm_providers.json (active provider)
-2. credentials.json (gitignored) at project root
+2. credentials.json (gitignored) in the working directory
 3. .env settings defaults
 """
 
@@ -16,7 +16,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 _ROOT = Path(__file__).resolve().parents[2]
-CREDENTIALS_FILE = _ROOT / "credentials.json"
+CREDENTIALS_FILE = Path("credentials.json")
 _PB_LLM_CONFIG = _ROOT / "prediction_bot" / "config" / "llm_providers.json"
 
 # Default model string and base_url per provider.

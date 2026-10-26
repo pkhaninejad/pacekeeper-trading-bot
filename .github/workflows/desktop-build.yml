@@ -13,6 +13,8 @@ on:
       - 'prediction_bot/**'
       - 'src/**'
       - 'stock_bot.py'
+      - 'desktop_bots.py'
+      - 'requirements.txt'
 
 jobs:
   build:
@@ -45,6 +47,17 @@ jobs:
       - name: Install frontend deps
         working-directory: desktop-app
         run: pnpm install --frozen-lockfile
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Build bots sidecar
+        run: |
+          pip install -r requirements.txt pyinstaller
+          python scripts/build_bots.py
 
       - name: Build with Tauri
         working-directory: desktop-app

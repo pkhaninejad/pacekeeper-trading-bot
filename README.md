@@ -102,6 +102,7 @@ Dashboard: [http://localhost:4000](http://localhost:4000)
 
 - Source: `desktop-app/` — React + TypeScript UI, Rust (Tauri) native bridge.
 - Prerequisite: Rust toolchain via [rustup](https://rustup.rs/).
+- The installers bundle both bots as a PyInstaller sidecar (`desktop_bots.py`). Build it once before `tauri:dev`/`tauri:build`: `.venv/bin/pip install pyinstaller && .venv/bin/python scripts/build_bots.py`. In dev, a source checkout is preferred over the sidecar.
 
 ```bash
 cd desktop-app

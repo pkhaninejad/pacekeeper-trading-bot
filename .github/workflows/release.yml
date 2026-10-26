@@ -41,6 +41,17 @@ jobs:
         working-directory: desktop-app
         run: pnpm install --frozen-lockfile
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Build bots sidecar
+        run: |
+          pip install -r requirements.txt pyinstaller
+          python scripts/build_bots.py
+
       - name: Publish release
         uses: tauri-apps/tauri-action@v0
         env:

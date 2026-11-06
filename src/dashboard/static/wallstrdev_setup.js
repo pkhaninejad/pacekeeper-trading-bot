@@ -1,15 +1,14 @@
-/* First-run setup + license onboarding — Wallstrdev. Same-origin /api calls. */
+/* First-run setup onboarding — Wallstrdev. Same-origin /api calls. */
 (function () {
   "use strict";
 
   var step = 0;
   var state = {
-    license_key: "", license_ok: false,
     t212_key: "", t212_secret: "", t212_env: "demo",
     risk_profile: "balanced",
     llm_provider: "anthropic", llm_model: "", llm_api_key: "", llm_base_url: "", llm_providers: null,
   };
-  var STEPS = ["welcome", "license", "broker", "ai", "risk", "done"];
+  var STEPS = ["welcome", "register", "broker", "ai", "risk", "done"];
 
   function api(path, opts) {
     return fetch("/api" + path, Object.assign({ headers: { "Content-Type": "application/json" } }, opts))
@@ -69,7 +68,7 @@
     var card = el("div", { class: "wds-card" });
     card.appendChild(progress());
     ({
-      welcome: renderWelcome, license: renderLicense, broker: renderBroker,
+      welcome: renderWelcome, register: renderRegister, broker: renderBroker,
       ai: renderAI, risk: renderRisk, done: renderDone,
     })[STEPS[step]](card);
     root.appendChild(card);
@@ -79,7 +78,7 @@
     card.appendChild(el("span", { class: "wds-eyebrow" }, ["Welcome"]));
     card.appendChild(el("h1", {}, ["Let's get you trading."]));
     card.appendChild(el("p", { class: "lede" }, [
-      "A few quick steps: activate your license, connect your broker and AI, and pick a risk profile. Takes about a minute.",
+      "A few quick steps: register your free copy, connect your broker and AI, and pick a risk profile. Takes about a minute.",
     ]));
     card.appendChild(foot([
       el("span", {}, []),
@@ -87,36 +86,12 @@
     ]));
   }
 
-  function renderLicense(card) {
-    card.appendChild(el("span", { class: "wds-eyebrow" }, ["Step 1 · License"]));
-    card.appendChild(el("h2", {}, ["Activate your license"]));
-    var buy = el("a", { href: "https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/", target: "_blank", rel: "noreferrer" }, ["Get your license"]);
-    card.appendChild(el("p", { class: "lede" }, ["Paste the key from your purchase email. We'll verify it instantly. No key yet? ", buy, " — free during launch."]));
-    var input = textInput("license_key", "text", "WDS-XXXX-XXXX-XXXX");
-    card.appendChild(field("License key", "", input));
-    var status = el("div", { class: "wds-status" });
-    var validateBtn = el("button", { class: "wds-btn", onclick: function () {
-      status.className = "wds-status busy"; status.textContent = "Validating…";
-      api("/license/activate", { method: "POST", body: JSON.stringify({ key: state.license_key }) })
-        .then(function (r) {
-          state.license_ok = !!r.valid;
-          if (r.valid) { status.className = "wds-status ok"; status.textContent = "✓ License active" + (r.tier ? " (" + r.tier + ")" : ""); }
-          else { status.className = "wds-status err"; status.textContent = r.reason || "Invalid license key."; }
-          render2(); // refresh footer enable-state
-        });
-    } }, ["Validate"]);
-    card.appendChild(el("div", { style: "display:flex;gap:10px;align-items:center;margin-bottom:6px" }, [validateBtn, status]));
-    function render2() {
-      foots.innerHTML = "";
-      foots.appendChild(backBtn());
-      var n = nextBtn();
-      if (!state.license_ok) n.disabled = true;
-      foots.appendChild(n);
-    }
-    var foots = foot([]);
-    card.appendChild(foots);
-    render2();
-    card.appendChild(el("button", { class: "wds-skip", style: "margin-top:14px", onclick: next }, ["Skip for now (trial)"]));
+  function renderRegister(card) {
+    card.appendChild(el("span", { class: "wds-eyebrow" }, ["Step 1 · Register"]));
+    card.appendChild(el("h2", {}, ["Register your free copy"]));
+    card.appendChild(el("p", { class: "lede" }, ["Pacekeeper is free — no license key needed. Please register and place a free order on wallstrdev.com so we can send you updates and support."]));
+    card.appendChild(el("a", { class: "wds-btn", href: "https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/", target: "_blank", rel: "noreferrer" }, ["Register & order (free) ", el("span", { class: "arrow" }, ["↗"])]));
+    card.appendChild(foot([backBtn(), nextBtn()]));
   }
 
   function renderBroker(card) {

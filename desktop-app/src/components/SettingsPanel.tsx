@@ -23,9 +23,6 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
   const [maxSize,    setMaxSize]    = useState(+(config.max_position_size_pct * 100).toFixed(1));
   const [watchlist,  setWatchlist]  = useState(config.watchlist.join(", "));
   const [saving,     setSaving]     = useState(false);
-  const [license,    setLicense]    = useState(config.license_key);
-  const [licState,   setLicState]   = useState<"idle"|"checking"|"ok"|"error">(config.license_key ? "ok" : "idle");
-  const [licMsg,     setLicMsg]      = useState(config.license_key ? "License active." : "");
 
   const meta      = AI_PROVIDERS.find(p => p.value === provider) ?? AI_PROVIDERS[0];
   const modelList = AI_PROVIDER_MODELS[provider];
@@ -36,25 +33,10 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
     setAiModel(defaultModel(next));
   }
 
-  async function validateLicense() {
-    if (!isTauri()) { setLicState("error"); setLicMsg("Validation needs the desktop app."); return; }
-    setLicState("checking");
-    setLicMsg("Validating…");
-    try {
-      const result = await invoke<string>("check_license", { key: license.trim() });
-      // Persist immediately — a validated key that isn't saved still blocks bot start.
-      await invoke("save_config", { config: { ...config, license_key: license.trim() } });
-      setLicMsg(result); setLicState("ok");
-    } catch (err) {
-      setLicMsg(String(err)); setLicState("error");
-    }
-  }
-
   async function handleSave() {
     setSaving(true);
     const updated: Config = {
       ...config,
-      license_key:           license.trim(),
       t212_api_key:          t212Key.trim(),
       t212_api_secret:       t212Secret.trim(),
       t212_env:              env,
@@ -80,33 +62,12 @@ export default function SettingsPanel({ config, onSave, onClose }: Props) {
         <h2>⚙ Settings</h2>
 
         <div className="settings-section">
-          <h3>License</h3>
-          <div className="field">
-            <label>License Key</label>
-            <input
-              type="text"
-              value={license}
-              onChange={e => { setLicense(e.target.value); setLicState("idle"); setLicMsg(""); }}
-              placeholder="Paste your license key"
-              style={{ fontFamily: "var(--mono)", fontSize: "0.85rem" }}
-            />
-            <div className="hint">
-              No key yet?{" "}
-              <a href="https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/"
-                target="_blank" rel="noreferrer">Get your license</a>{" "}
-              — free during launch.
-            </div>
-          </div>
-          <div className="test-row">
-            <button className="btn-primary" onClick={validateLicense}
-              disabled={licState === "checking" || !license.trim()}>
-              {licState === "checking" ? "Checking…" : "Validate Key"}
-            </button>
-            {licMsg && (
-              <span className={`test-result ${licState === "ok" ? "ok" : licState === "error" ? "error" : "busy"}`}>
-                {licMsg}
-              </span>
-            )}
+          <h3>Registration</h3>
+          <div className="hint">
+            Pacekeeper is free — no license key needed. Please{" "}
+            <a href="https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/"
+              target="_blank" rel="noreferrer">register and place a free order</a>{" "}
+            to get updates and support.
           </div>
         </div>
 

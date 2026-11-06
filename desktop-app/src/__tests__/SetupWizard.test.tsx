@@ -15,10 +15,11 @@ test("starts on welcome screen", () => {
   expect(screen.getByText("Welcome to Pacekeeper")).toBeInTheDocument();
 });
 
-test("Get Started advances to License step", () => {
+test("Get Started advances to Register step with Next enabled", () => {
   render(<SetupWizard initialConfig={DEFAULT_CONFIG} onComplete={vi.fn()} />);
   fireEvent.click(screen.getByText("Get Started →"));
-  expect(screen.getByText("Activate Your License")).toBeInTheDocument();
+  expect(screen.getByText("Register Your Free Copy")).toBeInTheDocument();
+  expect(screen.getByText("Next →")).toBeEnabled();
 });
 
 test("resumes from setup_step if setup_complete is false", () => {

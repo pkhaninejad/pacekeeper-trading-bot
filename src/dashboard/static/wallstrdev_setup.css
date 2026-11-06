@@ -1,4 +1,4 @@
-/* First-run setup + license onboarding — Wallstrdev Design System. */
+/* First-run setup onboarding — Wallstrdev Design System. */
 
 #wds-setup {
   position: fixed; inset: 0; z-index: 1100;
@@ -67,6 +67,7 @@
   font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; cursor: pointer;
   padding: 13px 22px; border-radius: var(--r-pill); border: 1.5px solid var(--ink);
   background: var(--paper); color: var(--ink); transition: all .15s ease;
+  display: inline-block; text-decoration: none;
 }
 .wds-btn:hover { background: var(--ink); color: var(--paper); }
 .wds-btn.primary { background: var(--chartreuse); color: var(--ink); }
@@ -79,4 +80,3 @@
 .wds-status.ok { color: var(--gain); }
 .wds-status.err { color: var(--loss); }
 .wds-status.busy { color: var(--muted); }
-.wds-skip { background: none; border: none; color: var(--muted); font-size: 0.82rem; cursor: pointer; text-decoration: underline; }

@@ -52,12 +52,6 @@ async fn test_ai_connection(provider: String, key: String, endpoint: Option<Stri
 }
 
 #[tauri::command]
-fn check_license(key: String) -> Result<String, String> {
-    let info = license::validate(&key)?;
-    Ok(format!("Licensed to {}", info.email))
-}
-
-#[tauri::command]
 fn get_license_info(app: tauri::AppHandle) -> Result<license::LicenseInfo, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let cfg = config::load_from_path(&config::config_path(&data_dir))?
@@ -70,10 +64,6 @@ fn start_bot(bot: String, state: tauri::State<AppState>, app: tauri::AppHandle) 
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let cfg_path = config::config_path(&data_dir);
     let saved_cfg = config::load_from_path(&cfg_path)?;
-
-    // Enforce license before starting any bot
-    let license_key = saved_cfg.as_ref().map(|c| c.license_key.as_str()).unwrap_or("");
-    license::validate(license_key).map_err(|e| format!("License error: {e}"))?;
 
     let saved_root = saved_cfg.as_ref().map(|c| c.project_root.as_str());
     let launch = bots::resolve(&bot, saved_root, &data_dir)?;
@@ -186,7 +176,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             start_bot, stop_bot, get_status, open_dashboard,
             load_config, save_config, test_t212_connection, test_ai_connection,
-            check_license, get_license_info
+            get_license_info
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

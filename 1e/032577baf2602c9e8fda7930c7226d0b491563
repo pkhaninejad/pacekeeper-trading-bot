@@ -1,0 +1,37 @@
+README.md
+  s_2884c27b373207::t_5a38c0341eb019 5,19,60
+desktop-app/src-tauri/Cargo.toml
+  s_2884c27b373207::t_f0de3295dffe36 17
+desktop-app/src-tauri/src/license.rs
+  s_2884c27b373207::t_f0df70c3fae583 10-11
+desktop-app/src-tauri/src/main.rs
+  s_2884c27b373207::t_d8635c50416694 179
+desktop-app/src/__tests__/SetupWizard.test.tsx
+  s_2884c27b373207::t_72c85e46bcc993 18,21-22
+desktop-app/src/components/SettingsPanel.tsx
+  s_2884c27b373207::t_e27a8530dad7bd 65-70
+desktop-app/src/components/wizard/StepLicense.tsx
+  s_2884c27b373207::t_c858aceae5964e 11,15,17,19-20,25
+src/dashboard/setup_router.py
+  s_2884c27b373207::t_3068b11980930a 1,3-5,57
+src/dashboard/static/wallstrdev_setup.css
+  s_2884c27b373207::t_b4c2af3c67c23f 1,70
+src/dashboard/static/wallstrdev_setup.js
+  s_2884c27b373207::t_0d7331bb30239f 1,11,71,81,89-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1e032577baf2602c9e8fda7930c7226d0b491563",
+  "prompts": {},
+  "sessions": {
+    "s_2884c27b373207": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "04cdc6a4-21e2-4d9b-83b5-684c25da2190",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Payam <p.khaninejad@gmail.com>"
+    }
+  }
+}

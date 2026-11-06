@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { Config } from "../../types/config";
 import WizardProgress from "./WizardProgress";
 
@@ -10,74 +8,21 @@ interface Props {
   onBack: () => void;
 }
 
-type ValidState = "idle" | "checking" | "ok" | "error";
-
-export default function StepLicense({ config, setConfig, onNext, onBack }: Props) {
-  const [key, setKey]       = useState(config.license_key);
-  const [state, setState]   = useState<ValidState>(config.license_key ? "ok" : "idle");
-  const [msg, setMsg]       = useState(config.license_key ? "License active." : "");
-
-  async function handleValidate() {
-    setState("checking");
-    setMsg("Validating…");
-    try {
-      const result = await invoke<string>("check_license", { key: key.trim() });
-      setMsg(result);
-      setState("ok");
-      setConfig({ ...config, license_key: key.trim() });
-    } catch (err) {
-      setMsg(String(err));
-      setState("error");
-    }
-  }
-
-  function handleNext() {
-    setConfig({ ...config, license_key: key.trim() });
-    onNext();
-  }
-
+export default function StepLicense({ onNext, onBack }: Props) {
   return (
     <div className="wizard-step">
       <WizardProgress current={2} total={6} />
-      <h2>Activate Your License</h2>
+      <h2>Register Your Free Copy</h2>
       <p className="subtitle">
-        Enter the license key you received after purchase. No key yet?{" "}
+        Pacekeeper is free — no license key needed. Please{" "}
         <a href="https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/"
-          target="_blank" rel="noreferrer">Get your license</a>{" "}
-        — free during launch.
+          target="_blank" rel="noreferrer">register and place a free order</a>{" "}
+        on wallstrdev.com so we can send you updates and support.
       </p>
-
-      <div className="field">
-        <label>License Key</label>
-        <input
-          type="text"
-          value={key}
-          onChange={e => { setKey(e.target.value); setState("idle"); setMsg(""); }}
-          placeholder="Paste your license key here"
-          style={{ fontFamily: "var(--mono)", fontSize: "0.85rem" }}
-        />
-      </div>
-
-      <div className="test-row">
-        <button
-          className="btn-primary"
-          onClick={handleValidate}
-          disabled={state === "checking" || !key.trim()}
-        >
-          {state === "checking" ? "Checking…" : "Validate Key"}
-        </button>
-        {msg && (
-          <span className={`test-result ${state === "ok" ? "ok" : state === "error" ? "error" : "busy"}`}>
-            {msg}
-          </span>
-        )}
-      </div>
 
       <div className="wizard-nav">
         <button className="btn-secondary" onClick={onBack}>← Back</button>
-        <button className="btn-primary" onClick={handleNext} disabled={state !== "ok"}>
-          Next →
-        </button>
+        <button className="btn-primary" onClick={onNext}>Next →</button>
       </div>
     </div>
   );

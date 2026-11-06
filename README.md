@@ -2,7 +2,7 @@
 
 AI-powered trading bots for Trading212 and prediction markets, with a web dashboard and a desktop app.
 
-One license covers both bots. Get your key from the [Pacekeeper product page](https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/) — free during launch. See [License](#license).
+Pacekeeper is free — no license key needed. Please register and place a free order on the [Pacekeeper product page](https://wallstrdev.com/product/pacekeeper-ai-trading-bot-suite-for-trading212-prediction-markets/) to get updates and support. See [License](#license) for the source license.
 
 ## Screenshots
 
@@ -16,7 +16,7 @@ One license covers both bots. Get your key from the [Pacekeeper product page](ht
 
 ## Easiest way: Desktop App
 
-Download the latest installer from [Releases](https://github.com/pkhaninejad/pacekeeper-trading-bot/releases) — `.dmg` for macOS, `.msi` for Windows. The app walks you through license activation, broker connection, and AI provider setup; no terminal needed.
+Download the latest installer from [Releases](https://github.com/pkhaninejad/pacekeeper-trading-bot/releases) — `.dmg` for macOS, `.msi` for Windows. The app walks you through registration, broker connection, and AI provider setup; no terminal needed.
 
 ## Which bot is which
 
@@ -57,7 +57,7 @@ Recommended while testing:
 .venv/bin/python stock_bot.py
 ```
 
-Open [http://localhost:4000](http://localhost:4000). The first-run Setup wizard handles license activation, broker credentials, AI provider (Anthropic, OpenAI, Gemini, DeepSeek, Qwen, or local Ollama), and risk profile — it is the single place to configure these.
+Open [http://localhost:4000](http://localhost:4000). The first-run Setup wizard handles registration, broker credentials, AI provider (Anthropic, OpenAI, Gemini, DeepSeek, Qwen, or local Ollama), and risk profile — it is the single place to configure these.
 
 ### 4. Run the prediction bot
 
@@ -129,7 +129,6 @@ xattr -dr com.apple.quarantine /Applications/Pacekeeper.app
 - `ModuleNotFoundError`: you used system Python — re-run with `.venv/bin/python` / `.venv/bin/pip`.
 - Dashboard not reachable: confirm the server is running and check `DASHBOARD_PORT` in `.env` (default `4000`).
 - No trades/signals: check API keys, market hours, and account constraints; trigger a manual cycle and inspect logs.
-- "License error" on bot start: activate a valid license key in the desktop app Settings or the dashboard Setup wizard.
 
 ## Key Environment Variables
 
